@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { StampCorners } from "@/components/layout/Ornaments";
 import CardPatternOverlay from "@/components/CardPatternOverlay";
+import { MusicPreviewButton } from "@/components/hero/MusicPreviewButton";
 import { Badge } from "@/components/ui/Button";
 
 interface Tile {
@@ -14,7 +14,7 @@ interface Tile {
 const TILES: Tile[] = [
   {
     name: "Personalize a Template",
-    desc: "Need inspiration? Personalize one of our pre-built cards like horoscopes and comic strips.",
+    desc: "Need inspiration? Personalize one of our pre-built cards like Horoscope or Comic cards!",
     href: "/personalize",
     surface: "surface-gold-animated",
     badge: "Most popular",
@@ -23,13 +23,13 @@ const TILES: Tile[] = [
     name: "Build My Card",
     desc: "Have your own idea? Answer a few questions and watch your card come to life.",
     href: "/create",
-    surface: "surface-trimetal-animated",
+    surface: "surface-bronze-animated",
   },
   {
     name: "Community Cards",
     desc: "Browse, send, or remix cards shared by the Souvenote community.",
     href: "/cards",
-    surface: "surface-rosegold-animated",
+    surface: "surface-rosegold-soft-animated",
   },
   {
     name: "My Cards & Songs",
@@ -42,23 +42,17 @@ const TILES: Tile[] = [
 export function OptionTiles() {
   return (
     <div className="souv-opt-tiles">
-      {TILES.map((t) => (
-        <Link key={t.name} href={t.href} className={`souv-opt-tile ${t.surface}`}>
+      {TILES.map((tile) => (
+        <Link key={tile.name} href={tile.href} className={`souv-opt-tile ${tile.surface}`}>
           <CardPatternOverlay />
-          <StampCorners color="rgba(34,23,6,0.4)" />
-          {t.badge && (
+          {tile.badge && (
             <span className="souv-opt-tile-badge">
-              <Badge>★ {t.badge}</Badge>
+              <Badge>* {tile.badge}</Badge>
             </span>
           )}
-          <div className="souv-opt-tile-name">{t.name}</div>
-          <p className="souv-opt-tile-desc">{t.desc}</p>
-          <span className="souv-opt-tile-cta">
-            Choose
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M5 12h14M13 6l6 6-6 6" />
-            </svg>
-          </span>
+          <div className="souv-opt-tile-name">{tile.name}</div>
+          <p className="souv-opt-tile-desc">{tile.desc}</p>
+          <MusicPreviewButton label={`Preview ${tile.name} song`} />
         </Link>
       ))}
     </div>

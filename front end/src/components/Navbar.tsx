@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { NAV_LINKS } from "@/data/mock-cards";
 import type { CreditBalance, UserSummary } from "@/types";
@@ -47,15 +48,16 @@ export default function Navbar({
   const [menuOpen, setMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const totalCredits = (credits.images ?? 0) + (credits.songs ?? 0);
+  const orderedLinks = [NAV_LINKS[1], NAV_LINKS[0], NAV_LINKS[2]].filter(Boolean);
 
   return (
     <header className={`souv-nav ${loggedIn ? "is-loggedin" : ""}`}>
       <Link href="/" className="souv-nav-logo">
-        <span className="souv-wordmark">Souvenote</span>
+        <Image src="/assets/MainLogo.png" alt="Souvenote" width={142} height={42} priority />
       </Link>
 
       <nav className="souv-nav-links">
-        {NAV_LINKS.map((link, i) => (
+        {orderedLinks.map((link, i) => (
           <span key={link.label} style={{ display: "inline-flex", alignItems: "center", gap: 28 }}>
             {i > 0 && <span className="souv-nav-dot">·</span>}
             <span
@@ -96,7 +98,13 @@ export default function Navbar({
               <em>Credits</em>
               <b>{totalCredits}</b>
             </span>
+            <span className="souv-credit">
+              <em>Cards</em>
+              <b>{cartCount || 1}</b>
+            </span>
           </div>
+          <span className="souv-nav-sep" />
+          <button className="souv-currency-pill" type="button">CAD <span>v</span></button>
           <span className="souv-nav-sep" />
 
           <div className="souv-iconbtn-wrap">
@@ -107,13 +115,15 @@ export default function Navbar({
                 setMenuOpen(false);
               }}
               aria-label="Account"
+              aria-expanded={profileOpen}
+              aria-haspopup="menu"
             >
               <IconUser />
             </button>
             {profileOpen && (
               <>
                 <div className="souv-overlay" onClick={() => setProfileOpen(false)} />
-                <div className="souv-popmenu souv-popmenu-wide">
+                <div className="souv-popmenu souv-account-menu" role="menu">
                   <div className="souv-popmenu-userhead">
                     <div className="souv-popmenu-avatar">{user.initials}</div>
                     <div>
@@ -122,11 +132,17 @@ export default function Navbar({
                     </div>
                   </div>
                   <div className="souv-popmenu-sep" />
-                  <Link href="/library" className="souv-popmenu-item">My Cards &amp; Songs</Link>
-                  <Link href="/pricing" className="souv-popmenu-item">Top up Credits</Link>
-                  <div className="souv-popmenu-item">Account Settings</div>
+                  <Link href="/profile" className="souv-popmenu-item" role="menuitem">Profile</Link>
+                  <Link href="/library" className="souv-popmenu-item" role="menuitem">My Cards &amp; Songs</Link>
+                  <Link href="/calendar" className="souv-popmenu-item" role="menuitem">Calendar</Link>
+                  <Link href="/trust-circle" className="souv-popmenu-item" role="menuitem">Trust Circle</Link>
                   <div className="souv-popmenu-sep" />
-                  <div className="souv-popmenu-logout">Sign Out</div>
+                  <Link href="/pricing" className="souv-popmenu-item" role="menuitem">Top up Credits</Link>
+                  <Link href="/create" className="souv-popmenu-item" role="menuitem">Send a Blank Card</Link>
+                  <Link href="/refer" className="souv-popmenu-item" role="menuitem">Refer a Friend</Link>
+                  <Link href="/account" className="souv-popmenu-item" role="menuitem">Account Settings</Link>
+                  <div className="souv-popmenu-sep" />
+                  <button className="souv-popmenu-logout" type="button" role="menuitem">Sign Out</button>
                 </div>
               </>
             )}
