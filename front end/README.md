@@ -1,77 +1,41 @@
-# Souvenote — Frontend
+# Souvenote Next.js Frontend
 
-Production frontend for Souvenote, built with **Next.js 15 (App Router)**, **React 19**,
-**TypeScript (strict)**, and **Tailwind CSS** layered over the hand-authored Souvenote
-design system.
+Production-ready Next.js App Router conversion of the Claude Designs handoff in `handoff/html`. The app uses imported React components, local assets in `public/assets`, and the original handoff CSS as global styles.
 
-## Getting started
+## Setup
 
-```bash
-cd frontend
+```powershell
 npm install
 npm run dev
+npm run build
 ```
 
-Then open **http://localhost:3000**.
+The included `.npmrc` keeps npm's cache local to this project at `.npm-cache/`, which avoids Windows user-cache permission issues. On this Windows machine, `npm.cmd` is also safe to use if PowerShell blocks the npm shim:
 
-> Requires Node.js 18.18+ (Node 20 LTS recommended).
-
-## Scripts
-
-| Command         | Description                          |
-| --------------- | ------------------------------------ |
-| `npm run dev`   | Start the dev server (Turbopack off) |
-| `npm run build` | Production build                     |
-| `npm run start` | Serve the production build           |
-| `npm run lint`  | Run ESLint                           |
-
-## Routes (App Router)
-
-| Path           | Page                                            |
-| -------------- | ----------------------------------------------- |
-| `/`            | Marketing landing (Hero · How it works · Gallery · FAQ · Footer) |
-| `/options`     | "Choose how to create your card" + AI credit packs + pricing-intercept modal |
-| `/pricing`     | Card packs + AI credit packs                    |
-| `/login`       | Sign in (email + social)                        |
-| `/signup`      | Create account → welcome popup                  |
-| `/personalize` | Template gallery + occasion filter + personalization wizard |
-| `/review`      | Generated card review + format/checkout modal   |
-| `/cards`       | Community cards *(styled placeholder)*          |
-| `/create`      | Build My Card *(styled placeholder)*            |
-| `/library`     | My Cards & Songs *(styled placeholder)*         |
-
-## Project structure
-
-```
-frontend/
-├─ public/assets/            Brand logos & card imagery
-├─ src/
-│  ├─ app/                   App Router — one folder per route
-│  │  ├─ globals.css         Tailwind layers + design tokens + base/keyframes
-│  │  ├─ layout.tsx          Root layout (fonts, page background)
-│  │  └─ <route>/page.tsx
-│  ├─ components/            React components
-│  │  ├─ auth/  hero/  landing/  layout/  options/  personalize/  review/  ui/
-│  │  └─ Navbar, CardCarousel, GallerySection, FAQAccordion, …
-│  ├─ data/                  mock-cards.ts (swap for the backend API)
-│  ├─ lib/                   utils (cn, formatters)
-│  ├─ styles/                landing.css, app.css (component styles)
-│  └─ types/                 shared TypeScript types
-└─ tailwind.config.ts        Design tokens → Tailwind theme
+```powershell
+npm.cmd install
+npm.cmd run dev
+npm.cmd run build
 ```
 
-## Styling
+## Converted Routes
 
-Two complementary layers, as requested:
+- `/` from `landing-logged-out.html`
+- `/home` from `landing-logged-in.html`
+- `/signup` from `auth-signup.html`
+- `/login` from `auth-login.html`
+- `/welcome` from `auth-welcome.html`
+- `/forgot` from `auth-forgot.html`
+- `/reset` from `auth-reset.html`
+- `/verify` from `auth-verify.html`
+- `/verify/expired` from `auth-verify-expired.html`
+- `/recover` from `auth-recover.html`
+- `/create` from `create-options.html`
+- `/pricing` from `pricing.html`
 
-- **`globals.css` + `styles/*.css`** — the Souvenote design tokens (CSS variables) and the
-  `souv-*` component classes ported from the original prototypes.
-- **Tailwind utilities** — wired to the same tokens in `tailwind.config.ts`
-  (`text-gold`, `bg-warm`, `font-display`, …) for ad-hoc layout.
+## Remaining TODOs
 
-Fonts (Outfit + Lobster) load from Google Fonts in `app/layout.tsx`.
-
-## Data
-
-Everything runs on mock data in `src/data/mock-cards.ts`. When the backend
-(`../backend/`) is ready, replace those exports with real API calls.
+- Wire auth forms to the real authentication provider and validation rules.
+- Replace demo user, credits, cart, card-bank, and currency data with app state/API data.
+- Connect create-option tiles, card packs, credit packs, referral invites, and checkout CTAs to product flows.
+- Build future pages currently represented by `#todo-*` placeholders: profile, my cards, gift, referral, account settings, FAQ, contact, privacy, terms, cookie policy, refund policy, and individual card creation flows.

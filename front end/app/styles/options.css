@@ -1,0 +1,1807 @@
+/* options.css — Page 2: tiles, pricing, referral, modal.
+   Uses only tokens defined in colors_and_type.css and primitives from site.css.
+   Prefix: .opt-* (page-local).
+*/
+
+/* ============================================================
+   CARD TILE TITLE — match the Try Risk-Free display title:
+   italic Outfit, weight 500, ~30px, centered, warm-brown ink.
+   ============================================================ */
+.opt-page .opt-tile-title,
+.opt-page .opt-tile-title > span {
+  font-family: var(--font-display, 'Outfit'), system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-style: italic;
+  font-weight: 500;
+  font-size: 30px;
+  letter-spacing: -0.005em;
+  line-height: 1.1;
+  /* Engraved into the metal: semi-transparent dark ink lets the surface
+     read through the cut; a dark upper-edge shadow + bright lower lip make
+     the letters look pressed in rather than printed on. */
+  color: rgba(34, 23, 6, 0.58);
+  -webkit-text-fill-color: rgba(34, 23, 6, 0.58);
+  text-shadow:
+    0 -1px 1px rgba(0, 0, 0, 0.38),
+    0 1px 0 rgba(255, 246, 222, 0.62),
+    0 2px 2px rgba(255, 246, 222, 0.30);
+  background: none;
+  -webkit-background-clip: initial;
+  background-clip: initial;
+  animation: none;
+}
+/* Reserve 2 lines so titles align across tiles even if one wraps. */
+.opt-page .opt-tile-title {
+  min-height: calc(2 * 1.1em);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  text-align: center;
+}
+
+/* ============================================================
+   PAGE FRAME
+   ============================================================ */
+.opt-page {
+  padding-top: 24px;
+  padding-bottom: 96px;
+}
+
+/* ============================================================
+   BACK BUTTON — centered pill beneath page content
+   ============================================================ */
+.opt-back-row {
+  position: relative; z-index: 2;
+  display: flex; justify-content: center;
+  padding: 8px 64px 24px;
+}
+.opt-back {
+  display: inline-flex; align-items: center; gap: 9px;
+  padding: 11px 26px 11px 20px;
+  font-family: var(--font-sans); font-weight: 600; font-size: 11px;
+  letter-spacing: .18em; text-transform: uppercase;
+  color: var(--platinum-mid);
+  background: transparent;
+  border: 1px solid var(--divider);
+  border-radius: var(--r-pill);
+  text-decoration: none;
+  transition: all .25s var(--ease-brand);
+}
+.opt-back svg { width: 16px; height: 16px; transition: transform .25s var(--ease-brand); }
+.opt-back:hover { color: var(--gold); border-color: var(--gold); background: rgba(212,175,55,0.04); }
+.opt-back:hover svg { transform: translateX(-3px); }
+
+.opt-page-halo {
+  position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  background:
+    radial-gradient(50% 38% at 50% 18%, rgba(241,208,116,0.07), transparent 70%),
+    radial-gradient(40% 32% at 18% 70%, rgba(200,139,134,0.05), transparent 70%),
+    radial-gradient(40% 32% at 82% 76%, rgba(232,234,238,0.04), transparent 70%);
+}
+
+/* ============================================================
+   HEADER
+   ============================================================ */
+.opt-head {
+  position: relative; z-index: 2;
+  padding: 88px 64px 36px;
+  max-width: 1280px; margin: 0 auto;
+  text-align: center;
+}
+.opt-head-inner { max-width: 1080px; margin: 0 auto; }
+
+.opt-welcome {
+  display: inline-flex; align-items: center; gap: 12px;
+  padding: 6px 16px 6px 6px;
+  background: rgba(232,234,238,0.03);
+  border: 1px solid var(--divider);
+  border-radius: var(--r-pill);
+  margin-bottom: 28px;
+}
+.opt-welcome-av {
+  width: 30px; height: 30px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-family: var(--font-sans); font-weight: 600; font-size: 11px;
+  letter-spacing: .05em; color: #1a1208;
+  background: linear-gradient(135deg, #F1D074, #D4AF37, #C88B86);
+  box-shadow: inset 0 1px 0 rgba(255,245,210,.6);
+}
+.opt-welcome-text {
+  font-family: var(--font-sans); font-weight: 500; font-size: 12px;
+  letter-spacing: .14em; text-transform: uppercase;
+  color: var(--platinum-mid);
+}
+.opt-welcome-text em {
+  font-style: normal; color: var(--platinum-hi);
+}
+
+.opt-title.souv-hero-title {
+  font-size: clamp(2.2rem, 4.4vw, 4.4rem);
+  line-height: 1.04;
+  margin: 0 0 22px;
+  text-align: center;
+  color: var(--platinum-hi);
+  white-space: nowrap;
+}
+@media (max-width: 720px) {
+  .opt-title.souv-hero-title { white-space: normal; }
+}
+.opt-q { font-style: italic; }
+
+.opt-lede {
+  font-family: var(--font-serif);
+  font-size: 17px; line-height: 1.6;
+  color: var(--text-secondary);
+  max-width: 56ch;
+  margin: 0 auto 28px;
+}
+
+.opt-balance {
+  display: inline-flex; align-items: baseline; gap: 10px;
+  padding: 10px 18px;
+  background: rgba(212,175,55,0.04);
+  border: 1px solid rgba(212,175,55,0.18);
+  border-radius: var(--r-pill);
+  box-shadow: inset 0 1px 0 rgba(255,245,210,.06);
+}
+.opt-balance.is-low {
+  background: rgba(200,139,134,0.05);
+  border-color: rgba(200,139,134,0.28);
+}
+.opt-balance-label {
+  font-family: var(--font-sans); font-weight: 600; font-size: 10.5px;
+  letter-spacing: .24em; text-transform: uppercase;
+  color: var(--text-muted);
+}
+.opt-balance-num {
+  font-family: var(--font-num);
+  font-weight: 700; font-size: 26px; line-height: 1;
+  background-image: linear-gradient(120deg, #A07828 0%, #D4BB7E 20%, #F4D870 38%, #FBEDB8 50%, #EEDDAA 60%, #C8A844 78%, #A07828 100%);
+  background-size: 240% 240%;
+  animation: souvenote-surface-pan 14s ease-in-out infinite;
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; color: transparent;
+}
+.opt-balance.is-low .opt-balance-num {
+  background-image: linear-gradient(120deg, #A06058 0%, #D8958C 22%, #E8C0B6 38%, #C88680 52%, #E0ACA2 68%, #C48478 82%, #9A5048 100%);
+}
+.opt-balance-sub {
+  font-family: var(--font-serif); font-style: italic;
+  font-size: 14px; color: var(--text-muted);
+}
+
+/* ============================================================
+   TILE GRID — 4 vertical 5×7 card-frames, one row, distinct gradient surfaces
+   ============================================================ */
+.opt-tiles {
+  position: relative; z-index: 2;
+  padding: 12px 64px 64px;
+  max-width: 1320px; margin: 0 auto;
+}
+.opt-tiles-inner {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 22px;
+}
+
+.opt-tile {
+  --tile-stop-a: #F1D074;
+  --tile-stop-b: #D4AF37;
+  --tile-stop-c: #8A6010;
+  --tile-ink:    #2A1E08;
+
+  position: relative;
+  isolation: isolate;
+  display: flex; flex-direction: column;
+  justify-content: flex-start; align-items: center;
+  text-align: center;
+  aspect-ratio: 5 / 7;
+  padding: 72px 22px 70px;
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: var(--r-2xl);
+  box-shadow:
+    0 30px 70px rgba(0,0,0,0.55),
+    0 0 0 1px rgba(255,255,255,0.04) inset,
+    inset 0 1px 0 rgba(255,255,255,0.18);
+  cursor: pointer;
+  overflow: hidden;
+  transition:
+    transform .5s var(--ease-brand),
+    box-shadow .5s var(--ease-brand);
+}
+
+/* Painted surface — sits behind the content, owns the colour.
+   Uses the same souvenote-surface-pan shimmer keyframes as the landing page. */
+.opt-tile-surface {
+  position: absolute; inset: 0; z-index: -2;
+  background: linear-gradient(
+    135deg,
+    var(--tile-stop-a) 0%,
+    var(--tile-stop-b) 22%,
+    var(--tile-stop-hi, #FBF0A8) 38%,
+    var(--tile-stop-b) 52%,
+    var(--tile-stop-c) 74%,
+    var(--tile-stop-b) 88%,
+    var(--tile-stop-a) 100%
+  );
+  background-size: 200% 200%;
+  animation: souvenote-surface-pan 34s ease-in-out infinite;
+}
+/* Soft paper grain on top of the colour, below the text */
+.opt-tile-grain {
+  position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background-image:
+    radial-gradient(120% 120% at 100% 100%, rgba(0,0,0,0.28), transparent 55%),
+    radial-gradient(80% 60% at 0% 0%, rgba(255,255,255,0.22), transparent 60%);
+  mix-blend-mode: soft-light;
+  opacity: .9;
+}
+
+/* --- Per-tone palettes (warm, vellum-like, never neon) --- */
+.opt-tile-gold {
+  --tile-stop-a:  #F8E0A0;
+  --tile-stop-b:  #E8C66E;
+  --tile-stop-c:  #A7822A;
+  --tile-stop-hi: #FBF0B8;
+  --tile-ink:     #3A2A0C;
+}
+.opt-tile-rose {
+  --tile-stop-a:  #EBC2B6;
+  --tile-stop-b:  #D9A28A;
+  --tile-stop-c:  #9A6258;
+  --tile-stop-hi: #F8DDC9;
+  --tile-ink:     #2C1814;
+}
+.opt-tile-bronze {
+  --tile-stop-a:  #D9A86A;
+  --tile-stop-b:  #A6763C;
+  --tile-stop-c:  #5E3E18;
+  --tile-stop-hi: #F0CE96;
+  --tile-ink:     #2A1C08;
+}
+.opt-tile-silver {
+  --tile-stop-a:  #D6DCE2;
+  --tile-stop-b:  #A8B0B9;
+  --tile-stop-c:  #5A626B;
+  --tile-stop-hi: #EEF1F4;
+  --tile-ink:     #15191E;
+}
+.opt-tile-peach {
+  --tile-stop-a:  #C99A8E;
+  --tile-stop-b:  #9E7164;
+  --tile-stop-c:  #6E4A3E;
+  --tile-stop-hi: #DCB5A8;
+  --tile-ink:     #2A1610;
+}
+
+/* "Most popular" badge — top-centre, gold pill (matches pack-card badge) */
+.opt-tile-badge {
+  position: absolute;
+  top: 14px; left: 50%; transform: translateX(-50%);
+  z-index: 3;
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 13px;
+  background: linear-gradient(120deg,#F1D074,#D4AF37,#E5B8B1,#C88B86,#F1D074);
+  background-size: 240% 240%;
+  animation: souvenote-surface-pan 12s ease-in-out infinite;
+  border-radius: var(--r-pill);
+  box-shadow: 0 6px 18px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,245,210,0.7);
+  white-space: nowrap;
+}
+.opt-tile-badge svg { width: 12px; height: 12px; color: #1a1208; }
+.opt-tile-badge em {
+  font-style: normal;
+  font-family: var(--font-sans); font-weight: 700; font-size: 10px;
+  letter-spacing: 0.16em; text-transform: uppercase;
+  color: #1a1208;
+}
+
+.opt-tile:hover {
+  transform: translateY(-6px);
+  box-shadow:
+    0 40px 90px rgba(0,0,0,0.65),
+    0 0 0 1px rgba(255,235,180,0.20),
+    inset 0 1px 0 rgba(255,255,255,0.28);
+}
+
+.opt-tile-body {
+  position: relative; z-index: 1;
+  display: flex; flex-direction: column; gap: 18px;
+  align-items: center;
+  max-width: 24ch;
+}
+.opt-tile-title {
+  font-family: var(--font-serif); font-weight: 700;
+  font-size: clamp(26px, 2vw, 36px);
+  letter-spacing: -0.015em;
+  line-height: 1.08;
+  color: var(--tile-ink);
+  text-shadow: 0 1px 0 rgba(255,255,255,0.22);
+}
+.opt-tile-sub {
+  font-family: var(--font-serif); font-style: italic;
+  font-size: 17px;
+  line-height: 1.45;
+  color: color-mix(in oklab, var(--tile-ink) 82%, transparent);
+  max-width: 26ch;
+}
+
+/* Music-note button, bottom-right */
+.opt-tile-music {
+  position: absolute; right: 14px; bottom: 14px; z-index: 2;
+  width: 38px; height: 38px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: rgba(20,14,4,0.55);
+  color: rgba(255,245,220,0.92);
+  border-radius: 50%;
+  backdrop-filter: blur(6px);
+  box-shadow:
+    0 6px 16px rgba(0,0,0,0.35),
+    inset 0 1px 0 rgba(255,255,255,0.12);
+  transition: transform .3s var(--ease-brand), background .3s var(--ease-brand);
+}
+.opt-tile:hover .opt-tile-music {
+  transform: scale(1.06);
+  background: rgba(20,14,4,0.72);
+}
+.opt-tile-music svg { width: 18px; height: 18px; }
+
+/* Lock chip — only shown when gated and no credits */
+.opt-tile-lock {
+  position: absolute; left: 14px; top: 14px; z-index: 2;
+  width: 32px; height: 32px;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--tile-ink);
+  background: rgba(255,255,255,0.35);
+  border-radius: 50%;
+  backdrop-filter: blur(6px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.45);
+}
+.opt-tile-lock svg { width: 15px; height: 15px; }
+
+/* ============================================================
+   REFERRAL
+   ============================================================ */
+.opt-referral {
+  position: relative; z-index: 2;
+  padding: 80px 64px;
+  max-width: 1280px; margin: 0 auto;
+}
+.opt-referral-inner {
+  display: grid;
+  grid-template-columns: 1.05fr 0.95fr;
+  gap: 56px;
+  padding: 48px 48px 44px;
+  border: 1px solid var(--divider);
+  border-radius: var(--r-2xl);
+  background:
+    radial-gradient(45% 100% at 100% 0%, rgba(200,139,134,0.08), transparent 60%),
+    radial-gradient(45% 100% at 0% 100%, rgba(212,175,55,0.05), transparent 60%),
+    linear-gradient(180deg, rgba(232,234,238,0.025), rgba(232,234,238,0.005));
+  box-shadow: 0 30px 80px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.04);
+}
+
+.opt-eyebrow {
+  display: block !important; /* override site.css hide */
+  font-family: var(--font-sans); font-weight: 700; font-size: 10.5px;
+  letter-spacing: .3em; text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 14px;
+}
+
+.opt-h2.souv-h1 {
+  font-size: clamp(2rem, 3.6vw, 3.2rem);
+  margin: 0 0 18px;
+  text-align: left;
+}
+
+.opt-referral-lede { text-align: left; margin: 0 0 24px; max-width: 50ch; }
+.opt-referral-lede em { font-style: italic; color: var(--platinum-hi); }
+
+.opt-referral-ticks {
+  list-style: none; padding: 0; margin: 0;
+  display: flex; flex-direction: column; gap: 12px;
+}
+.opt-referral-ticks li {
+  display: flex; align-items: center; gap: 12px;
+  font-family: var(--font-serif); font-size: 15.5px;
+  color: var(--text-secondary);
+}
+.opt-referral-ticks svg {
+  width: 18px; height: 18px;
+  color: var(--gold-hi);
+  flex-shrink: 0;
+}
+
+.opt-referral-form {
+  display: flex; flex-direction: column; gap: 14px;
+  align-self: center;
+}
+.opt-referral-label {
+  font-family: var(--font-sans); font-weight: 600; font-size: 10.5px;
+  letter-spacing: .22em; text-transform: uppercase;
+  color: var(--text-muted);
+}
+.opt-referral-row { display: flex; gap: 10px; }
+.opt-input {
+  flex: 1; min-width: 0;
+  font-family: var(--font-sans); font-size: 14px;
+  color: var(--platinum-hi);
+  padding: 14px 16px;
+  background: rgba(232,234,238,0.02);
+  border: 1px solid rgba(200,139,134,0.22);
+  border-radius: var(--r-md);
+  outline: none;
+  transition: border-color .25s, background .25s;
+}
+.opt-input::placeholder { color: var(--text-muted); }
+.opt-input:focus { border-color: var(--rose-gold); background: rgba(232,234,238,0.04); }
+
+.opt-referral-cta { padding: 12px 22px; }
+
+.opt-referral-or {
+  display: grid; grid-template-columns: 1fr auto 1fr;
+  align-items: center; gap: 14px;
+  margin-top: 6px;
+  font-family: var(--font-sans); font-size: 10.5px;
+  letter-spacing: .24em; text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.opt-referral-copy-btn { width: 100%; padding: 13px 0; text-align: center; }
+
+.opt-referral-link {
+  margin-top: 10px;
+  font-family: var(--font-sans); font-size: 12px;
+  letter-spacing: .04em;
+  color: var(--text-muted);
+  text-align: center;
+}
+.opt-referral-link b {
+  color: var(--gold-hi); font-weight: 700;
+}
+
+/* ============================================================
+   PRICING (shared between card packs + ai credit packs)
+   ============================================================ */
+.opt-pricing {
+  position: relative; z-index: 2;
+  padding: 70px 64px;
+  max-width: 1320px; margin: 0 auto;
+}
+.opt-pricing-head { text-align: center; margin-bottom: 44px; max-width: 720px; margin-left: auto; margin-right: auto; }
+.opt-pricing-head .opt-eyebrow { text-align: center; }
+.opt-pricing-head .opt-h2 { text-align: center; }
+.opt-pricing-lede {
+  font-family: var(--font-serif);
+  font-size: 16px; line-height: 1.6;
+  color: var(--text-secondary);
+  max-width: 56ch; margin: 14px auto 0;
+}
+.opt-pricing-lede em { font-style: italic; color: var(--gold-hi); }
+
+.opt-pricing-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 22px;
+  margin-top: 26px;
+}
+.opt-pricing-grid-3 { grid-template-columns: repeat(3, 1fr); }
+.opt-pricing-grid-2 { grid-template-columns: repeat(2, 1fr); max-width: 900px; margin-left: auto; margin-right: auto; }
+
+/* Try Risk-Free hero — full-width banner card at the top of the pricing grid.
+   Uses the standard .opt-pack flex-column layout, just wider and with a bit
+   more breathing room. No 2-column grid here — that caused overlap. */
+.opt-pricing-trf-hero {
+  display: block;
+}
+.opt-pricing-trf-hero .opt-pack.is-wide {
+  padding: 36px 44px 32px;
+  max-width: none;
+  margin: 0;
+  /* Strip the lower border on the hero pack so it visually fuses with the
+     RiskFreeCallout strip directly below. */
+  box-shadow:
+    0 -2px 28px rgba(0,0,0,0.35),
+    0 0 0 1px rgba(212,175,55,0.30),
+    inset 0 1px 0 rgba(255,235,180,0.10);
+  border-radius: 24px 24px 0 0;
+  border-bottom: 0;
+}
+.opt-pricing-trf-hero .opt-pack.is-wide .opt-pack-head {
+  text-align: center;
+  align-items: center;
+}
+.opt-pricing-trf-hero .opt-pack.is-wide .opt-pack-name {
+  font-size: 28px;
+  font-style: italic;
+}
+.opt-pricing-trf-hero .opt-pack.is-wide .opt-pack-price {
+  font-size: 44px;
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 4px;
+}
+.opt-pricing-trf-hero .opt-pack.is-wide .opt-pack-rule {
+  background: linear-gradient(to right, transparent, rgba(212,175,55,.55), transparent);
+}
+.opt-pricing-trf-hero .opt-pack.is-wide .opt-pack-blurb {
+  font-size: 16px;
+  max-width: 60ch;
+  text-align: center;
+  align-self: center;
+}
+.opt-pricing-trf-hero .opt-pack.is-wide .opt-pack-stats {
+  max-width: 520px;
+  align-self: center;
+  width: 100%;
+}
+
+/* ============================================================
+   TRF COMBINED — unifies the hero pack with the explainer strip
+   so they read as a single feature option.
+   ============================================================ */
+.opt-trf-combined {
+  position: relative;
+  margin-top: 24px;
+  border-radius: 24px;
+  /* Outer glow that wraps both the pack and the explainer */
+  box-shadow:
+    0 36px 80px rgba(0,0,0,0.55),
+    0 0 0 1px rgba(212,175,55,0.20),
+    0 0 60px rgba(212,175,55,0.08);
+  background: linear-gradient(180deg, rgba(212,175,55,0.04), rgba(212,175,55,0.015) 40%, transparent);
+}
+.opt-trf-combined::before {
+  /* gold ribbon along the seam between hero and explainer */
+  content: '';
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  top: 50%;
+  height: 1px;
+  background: linear-gradient(to right, transparent, rgba(212,175,55,0.45), transparent);
+  pointer-events: none;
+  opacity: 0;
+}
+
+.opt-pricing-fx {
+  margin: 28px auto 0;
+  text-align: center;
+  font-family: var(--font-serif); font-style: italic;
+  font-size: 13.5px; color: var(--text-muted);
+}
+
+/* --- Note line(s) under the two main packs — white text, rose-gold bullets --- */
+.opt-pricing-notes {
+  list-style: none;
+  margin: 24px auto 0;
+  padding: 0;
+  max-width: 640px;
+  display: flex; flex-direction: column; gap: 12px;
+}
+.opt-pricing-notes li {
+  position: relative;
+  padding-left: 24px;
+  font-family: var(--font-serif);
+  font-size: 15px; line-height: 1.55;
+  color: #FFFFFF;
+  text-wrap: pretty;
+}
+.opt-pricing-notes li::before {
+  content: '';
+  position: absolute;
+  left: 4px; top: 0.62em;
+  width: 7px; height: 7px;
+  border-radius: 999px;
+  background: var(--rose-gold-hi);
+  box-shadow: 0 0 8px rgba(200,139,134,0.6);
+}
+
+/* --- Pack card --- */
+.opt-pack {
+  position: relative;
+  padding: 28px 26px 26px;
+  display: flex; flex-direction: column; gap: 18px;
+  background: linear-gradient(180deg, rgba(232,234,238,0.03), rgba(232,234,238,0.01));
+  border: 1px solid rgba(232,234,238,0.08);
+  border-radius: var(--r-xl);
+  box-shadow: 0 16px 40px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.04);
+  transition: transform .4s var(--ease-brand), border-color .4s var(--ease-brand), box-shadow .4s var(--ease-brand);
+}
+.opt-pack:hover {
+  transform: translateY(-3px);
+  border-color: rgba(212,175,55,0.28);
+  box-shadow: 0 22px 50px rgba(0,0,0,0.55), 0 0 0 1px rgba(212,175,55,0.10), inset 0 1px 0 rgba(255,235,180,0.08);
+}
+.opt-pack.is-featured {
+  border-color: rgba(212,175,55,0.45);
+  background: linear-gradient(180deg, rgba(212,175,55,0.06), rgba(212,175,55,0.015));
+  box-shadow:
+    0 28px 60px rgba(0,0,0,0.55),
+    0 0 0 1px rgba(212,175,55,0.35),
+    inset 0 1px 0 rgba(255,235,180,0.12);
+}
+.opt-pack-rose.is-featured { border-color: rgba(200,139,134,0.45); }
+
+.opt-pack-badge {
+  position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 12px;
+  font-family: var(--font-sans); font-weight: 700; font-size: 10px;
+  letter-spacing: .24em; text-transform: uppercase;
+  color: #1a1208;
+  background: linear-gradient(120deg,#F1D074,#D4AF37,#E5B8B1,#C88B86,#F1D074);
+  background-size: 240% 240%;
+  animation: souvenote-surface-pan 12s ease-in-out infinite;
+  border-radius: var(--r-pill);
+  box-shadow: 0 4px 14px rgba(212,175,55,.35), inset 0 1px 0 rgba(255,245,210,.6);
+}
+.opt-pack-badge svg { width: 11px; height: 11px; }
+.opt-pack-badge em { font-style: normal; }
+
+.opt-pack-head { display: flex; flex-direction: column; gap: 6px; }
+.opt-pack-name {
+  font-family: var(--font-serif); font-weight: 700; font-style: italic;
+  font-size: 22px; letter-spacing: -0.01em;
+  color: var(--platinum-hi);
+}
+.opt-pack-price {
+  font-family: var(--font-num); font-weight: 600;
+  font-size: 30px; letter-spacing: -0.02em;
+  color: var(--gold-hi);
+}
+.opt-pack-rose .opt-pack-price { color: var(--rose-gold-hi); }
+.opt-pack-platinum .opt-pack-price { color: var(--platinum-hi); }
+.opt-pack-unit {
+  display: inline-block;
+  font-family: var(--font-sans); font-weight: 500; font-size: 11px;
+  letter-spacing: .14em; text-transform: uppercase;
+  color: var(--text-muted);
+  margin-left: 6px;
+}
+.opt-pack-rule {
+  height: 1px;
+  background: linear-gradient(to right, transparent, rgba(212,175,55,.45), transparent);
+}
+
+.opt-pack-stats {
+  list-style: none; padding: 0; margin: 0;
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+.opt-pack-stats li {
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 8px 0;
+}
+.opt-pack-stats li span {
+  font-family: var(--font-sans); font-weight: 600; font-size: 9.5px;
+  letter-spacing: .22em; text-transform: uppercase;
+  color: var(--text-muted);
+}
+.opt-pack-stats li b {
+  font-family: var(--font-num); font-weight: 600; font-size: 18px;
+  color: var(--platinum-hi);
+}
+.opt-pack-stats li b.is-bonus { color: var(--gold-hi); }
+.opt-pack-stat-big { grid-column: 1 / -1; padding: 4px 0; }
+.opt-pack-stats li.opt-pack-stat-big b { font-size: 30px; line-height: 1; letter-spacing: -0.02em; color: var(--rose-gold-hi); }
+
+.opt-pack-blurb {
+  font-family: var(--font-serif); font-size: 15px; line-height: 1.55;
+  color: var(--text-secondary);
+  margin: 0;
+  flex: 1;
+}
+
+.opt-pack-cta {
+  display: inline-flex; align-items: center; justify-content: center;
+  gap: 8px;
+  padding: 13px 18px;
+  font-family: var(--font-sans); font-weight: 700; font-size: 11px;
+  letter-spacing: .14em; text-transform: uppercase;
+  color: var(--platinum-hi);
+  background: transparent;
+  border: 1px solid var(--platinum-lo);
+  border-radius: var(--r-pill);
+  cursor: pointer;
+  transition: all .3s var(--ease-brand);
+}
+.opt-pack-cta svg { width: 16px; height: 16px; }
+.opt-pack-cta:hover {
+  color: var(--gold-hi);
+  border-color: var(--gold);
+  background: rgba(212,175,55,0.04);
+}
+.opt-pack-cta.is-gold {
+  color: #1a1208;
+  background: linear-gradient(120deg,#F1D074,#D4AF37,#E5B8B1,#C88B86,#F1D074);
+  background-size: 240% 240%;
+  animation: souvenote-surface-pan 12s ease-in-out infinite;
+  border-color: transparent;
+  box-shadow: 0 6px 18px rgba(212,175,55,.28), inset 0 1px 0 rgba(255,245,210,.6);
+}
+.opt-pack-cta.is-gold:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 26px rgba(212,175,55,.4), inset 0 1px 0 rgba(255,245,210,.7);
+}
+.opt-pack-cta:disabled,
+.opt-pack-cta[aria-disabled="true"] {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Family card price block — hero per-card price + smaller total row */
+.opt-pack-price-family {
+  display: flex; flex-direction: column; gap: 4px;
+}
+.opt-pack-price-family .opt-pack-price-hero {
+  font-family: var(--font-num); font-weight: 600;
+  font-size: 38px; letter-spacing: -0.02em;
+  color: var(--rose-gold-hi);
+  text-shadow: 0 0 24px rgba(200,139,134,0.18);
+}
+.opt-pack-price-total {
+  display: flex; align-items: baseline; gap: 8px;
+  padding-top: 4px;
+}
+.opt-pack-price-total span {
+  font-family: var(--font-sans); font-weight: 600; font-size: 9.5px;
+  letter-spacing: .22em; text-transform: uppercase;
+  color: var(--text-muted);
+}
+.opt-pack-price-total b {
+  font-family: var(--font-num); font-weight: 600; font-size: 18px;
+  color: var(--platinum-hi);
+  letter-spacing: -0.005em;
+}
+.opt-pack-stats-family {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+/* ============================================================
+   TRY RISK-FREE — CONDENSED COMBINED OPTION
+   Stand-alone card variant. When it sits in the 3-column pricing
+   grid (alongside Family & Card Pack), it takes the same vertical
+   pack-card shape as its neighbours.
+   ============================================================ */
+.opt-trf-card {
+  position: relative;
+  margin: 0;
+  max-width: none;
+  padding: 28px 28px 30px;
+  display: flex; flex-direction: column;
+  gap: 18px;
+  text-align: center;
+  border-radius: 22px;
+  background:
+    radial-gradient(140% 80% at 50% 0%, rgba(212,175,55,0.10), transparent 55%),
+    linear-gradient(180deg, rgba(212,175,55,0.05), rgba(212,175,55,0.015) 60%, transparent);
+  box-shadow:
+    0 30px 70px rgba(0,0,0,0.55),
+    0 0 0 1px rgba(212,175,55,0.30),
+    0 0 60px rgba(212,175,55,0.08),
+    inset 0 1px 0 rgba(255,235,180,0.10);
+}
+
+.opt-trf-card-eyebrow {
+  font-family: var(--font-sans); font-weight: 700; font-size: 10.5px;
+  letter-spacing: .32em; text-transform: uppercase;
+  color: var(--gold-hi);
+  align-self: center;
+  padding: 5px 14px;
+  background: rgba(212,175,55,0.10);
+  border: 1px solid rgba(212,175,55,0.35);
+  border-radius: 999px;
+}
+
+.opt-trf-card-head {
+  display: flex; flex-direction: column;
+  align-items: center; gap: 6px;
+}
+.opt-trf-card-name {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 500;
+  font-size: 30px;
+  letter-spacing: -0.01em;
+  color: var(--platinum-hi);
+  margin: 0;
+}
+.opt-trf-card-price {
+  display: inline-flex; align-items: baseline; gap: 10px;
+}
+.opt-trf-card-price-num {
+  font-family: var(--font-num); font-weight: 600;
+  font-size: 46px; line-height: 1; letter-spacing: -0.02em;
+  color: var(--gold-hi);
+  text-shadow: 0 0 24px rgba(212,175,55,0.20);
+}
+.opt-trf-card-price-unit {
+  font-family: var(--font-sans); font-weight: 600; font-size: 10.5px;
+  letter-spacing: .22em; text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* Quick-stat strip — Credits · Cards · Per card · Unused rate */
+.opt-trf-card-stats {
+  list-style: none; padding: 0; margin: 0;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0;
+  border-top: 1px solid rgba(212,175,55,0.18);
+  border-bottom: 1px solid rgba(212,175,55,0.18);
+  padding: 14px 0;
+}
+.opt-trf-card-stats li {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  border-right: 1px solid rgba(232,234,238,0.08);
+}
+.opt-trf-card-stats li:last-child { border-right: 0; }
+.opt-trf-card-stats span {
+  font-family: var(--font-sans); font-weight: 600; font-size: 9.5px;
+  letter-spacing: .22em; text-transform: uppercase;
+  color: var(--text-muted);
+}
+.opt-trf-card-stats b {
+  font-family: var(--font-num); font-weight: 600; font-size: 17px;
+  letter-spacing: -0.005em;
+  color: var(--platinum-hi);
+}
+
+/* Inline 3-step flow — when inside the 3-col grid each card is narrower,
+   so the steps must stack vertically. */
+.opt-trf-card-flow {
+  list-style: none; padding: 0; margin: 0;
+  display: flex; flex-direction: column;
+  gap: 10px;
+  text-align: left;
+}
+.opt-trf-card-flow-sep { display: none; }
+.opt-trf-card-flow > li:not(.opt-trf-card-flow-sep) {
+  flex: 1; min-width: 0;
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  grid-template-rows: auto auto;
+  column-gap: 12px; row-gap: 4px;
+  padding: 12px 14px;
+  background: rgba(20,14,4,0.32);
+  border: 1px solid rgba(212,175,55,0.18);
+  border-radius: 14px;
+}
+.opt-trf-card-flow-num {
+  grid-row: 1 / span 2;
+  width: 28px; height: 28px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, var(--gold-mid), var(--gold-hi));
+  color: #2a1d05;
+  font-family: var(--font-sans); font-weight: 800; font-size: 13px;
+  border-radius: 999px;
+  align-self: center;
+}
+.opt-trf-card-flow-title {
+  font-family: var(--font-serif-alt); font-style: italic; font-weight: 500;
+  font-size: 15.5px; letter-spacing: -0.005em;
+  color: var(--platinum-hi);
+}
+.opt-trf-card-flow-body {
+  font-family: var(--font-serif); font-style: italic; font-weight: 400;
+  font-size: 13.5px; line-height: 1.55;
+  color: var(--text-muted);
+  grid-column: 2;
+}
+.opt-trf-card-flow-body b {
+  font-style: normal; font-weight: 600;
+  color: var(--gold-hi);
+}
+.opt-trf-card-flow-sep {
+  display: inline-flex; align-items: center; justify-content: center;
+  font-family: var(--font-sans); font-weight: 700; font-size: 16px;
+  color: rgba(212,175,55,0.55);
+  padding: 0 2px;
+}
+
+.opt-trf-card-cta {
+  align-self: center;
+  min-width: 280px;
+  margin-top: 4px;
+}
+
+/* Responsive — collapse flow to vertical on narrow screens */
+@media (max-width: 880px) {
+  .opt-trf-card { padding: 24px 22px 26px; }
+  .opt-trf-card-stats { grid-template-columns: repeat(2, 1fr); }
+  .opt-trf-card-stats li:nth-child(2) { border-right: 0; }
+  .opt-trf-card-stats li:nth-child(1),
+  .opt-trf-card-stats li:nth-child(2) { border-bottom: 1px solid rgba(232,234,238,0.08); padding-bottom: 10px; }
+  .opt-trf-card-stats li:nth-child(3),
+  .opt-trf-card-stats li:nth-child(4) { padding-top: 10px; }
+  .opt-trf-card-flow { flex-direction: column; gap: 8px; }
+  .opt-trf-card-flow-sep { transform: rotate(90deg); padding: 4px 0; }
+  .opt-trf-card-cta { width: 100%; min-width: 0; }
+}
+
+/* ============================================================
+   TIERED CARD PACK — volume tier picker
+   ============================================================ */
+/* Family Discount + Card Pack: match the Try Risk-Free title scale
+   (italic Outfit 500 / 30px) and centre the header. */
+.opt-pack-family .opt-pack-head,
+.opt-pack-tiered .opt-pack-head {
+  text-align: center;
+  align-items: center;
+}
+.opt-pack-family .opt-pack-name,
+.opt-pack-tiered .opt-pack-name {
+  font-family: var(--font-display, 'Outfit'), system-ui, sans-serif;
+  font-style: italic;
+  font-weight: 500;
+  font-size: 30px;
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+}
+
+/* Hero tier strip — three tier-price pills stacked across the top of the
+   tiered Card Pack, so all 3 prices are immediately visible. */
+.opt-pack-tiered .opt-pack-name { margin-bottom: 4px; }
+.opt-pack-tiered-subtitle {
+  font-family: var(--font-sans); font-weight: 600; font-size: 10.5px;
+  letter-spacing: .22em; text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 2px;
+}
+
+.opt-pack-tiers {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-top: 4px;
+}
+.opt-pack-tiers-hero {
+  margin-top: 6px;
+}
+.opt-pack-tiers-hero .opt-pack-tier {
+  padding: 14px 12px 13px;
+  align-items: center;
+  text-align: center;
+}
+.opt-pack-tiers-hero .opt-pack-tier-range { letter-spacing: .18em; font-size: 12px; }
+.opt-pack-tiers-hero .opt-pack-tier-price { font-size: 20px; line-height: 1.05; }
+
+/* Total row, larger variant under the qty stepper */
+.opt-pack-price-total-big {
+  padding: 12px 14px;
+  background: rgba(232,234,238,0.025);
+  border: 1px solid var(--divider);
+  border-radius: var(--r-pill);
+  align-items: center;
+  justify-content: space-between;
+}
+.opt-pack-price-total-big span {
+  font-size: 10.5px;
+}
+.opt-pack-price-total-big b {
+  font-size: 22px;
+  color: var(--gold-hi);
+}
+.opt-pack-tier {
+  display: flex; flex-direction: column;
+  align-items: flex-start; gap: 4px;
+  padding: 11px 12px 10px;
+  background: rgba(20,14,4,0.32);
+  border: 1px solid var(--divider);
+  border-radius: 12px;
+  color: var(--text-muted);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color .2s var(--ease-brand),
+              background .2s var(--ease-brand),
+              transform .15s var(--ease-brand);
+}
+.opt-pack-tier:hover {
+  border-color: rgba(212,175,55,0.45);
+  background: rgba(212,175,55,0.04);
+  transform: translateY(-1px);
+}
+.opt-pack-tier.is-active {
+  border-color: var(--gold-mid);
+  background: rgba(212,175,55,0.08);
+  box-shadow: 0 0 0 1px rgba(212,175,55,0.45),
+              0 6px 18px rgba(212,175,55,0.10);
+}
+.opt-pack-tier-range {
+  font-family: var(--font-sans); font-weight: 700; font-size: 9.5px;
+  letter-spacing: .22em; text-transform: uppercase;
+  color: var(--text-muted);
+}
+.opt-pack-tier.is-active .opt-pack-tier-range { color: var(--gold-hi); }
+.opt-pack-tier-price {
+  font-family: var(--font-num); font-weight: 600; font-size: 16px;
+  letter-spacing: -0.005em;
+  color: var(--platinum-hi);
+}
+.opt-pack-tier-price em {
+  font-style: normal;
+  font-family: var(--font-sans); font-weight: 500; font-size: 10.5px;
+  letter-spacing: .04em;
+  color: var(--text-muted);
+}
+.opt-pack-tier.is-active .opt-pack-tier-price { color: var(--gold-hi); }
+
+/* ============================================================
+   FAMILY DISCOUNT — interactive pack card
+   ============================================================ */
+.opt-pack-family { gap: 18px; }
+.opt-pack-family-form {
+  display: flex; flex-direction: column;
+  gap: 18px;
+}
+.opt-pack-family-qty-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  background: rgba(232,234,238,0.03);
+  border: 1px solid var(--divider);
+  border-radius: var(--r-pill);
+}
+.opt-pack-family-label {
+  font-family: var(--font-sans); font-weight: 700; font-size: 10.5px;
+  letter-spacing: .22em; text-transform: uppercase;
+  color: var(--platinum-mid);
+  display: flex; align-items: center; gap: 8px;
+}
+.opt-pack-family-label em {
+  font-style: italic; font-weight: 400;
+  letter-spacing: .04em; text-transform: none;
+  color: var(--text-muted);
+}
+.opt-pack-family-progress {
+  margin-left: auto;
+  font-family: var(--font-num); font-weight: 600; font-size: 12px;
+  letter-spacing: 0; text-transform: none;
+  color: var(--rose-gold-hi);
+}
+.opt-pack-family-stepper {
+  display: inline-flex; align-items: stretch;
+  background: rgba(20,14,4,0.4);
+  border: 1px solid var(--divider);
+  border-radius: var(--r-pill);
+  overflow: hidden;
+}
+.opt-pack-family-stepper button {
+  width: 32px; height: 32px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: transparent; border: 0;
+  color: var(--platinum-hi);
+  font-family: var(--font-sans); font-weight: 700; font-size: 16px;
+  cursor: pointer;
+  transition: background .2s var(--ease-brand), color .2s var(--ease-brand);
+}
+.opt-pack-family-stepper button:hover { background: rgba(212,175,55,0.10); color: var(--gold-hi); }
+.opt-pack-family-stepper button:disabled { opacity: 0.35; cursor: not-allowed; }
+.opt-pack-family-qty {
+  width: 48px;
+  text-align: center;
+  background: transparent;
+  border: 0; outline: 0;
+  color: var(--platinum-hi);
+  font-family: var(--font-num); font-weight: 600; font-size: 16px;
+  letter-spacing: -0.01em;
+  -moz-appearance: textfield;
+}
+.opt-pack-family-qty::-webkit-outer-spin-button,
+.opt-pack-family-qty::-webkit-inner-spin-button {
+  -webkit-appearance: none; margin: 0;
+}
+
+.opt-pack-family-recipients {
+  display: flex; flex-direction: column; gap: 10px;
+}
+.opt-pack-family-recipients .opt-pack-family-label { padding: 0 2px; }
+.opt-pack-family-list {
+  display: flex; flex-direction: column; gap: 8px;
+  max-height: 280px;
+  overflow-y: auto;
+  padding: 2px 4px 2px 0;
+  /* subtle inset for the scroll region */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(212,175,55,0.3) transparent;
+}
+.opt-pack-family-list::-webkit-scrollbar { width: 6px; }
+.opt-pack-family-list::-webkit-scrollbar-thumb { background: rgba(212,175,55,0.3); border-radius: 3px; }
+.opt-pack-family-contact {
+  width: 100%;
+  padding: 11px 14px;
+  background: rgba(232,234,238,0.025);
+  border: 1px solid var(--divider);
+  border-radius: 10px;
+  color: var(--platinum-hi);
+  font-family: var(--font-sans); font-weight: 500; font-size: 13px;
+  letter-spacing: -0.005em;
+  outline: none;
+  transition: border-color .2s var(--ease-brand), background .2s var(--ease-brand);
+}
+.opt-pack-family-contact::placeholder { color: var(--text-muted); }
+.opt-pack-family-contact:hover { border-color: rgba(232,234,238,0.18); }
+.opt-pack-family-contact:focus {
+  border-color: var(--rose-gold);
+  background: rgba(232,234,238,0.04);
+  box-shadow: 0 0 0 3px rgba(200,139,134,0.18);
+}
+.opt-pack-family-note {
+  font-family: var(--font-serif); font-style: italic; font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-muted);
+  padding: 0 2px;
+}
+
+/* Inline TRF strip — when nested inside CardPacks instead of standalone */
+.opt-trf.is-inline {
+  padding: 0;
+  max-width: none;
+}
+.opt-trf.is-inline .opt-trf-inner {
+  padding: 32px 44px 36px;
+  /* Drop the inner-strip's own border treatment — the outer .opt-trf-combined
+     owns the unified frame now. Keep the eyebrow + grid; lose the chrome. */
+  background: transparent;
+  border: 0;
+  border-radius: 0 0 24px 24px;
+  box-shadow: inset 0 1px 0 rgba(212,175,55,0.15);
+}
+
+/* ============================================================
+   TRY-RISK-FREE CALLOUT
+   ============================================================ */
+.opt-trf {
+  position: relative; z-index: 2;
+  padding: 40px 64px 80px;
+  max-width: 1280px; margin: 0 auto;
+}
+.opt-trf-inner {
+  padding: 44px 40px 40px;
+  border: 1px solid rgba(212,175,55,0.22);
+  border-radius: var(--r-2xl);
+  background:
+    radial-gradient(50% 100% at 50% 0%, rgba(212,175,55,0.06), transparent 70%),
+    linear-gradient(180deg, rgba(232,234,238,0.02), rgba(232,234,238,0.005));
+  box-shadow: 0 24px 60px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04);
+}
+.opt-trf-eyebrow {
+  display: grid; grid-template-columns: 1fr auto 1fr;
+  gap: 18px; align-items: center;
+  font-family: var(--font-sans); font-weight: 700; font-size: 10.5px;
+  letter-spacing: .3em; text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 28px;
+}
+.opt-trf-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 32px;
+}
+.opt-trf-step { position: relative; padding-left: 0; }
+.opt-trf-num {
+  font-family: var(--font-num); font-weight: 600; font-size: 32px;
+  line-height: 1;
+  background-image: linear-gradient(120deg, #A07828 0%, #D4BB7E 20%, #F4D870 38%, #FBEDB8 50%, #EEDDAA 60%, #C8A844 78%, #A07828 100%);
+  background-size: 240% 240%;
+  animation: souvenote-surface-pan 14s ease-in-out infinite;
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; color: transparent;
+  margin-bottom: 10px;
+}
+.opt-trf-title {
+  font-family: var(--font-serif); font-style: italic; font-weight: 700;
+  font-size: 19px; color: var(--platinum-hi);
+  margin-bottom: 8px;
+}
+.opt-trf-body {
+  font-family: var(--font-serif); font-size: 15px; line-height: 1.55;
+  color: var(--text-secondary);
+}
+
+/* ============================================================
+   MODAL — Pricing + Referral hard intercept
+   ============================================================ */
+.opt-modal-wrap {
+  position: fixed; inset: 0; z-index: 200;
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+}
+.opt-modal-scrim {
+  position: absolute; inset: 0;
+  z-index: 0;
+  background: rgba(5,5,7,0.78);
+}
+.opt-modal {
+  position: relative;
+  z-index: 1;
+  width: min(960px, 100%);
+  max-height: calc(100vh - 48px);
+  overflow: auto;
+  padding: 36px 40px 32px;
+  background-color: #16141a;
+  background-image:
+    radial-gradient(60% 40% at 50% 0%, rgba(212,175,55,0.10), transparent 70%),
+    linear-gradient(180deg, rgba(255,255,255,0.025) 0%, rgba(0,0,0,0.20) 100%);
+  border: 1px solid rgba(212,175,55,0.45);
+  border-radius: var(--r-2xl);
+  box-shadow:
+    0 50px 120px rgba(0,0,0,0.65),
+    0 0 0 1px rgba(212,175,55,0.18),
+    inset 0 1px 0 rgba(255,235,180,0.10);
+}
+@keyframes opt-modal-in {
+  from { transform: translateY(12px) scale(.985); }
+  to   { transform: translateY(0) scale(1); }
+}
+
+.opt-modal-close {
+  position: absolute; top: 16px; right: 16px;
+  width: 36px; height: 36px;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--platinum-mid);
+  background: rgba(232,234,238,0.04);
+  border: 1px solid var(--divider);
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all .25s var(--ease-brand);
+}
+.opt-modal-close:hover { color: var(--gold-hi); border-color: var(--gold); }
+.opt-modal-close svg { width: 16px; height: 16px; }
+
+.opt-modal-head { text-align: center; margin-bottom: 28px; padding: 0 32px; }
+.opt-modal-head .opt-eyebrow { color: var(--rose-gold); text-align: center; }
+.opt-modal-title {
+  font-family: var(--font-display); font-weight: 800;
+  font-size: clamp(1.8rem, 3vw, 2.6rem);
+  line-height: 1.1; letter-spacing: -0.02em;
+  color: var(--platinum-hi);
+  margin: 0 0 12px;
+}
+.opt-modal-sub {
+  font-family: var(--font-serif); font-size: 15.5px; line-height: 1.55;
+  color: var(--text-secondary);
+  max-width: 56ch; margin: 0 auto;
+}
+.opt-modal-sub-tight { max-width: 100%; margin: 6px 0 0; }
+
+.opt-modal-body {
+  display: flex; flex-direction: column; gap: 28px;
+}
+.opt-modal-section { display: flex; flex-direction: column; gap: 14px; }
+.opt-modal-section-title {
+  display: inline-flex; align-items: center; gap: 10px;
+  font-family: var(--font-sans); font-weight: 700; font-size: 11px;
+  letter-spacing: .22em; text-transform: uppercase;
+  color: var(--gold);
+}
+.opt-modal-section-title svg { width: 16px; height: 16px; }
+
+/* Credit packs row */
+.opt-modal-credits {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+}
+.opt-modal-credit {
+  position: relative;
+  display: flex; flex-direction: column; gap: 10px;
+  padding: 18px 18px 16px;
+  text-align: left;
+  background: rgba(232,234,238,0.025);
+  border: 1px solid var(--divider);
+  border-radius: var(--r-lg);
+  cursor: pointer;
+  transition: all .3s var(--ease-brand);
+}
+.opt-modal-credit:hover {
+  border-color: rgba(212,175,55,0.35);
+  background: rgba(212,175,55,0.04);
+  transform: translateY(-2px);
+}
+.opt-modal-credit.is-featured {
+  border-color: rgba(212,175,55,0.5);
+  background: rgba(212,175,55,0.06);
+}
+.opt-modal-credit-badge {
+  position: absolute; top: 10px; right: 10px;
+  width: 22px; height: 22px;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--gold-hi);
+}
+.opt-modal-credit-badge svg { width: 13px; height: 13px; }
+.opt-modal-credit-name {
+  font-family: var(--font-serif); font-weight: 700; font-style: italic;
+  font-size: 17px; color: var(--platinum-hi);
+}
+.opt-modal-credit-tokens {
+  display: flex; align-items: baseline; gap: 6px;
+}
+.opt-modal-credit-tokens b {
+  font-family: var(--font-num); font-weight: 600; font-size: 28px;
+  color: var(--rose-gold-hi); line-height: 1;
+}
+.opt-modal-credit-tokens em {
+  font-family: var(--font-sans); font-weight: 600; font-style: normal;
+  font-size: 10.5px; letter-spacing: .22em; text-transform: uppercase;
+  color: var(--text-muted);
+}
+.opt-modal-credit-price {
+  font-family: var(--font-num); font-weight: 600; font-size: 16px;
+  color: var(--gold-hi);
+}
+
+/* Card packs row */
+.opt-modal-cards {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+}
+.opt-modal-cardpack {
+  position: relative;
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 16px 18px 14px;
+  text-align: left;
+  background: rgba(232,234,238,0.02);
+  border: 1px solid var(--divider);
+  border-radius: var(--r-lg);
+  cursor: pointer;
+  transition: all .3s var(--ease-brand);
+}
+.opt-modal-cardpack:hover { border-color: rgba(212,175,55,0.35); background: rgba(212,175,55,0.04); }
+.opt-modal-cardpack.is-featured {
+  border-color: rgba(212,175,55,0.5);
+  background: rgba(212,175,55,0.06);
+}
+.opt-modal-cardpack-name {
+  font-family: var(--font-serif); font-weight: 700; font-style: italic;
+  font-size: 16px; color: var(--platinum-hi);
+}
+.opt-modal-cardpack-stats {
+  display: flex; flex-wrap: wrap; gap: 8px 12px;
+  font-family: var(--font-sans); font-size: 11px;
+  letter-spacing: .04em;
+  color: var(--text-secondary);
+}
+.opt-modal-cardpack-stats b { color: var(--gold-hi); font-weight: 700; }
+.opt-modal-cardpack-stats .is-bonus { color: var(--rose-gold-hi); }
+.opt-modal-cardpack-price {
+  font-family: var(--font-num); font-weight: 600; font-size: 18px;
+  color: var(--platinum-hi);
+  margin-top: 2px;
+}
+.opt-modal-cardpack-price em {
+  display: block;
+  font-family: var(--font-sans); font-style: normal;
+  font-size: 10px; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--text-muted);
+  margin-top: 3px;
+}
+
+/* Referral row */
+.opt-modal-referral {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 28px; align-items: center;
+  padding: 22px 22px 22px;
+  background: rgba(200,139,134,0.05);
+  border: 1px solid rgba(200,139,134,0.22);
+  border-radius: var(--r-lg);
+}
+.opt-modal-referral-copy { display: flex; flex-direction: column; gap: 4px; }
+.opt-modal-referral-row { display: flex; gap: 10px; }
+.opt-modal-referral-row .opt-input { padding: 12px 14px; }
+
+.opt-modal-foot {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 16px;
+  margin-top: 24px;
+  padding-top: 18px;
+  border-top: 1px solid var(--divider);
+}
+.opt-modal-fx {
+  font-family: var(--font-serif); font-style: italic;
+  font-size: 13px; color: var(--text-muted);
+}
+.opt-modal-cancel { margin-left: auto; padding: 10px 18px; }
+
+/* ============================================================
+   Responsive
+   ============================================================ */
+@media (max-width: 1200px) {
+  .opt-tiles-inner { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 980px) {
+  .opt-tiles-inner { grid-template-columns: repeat(2, 1fr); }
+  .opt-pricing-grid,
+  .opt-pricing-grid-3,
+  .opt-modal-credits,
+  .opt-modal-cards { grid-template-columns: 1fr 1fr; }
+  .opt-pricing-grid-2 { grid-template-columns: 1fr 1fr; }
+  .opt-referral-inner { grid-template-columns: 1fr; gap: 28px; padding: 32px 28px; }
+  .opt-trf-grid { grid-template-columns: 1fr; }
+  .opt-modal-referral { grid-template-columns: 1fr; }
+}
+@media (max-width: 640px) {
+  .opt-head, .opt-tiles, .opt-pricing, .opt-referral, .opt-trf { padding-left: 24px; padding-right: 24px; }
+  .opt-tiles-inner { grid-template-columns: 1fr; }
+  .opt-pricing-grid,
+  .opt-pricing-grid-3,
+  .opt-pricing-grid-2,
+  .opt-modal-credits,
+  .opt-modal-cards { grid-template-columns: 1fr; }
+  .opt-modal { padding: 28px 22px; }
+}
+
+/* ============================================================
+   UNIFIED CARD PACKS
+   Try Risk-Free · Big Sender · Share the Love share one shell:
+   centred header → gold cost → How it works → scale picker → CTA
+   ============================================================ */
+.opt-pack-unified {
+  gap: 16px;
+  text-align: left;
+  border-width: 2.5px;
+  border-color: rgba(200,139,134,0.62);
+  box-shadow:
+    0 16px 40px rgba(0,0,0,0.45),
+    0 0 0 1.5px rgba(200,139,134,0.30),
+    inset 0 1px 0 rgba(255,235,225,0.06);
+}
+.opt-pack-unified:hover {
+  border-color: rgba(200,139,134,0.85);
+  box-shadow:
+    0 22px 50px rgba(0,0,0,0.55),
+    0 0 0 1.5px rgba(200,139,134,0.5),
+    inset 0 1px 0 rgba(255,235,225,0.10);
+}
+
+/* Two larger cards, centred on the page */
+.opt-pricing-grid-2c {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  max-width: 1020px;
+  margin-left: auto; margin-right: auto;
+  gap: 30px;
+  align-items: stretch;
+}
+.opt-pricing-grid-2c .opt-pack-unified {
+  padding: 28px 30px 26px;
+  gap: 14px;
+  border-radius: var(--r-xl);
+}
+.opt-pricing-grid-2c .opt-pk-head { gap: 9px; }
+.opt-pricing-grid-2c .opt-pk-name { font-size: 30px; }
+.opt-pricing-grid-2c .opt-pk-cost b { font-size: 42px; }
+.opt-pricing-grid-2c .opt-pk-cost-split { gap: 10px 32px; }
+.opt-pricing-grid-2c .opt-pk-cost-line b { font-size: 40px; }
+.opt-pricing-grid-2c .opt-pk-cost-line em { font-size: 15px; }
+.opt-pricing-grid-2c .opt-pk-lead { font-size: 14.5px; }
+.opt-pricing-grid-2c .opt-how-label { font-size: 15px; }
+.opt-pricing-grid-2c .opt-how-body { font-size: 13.5px; }
+
+/* Align the pricing row across both cards — equal-height block, prices centred */
+.opt-pricing-grid-2c .opt-pk-cost-split,
+.opt-pricing-grid-2c .opt-pack-tiers-hero {
+  min-height: 86px;
+  margin-top: 0;
+  align-items: center;
+}
+
+/* Fill the whole frame evenly — the How-it-works list grows to consume
+   leftover height, and each item shares that space equally. */
+.opt-pricing-grid-2c .opt-how { flex: 1; }
+.opt-pricing-grid-2c .opt-how-list { flex: 1; gap: 8px; }
+.opt-pricing-grid-2c .opt-how-list li {
+  flex: 1;
+  align-content: center;
+  padding: 12px 15px;
+}
+
+/* Tier pills — borderless & boxless, large figures to match Try Risk-Free */
+.opt-pack-unified .opt-pack-tiers-hero { gap: 8px; }
+.opt-pack-unified .opt-pack-tier {
+  border-color: transparent;
+  background: transparent;
+  padding: 8px 6px;
+  gap: 6px;
+}
+.opt-pack-unified .opt-pack-tier:hover {
+  border-color: transparent;
+  background: transparent;
+  transform: none;
+}
+.opt-pack-unified .opt-pack-tier.is-active {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+.opt-pack-unified .opt-pack-tiers-hero .opt-pack-tier-range { font-size: 12px; }
+.opt-pack-unified .opt-pack-tiers-hero .opt-pack-tier-price {
+  font-size: 40px; line-height: 1; color: var(--gold-hi);
+}
+.opt-pack-unified .opt-pack-tier-price em {
+  display: block; margin-top: 4px; font-size: 11px; color: var(--gold-mid);
+}
+
+/* "Send blank cards" toggle (Big Sender) */
+.opt-pk-blank {
+  display: flex; align-items: center; gap: 12px;
+  width: 100%; text-align: left;
+  padding: 13px 16px;
+  background: rgba(232,234,238,0.03);
+  border: 1px solid var(--divider);
+  border-radius: 14px;
+  cursor: pointer;
+  transition: border-color .2s var(--ease-brand), background .2s var(--ease-brand);
+}
+.opt-pk-blank:hover { border-color: rgba(212,175,55,0.4); }
+.opt-pk-blank.is-on { border-color: var(--gold-mid); background: rgba(212,175,55,0.08); }
+.opt-pk-blank-box {
+  flex: none;
+  width: 24px; height: 24px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1.5px solid var(--platinum-lo);
+  border-radius: 7px;
+  color: #1a1208;
+  transition: all .2s var(--ease-brand);
+}
+.opt-pk-blank-box svg { width: 15px; height: 15px; opacity: 0; transition: opacity .15s var(--ease-brand); }
+.opt-pk-blank.is-on .opt-pk-blank-box {
+  border-color: transparent;
+  background: linear-gradient(135deg, var(--gold-mid), var(--gold-hi));
+}
+.opt-pk-blank.is-on .opt-pk-blank-box svg { opacity: 1; }
+.opt-pk-blank-text { display: flex; flex-direction: column; gap: 2px; }
+.opt-pk-blank-text b {
+  font-family: var(--font-serif-alt); font-style: italic; font-weight: 500;
+  font-size: 15.5px; color: var(--platinum-hi);
+}
+.opt-pk-blank-text em {
+  font-style: italic; font-family: var(--font-serif); font-weight: 400;
+  font-size: 13px; line-height: 1.45; color: var(--text-muted);
+}
+
+@media (max-width: 980px) {
+  .opt-pricing-grid-2c { grid-template-columns: 1fr; max-width: 560px; }
+}
+
+/* — Header (name + meta + gold cost), centred — */
+.opt-pk-head {
+  display: flex; flex-direction: column; align-items: center;
+  text-align: center; gap: 8px;
+}
+.opt-pk-name {
+  font-family: var(--font-display, 'Outfit'), system-ui, sans-serif;
+  font-style: italic; font-weight: 500;
+  font-size: 30px; letter-spacing: -0.01em; line-height: 1.1;
+  color: var(--platinum-hi);
+  margin: 0;
+}
+.opt-pk-meta {
+  font-family: var(--font-sans); font-weight: 600; font-size: 10.5px;
+  letter-spacing: .2em; text-transform: uppercase;
+  color: var(--text-muted);
+  text-wrap: balance;
+}
+/* Meta line with rose-gold bullet separators */
+.opt-pk-meta-bullets {
+  display: flex; flex-wrap: wrap;
+  align-items: center; justify-content: center;
+  gap: 7px 11px;
+  text-wrap: balance;
+}
+.opt-pk-dot {
+  width: 5px; height: 5px; border-radius: 999px;
+  background: var(--rose-gold-hi);
+  box-shadow: 0 0 6px rgba(200,139,134,0.55);
+  flex: none;
+}
+
+/* Gold cost — single per-card price ($7.49 / card) */
+.opt-pk-cost {
+  display: inline-flex; align-items: baseline; gap: 8px;
+}
+.opt-pk-cost b {
+  font-family: var(--font-num); font-weight: 600;
+  font-size: 44px; line-height: 1; letter-spacing: -0.02em;
+  color: var(--gold-hi);
+  text-shadow: 0 0 24px rgba(212,175,55,0.18);
+}
+.opt-pk-cost em {
+  font-style: normal;
+  font-family: var(--font-sans); font-weight: 600; font-size: 11px;
+  letter-spacing: .14em; text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* Gold cost — split two-line variant ($9.99 / $2.00), shown side by side */
+.opt-pk-cost-split {
+  flex-direction: row; flex-wrap: nowrap;
+  align-items: flex-start; justify-content: center;
+  gap: 26px;
+}
+.opt-pk-cost-line {
+  display: inline-flex; flex-direction: column; align-items: center;
+  gap: 2px; text-align: center;
+}
+.opt-pk-cost-line b {
+  font-family: var(--font-num); font-weight: 600;
+  font-size: 38px; line-height: 1.05; letter-spacing: -0.02em;
+  color: var(--gold-hi);
+  text-shadow: 0 0 22px rgba(212,175,55,0.18);
+}
+.opt-pk-cost-line em {
+  font-style: italic; white-space: nowrap;
+  font-family: var(--font-serif); font-weight: 400; font-size: 15px;
+  letter-spacing: 0; text-transform: none;
+  color: var(--text-secondary);
+}
+/* Meta line constrained to wrap onto two lines under the heading */
+.opt-pk-meta-2line {
+  max-width: none;
+  margin-left: auto; margin-right: auto;
+  line-height: 1.55;
+}
+
+/* Lead line (Try Risk-Free) */
+.opt-pk-lead {
+  font-family: var(--font-serif); font-style: italic;
+  font-size: 14.5px; line-height: 1.55;
+  color: var(--text-secondary);
+  text-align: center;
+  margin: 0;
+  text-wrap: pretty;
+}
+.opt-pk-lead b { font-style: normal; font-weight: 600; color: var(--gold-hi); }
+
+.opt-pk-rule {
+  height: 1px;
+  background: linear-gradient(to right, transparent, rgba(232,234,238,.75), transparent);
+}
+
+/* — Shared "How it works" list — */
+.opt-how { display: flex; flex-direction: column; gap: 12px; flex: 1; }
+.opt-how-eyebrow {
+  display: flex; align-items: center; gap: 10px;
+  justify-content: center;
+  font-family: var(--font-sans); font-weight: 700; font-size: 10px;
+  letter-spacing: .28em; text-transform: uppercase;
+  color: var(--platinum-hi);
+}
+.opt-how-eyebrow .souv-rule-gold {
+  flex: 1;
+  background: linear-gradient(to right, transparent, var(--platinum-mid), var(--platinum-hi), var(--platinum-mid), transparent);
+}
+.opt-how-list {
+  list-style: none; padding: 0; margin: 0;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.opt-how-list li {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto auto;
+  column-gap: 12px; row-gap: 3px;
+  padding: 13px 15px;
+  background: rgba(20,14,4,0.30);
+  border: 1px solid rgba(212,175,55,0.16);
+  border-radius: 14px;
+}
+.opt-how-list li::before {
+  content: '';
+  grid-column: 1; grid-row: 1 / span 2;
+  align-self: start; margin-top: 7px;
+  width: 8px; height: 8px; border-radius: 999px;
+  background: linear-gradient(135deg, var(--gold-mid), var(--gold-hi));
+  box-shadow: 0 0 10px rgba(212,175,55,0.4);
+}
+.opt-how-label {
+  grid-column: 2; grid-row: 1;
+  font-family: var(--font-serif-alt); font-style: italic; font-weight: 500;
+  font-size: 15.5px; letter-spacing: -0.005em;
+  color: var(--platinum-hi);
+}
+.opt-how-body {
+  grid-column: 2; grid-row: 2;
+  font-family: var(--font-serif); font-style: italic; font-weight: 400;
+  font-size: 13.5px; line-height: 1.55;
+  color: var(--text-muted);
+  text-wrap: pretty;
+}
+.opt-how-body b { font-style: normal; font-weight: 600; color: inherit; }
+
+/* Big Sender tier prices — gold by default, rose-gold when active */
+.opt-pack-unified .opt-pack-tier-price { color: var(--gold-hi); }
+.opt-pack-unified .opt-pack-tier-price em { color: var(--gold-mid); }
+.opt-pack-unified .opt-pack-tier.is-active .opt-pack-tier-price { color: var(--rose-gold-hi); }
+.opt-pack-unified .opt-pack-tier.is-active .opt-pack-tier-price em { color: var(--rose-gold); }
+.opt-pack-unified .opt-pack-tier.is-active .opt-pack-tier-range { color: var(--rose-gold-hi); }
+
+/* Scale-picker helper line */
+.opt-pk-helper {
+  font-family: var(--font-serif); font-style: italic; font-size: 13px;
+  line-height: 1.5; color: var(--text-muted); text-align: center;
+}
+.opt-pk-helper b { font-style: normal; color: var(--gold-hi); font-family: var(--font-num); font-weight: 600; }
+
+.opt-pk-cta { align-self: stretch; margin-top: 2px; }
+
+/* Running total merged into the qty row (middle) */
+.opt-pk-row-total {
+  font-family: var(--font-num); font-weight: 600;
+  font-size: 24px; letter-spacing: -0.01em;
+  color: var(--rose-gold-hi);
+  white-space: nowrap;
+}
+
+@media (max-width: 880px) {
+  .opt-pk-cost-line b { min-width: 0; text-align: center; }
+}
+
+/* ============================================================
+   PRICING NUMERALS — signature gold / rose-gold metallic shimmer
+   Same treatment as the site-wide .text-metallic-* accents so the
+   prices and credit figures shimmer in matching gold + rose gold.
+   ============================================================ */
+.opt-pack-gold .opt-pack-price,
+.opt-pack-platinum .opt-pack-price,
+.opt-pack-rose .opt-pack-price,
+.opt-pk-cost b,
+.opt-pk-cost-line b,
+.opt-pack-unified .opt-pack-tier-price {
+  background-image: linear-gradient(90deg, #B48A20 0%, #E2C050 22%, #F8E088 38%, #D4A830 52%, #F4D870 68%, #D0A020 82%, #A07818 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; color: transparent;
+  animation: souvenote-shimmer 14s linear infinite;
+}
+.opt-pack-stats li.opt-pack-stat-big b,
+.opt-pk-row-total,
+.opt-pack-unified .opt-pack-tier.is-active .opt-pack-tier-price {
+  background-image: linear-gradient(90deg, #A06058 0%, #D8958C 22%, #E8C0B6 38%, #C88680 52%, #E0ACA2 68%, #C48478 82%, #9A5048 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; color: transparent;
+  animation: souvenote-shimmer 14s linear infinite;
+}
+/* Keep the small "/ card" unit a solid metallic tone, not clipped to the gradient */
+.opt-pack-unified .opt-pack-tier-price em {
+  -webkit-text-fill-color: var(--gold-mid); color: var(--gold-mid);
+}
+.opt-pack-unified .opt-pack-tier.is-active .opt-pack-tier-price em {
+  -webkit-text-fill-color: var(--rose-gold); color: var(--rose-gold);
+}
+
+/* ============================================================
+   PRICING OVERRIDES — gold prices + rose-gold option buttons
+   ============================================================ */
+/* All pack prices render gold (credit packs + single-send packs) */
+.opt-pack-rose .opt-pack-price,
+.opt-pack-platinum .opt-pack-price { color: var(--gold-hi); }
+
+/* Card-packs section heading — 55px, two lines */
+.opt-pricing-head .opt-h2.opt-h2-cardpacks { font-size: 55px; line-height: 1.06; }
+
+/* AI-credits section heading — 55px */
+.opt-pricing-head .opt-h2.opt-h2-topup { font-size: 55px; line-height: 1.06; }
+
+/* Every option CTA is rose gold (overrides the gold/outline variants) */
+.opt-pack-cta,
+.opt-pack-cta.is-gold,
+.opt-pk-cta,
+.opt-pk-cta.is-gold {
+  color: #2a1015;
+  background: linear-gradient(120deg,#F4D6D0,#C88B86,#E7BBB4,#C88B86,#F4D6D0);
+  background-size: 240% 240%;
+  animation: souvenote-surface-pan 12s ease-in-out infinite;
+  border-color: transparent;
+  box-shadow: 0 6px 18px rgba(200,139,134,.28), inset 0 1px 0 rgba(255,235,225,.6);
+}
+.opt-pack-cta:hover,
+.opt-pack-cta.is-gold:hover,
+.opt-pk-cta:hover,
+.opt-pk-cta.is-gold:hover {
+  color: #2a1015;
+  border-color: transparent;
+  transform: translateY(-1px);
+  background: linear-gradient(120deg,#F4D6D0,#C88B86,#E7BBB4,#C88B86,#F4D6D0);
+  background-size: 240% 240%;
+  box-shadow: 0 10px 26px rgba(200,139,134,.42), inset 0 1px 0 rgba(255,235,225,.7);
+}

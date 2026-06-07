@@ -1,0 +1,587 @@
+/* ============================================================
+   Souvenote — Colors & Type
+   Single source of truth. Root tokens + semantic helpers.
+   Imported by every preview card, UI kit, and slide.
+   ============================================================ */
+
+/* Type system — Outfit carries everything (display, UI, body, numerals);
+   Lobster is the wordmark / script only. */
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Lobster&display=swap');
+
+/* ── Core tokens ────────────────────────────────────── */
+:root {
+  /* ── Backgrounds (warm near‑black) ── */
+  --bg-deep:     #050507;
+  --bg-primary:  #08080B;
+  --bg-cream:    #101014;
+
+  /* ── Text ── */
+  --text-primary:   #E8EAEE;
+  --text-secondary: #B4B8C1;
+  --text-muted:     #7C818B;
+  --text-inverse:   #0B0B0F;  /* text on gold / silver buttons */
+
+  /* ── Gold — primary accent ── */
+  --gold:    #D4AF37;
+  --gold-hi: #F1D074;
+  --gold-lo: #8A7224;
+
+  /* ── Platinum / silver — chrome ── */
+  --platinum-hi:  #E8EAEE;
+  --platinum-mid: #B4B8C1;
+  --platinum-lo:  #5A5F68;
+
+  /* ── Rose gold — emotional accent ── */
+  --rose-gold:    #C88B86;
+  --rose-gold-hi: #E5B8B1;
+  --rose-gold-lo: #9E7E4F;
+
+  /* Primary CTA gradient stops */
+  --btn-top:  var(--gold-hi);
+  --btn-mid:  var(--gold);
+  --btn-base: var(--gold-lo);
+
+  /* ── Utility / chrome ── */
+  --divider:      rgba(232,234,238,0.08);
+  --divider-soft: rgba(232,234,238,0.04);
+  --glass:        rgba(10,10,14,0.72);
+  --glass-strong: rgba(10,10,14,0.95);
+  --glass-border: rgba(232,234,238,0.08);
+
+  /* ── State ── */
+  --danger:      #D9685C;
+  --danger-soft: rgba(217,104,92,0.14);
+
+  /* ── Shadows ── */
+  --shadow-nav:     0 6px 24px rgba(0,0,0,0.35), 0 1px 4px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.04);
+  --shadow-nav-scroll: 0 12px 40px rgba(0,0,0,0.45), 0 2px 10px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.04);
+  --shadow-card:    0 16px 40px rgba(0,0,0,0.55), 0 2px 8px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04);
+  --shadow-hero:    0 36px 90px rgba(0,0,0,0.65);
+  --shadow-gold-cta: 0 2px 10px rgba(212,175,55,0.22), inset 0 1px 0 rgba(255,235,180,0.45);
+  --shadow-gold-cta-hover: 0 10px 28px rgba(212,175,55,0.35), inset 0 1px 0 rgba(255,245,210,0.5);
+
+  /* ── Radii ── */
+  --r-sm: 6px;
+  --r-md: 8px;
+  --r-lg: 12px;
+  --r-xl: 16px;
+  --r-2xl: 24px;
+  --r-pill: 9999px;
+
+  /* ── Spacing scale (8 px base) ── */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 24px;
+  --s-6: 32px;
+  --s-7: 48px;
+  --s-8: 64px;
+  --s-9: 96px;
+  --s-10: 128px;
+
+  /* ── Motion ── */
+  --ease-brand: cubic-bezier(0.22, 1, 0.36, 1); /* @kind other */
+  --dur-fast:  0.2s;  /* @kind other */
+  --dur-base:  0.35s; /* @kind other */
+  --dur-slow:  0.7s;  /* @kind other */
+  --dur-reveal: 0.9s; /* @kind other */
+
+  /* ── Type families — SINGLE SOURCE OF TRUTH ──
+     Outfit (geometric sans) carries everything; Lobster is the wordmark only.
+     Loaded by the @import at the top of this file, so every page that links
+     colors_and_type.css gets identical fonts — no per-page <link> needed. ── */
+  --font-display:   'Outfit', ui-sans-serif, system-ui, sans-serif;  /* hero + section headings */
+  --font-wordmark:  'Lobster', cursive;                              /* large logo / wordmark only */
+  --font-serif:     'Outfit', ui-sans-serif, system-ui, sans-serif;  /* body + editorial */
+  --font-serif-alt: 'Outfit', ui-sans-serif, system-ui, sans-serif;  /* FAQ questions */
+  --font-sans:      'Outfit', ui-sans-serif, system-ui, sans-serif;  /* UI + body small + buttons */
+  --font-num:       'Outfit', ui-sans-serif, system-ui, sans-serif;  /* step numbers */
+}
+
+/* ============================================================
+   TYPOGRAPHY — semantic classes
+   Use these instead of inline font-size / weight in previews.
+   ============================================================ */
+
+/* Display wordmark — the Souvenote script. Use for logos + hero. */
+.t-wordmark {
+  font-family: var(--font-wordmark); /* Lobster script — the actual wordmark face */
+  font-weight: 400;
+  font-size: clamp(2.5rem, 4.5vw, 6rem);
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  color: var(--platinum-hi);
+}
+
+/* Hero — Outfit display with a metallic italic accent word */
+.t-hero {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: clamp(2.5rem, 4.5vw, 6rem);
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  color: var(--platinum-hi);
+}
+.t-hero .accent,
+.t-accent {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-weight: 400;
+}
+
+/* h1 — section heading (Lobster script feel) */
+.t-h1 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: clamp(2.4rem, 5vw, 4.9rem);
+  line-height: 1.07;
+  letter-spacing: -0.02em;
+  color: var(--platinum-hi);
+}
+
+/* h2 — secondary heading, serif italic‑ready */
+.t-h2 {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  font-size: clamp(1.75rem, 3vw, 2.75rem);
+  line-height: 1.15;
+  letter-spacing: -0.015em;
+  color: var(--platinum-hi);
+}
+
+/* h3 */
+.t-h3 {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  font-size: clamp(1.25rem, 1.8vw, 1.5rem);
+  line-height: 1.3;
+  color: var(--platinum-hi);
+}
+
+/* Body — long-form editorial copy */
+.t-body {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  font-size: 1.0625rem;
+  line-height: 1.7;
+  letter-spacing: 0.01em;
+  color: var(--text-secondary);
+}
+.t-body-sm {
+  font-family: var(--font-sans);
+  font-weight: 300;
+  font-size: 0.9375rem;
+  line-height: 1.65;
+  letter-spacing: 0.02em;
+  color: var(--text-secondary);
+}
+
+/* FAQ question — Outfit */
+.t-faq-q {
+  font-family: var(--font-serif-alt);
+  font-weight: 400;
+  font-size: 1.0625rem;
+  line-height: 1.4;
+  letter-spacing: -0.01em;
+  color: var(--platinum-hi);
+}
+
+/* Eyebrow / section label — ALL CAPS, wide tracking */
+.t-eyebrow,
+.section-label {
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: 10px;
+  line-height: 1;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+
+/* Button label */
+.t-btn {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 10.5px;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+}
+.t-btn-lg {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* Nav link */
+.t-nav {
+  font-family: var(--font-sans);
+  font-weight: 500;
+  font-size: 10.5px;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: var(--platinum-mid);
+}
+
+/* Microcopy / chip / badge */
+.t-micro {
+  font-family: var(--font-sans);
+  font-weight: 500;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* Caption — small italic under an image */
+.t-caption {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  font-style: italic;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+/* ============================================================
+   METALLIC TEXT — signature shimmer gradients
+   ============================================================ */
+@keyframes souvenote-shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+.text-metallic-gold,
+.text-metallic-silver,
+.text-metallic-rose-gold {
+  /* Keep inline so the gradient paints across italic tails without an
+     inline-block box that clips serif overhang. */
+  display: inline;
+  padding: 0 0.08em 0.18em 0;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  background-size: 200% auto;
+  animation: souvenote-shimmer 14s linear infinite;
+}
+.text-metallic-gold {
+  background-image: linear-gradient(90deg, #B48A20 0%, #E2C050 22%, #F8E088 38%, #D4A830 52%, #F4D870 68%, #D0A020 82%, #A07818 100%);
+}
+/* Silver — brightest stops lifted so italic tails on dark bg stay visible. */
+.text-metallic-silver {
+  background-image: linear-gradient(90deg, #A6ADB8 0%, #F4F5F7 22%, #FFFFFF 38%, #CFD4DB 52%, #FFFFFF 68%, #D8DCE2 82%, #A0A6B0 100%);
+}
+.text-metallic-rose-gold {
+  background-image: linear-gradient(90deg, #A06058 0%, #D8958C 22%, #E8C0B6 38%, #C88680 52%, #E0ACA2 68%, #C48478 82%, #9A5048 100%);
+}
+
+/* ============================================================
+   BUTTON SYSTEM — gold primary / matte / platinum / ghost
+   ============================================================ */
+/* Primary CTA — the brand's #1 action (gold gradient) */
+.btn-gold {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 14px 36px;
+  border-radius: var(--r-pill);
+  color: var(--text-inverse);
+  background: linear-gradient(to bottom, var(--btn-top), var(--btn-mid), var(--btn-base));
+  box-shadow: var(--shadow-gold-cta);
+  border: 1px solid rgba(255,235,180,0.45);
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: all var(--dur-base) var(--ease-brand);
+}
+.btn-gold:hover { transform: translateY(-2px); box-shadow: var(--shadow-gold-cta-hover); }
+.btn-gold:active { transform: translateY(0); }
+
+.btn-matte {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 14px 36px;
+  border-radius: var(--r-pill);
+  color: var(--platinum-hi);
+  background: rgba(232,234,238,0.06);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+  border: 1px solid var(--platinum-mid);
+  transition: all var(--dur-base) var(--ease-brand);
+}
+.btn-matte:hover {
+  background: rgba(232,234,238,0.11);
+  border-color: var(--platinum-hi);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 26px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.12);
+}
+.btn-matte:active { transform: translateY(0); }
+
+.btn-platinum {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 14px 36px;
+  border-radius: var(--r-pill);
+  color: var(--text-inverse);
+  background: linear-gradient(to bottom, var(--platinum-hi), var(--platinum-mid), #7C818B);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.25);
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+  border: 0;
+  transition: all var(--dur-base) var(--ease-brand);
+}
+.btn-platinum:hover {
+  background: linear-gradient(to bottom, #F1F3F7, #C7CBD3, #7C818B);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 22px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.3);
+}
+
+.btn-ghost {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 14px 32px;
+  border-radius: var(--r-pill);
+  color: var(--platinum-mid);
+  background: rgba(232,234,238,0.02);
+  border: 1px solid var(--platinum-lo);
+  cursor: pointer;
+  transition: all var(--dur-base) var(--ease-brand);
+}
+.btn-ghost:hover {
+  color: var(--platinum-hi);
+  border-color: var(--platinum-hi);
+  background: rgba(232,234,238,0.05);
+}
+
+/* ============================================================
+   INPUTS
+   ============================================================ */
+.input-dark {
+  width: 100%;
+  padding: 12px 16px;
+  border-radius: var(--r-md);
+  background: var(--bg-cream);
+  border: 1px solid rgba(183,110,121,0.2);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  outline: none;
+  transition: border-color var(--dur-fast) ease;
+}
+.input-dark::placeholder { color: var(--text-muted); }
+.input-dark:focus { border-color: var(--rose-gold); }
+
+/* Textarea — multiline, shares the input look */
+.textarea-dark {
+  width: 100%;
+  min-height: 92px;
+  padding: 12px 16px;
+  border-radius: var(--r-md);
+  background: var(--bg-cream);
+  border: 1px solid rgba(183,110,121,0.2);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.6;
+  resize: vertical;
+  outline: none;
+  transition: border-color var(--dur-fast) ease;
+}
+.textarea-dark::placeholder { color: var(--text-muted); }
+.textarea-dark:focus { border-color: var(--rose-gold); }
+
+/* Select — dark dropdown with custom caret */
+.select-dark {
+  width: 100%;
+  padding: 12px 40px 12px 16px;
+  border-radius: var(--r-md);
+  background-color: var(--bg-cream);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237C818B' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  background-size: 16px;
+  border: 1px solid rgba(183,110,121,0.2);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  outline: none;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  transition: border-color var(--dur-fast) ease;
+}
+.select-dark:focus { border-color: var(--rose-gold); }
+
+/* Field label + helper / error text */
+.field-label {
+  display: block;
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--platinum-mid);
+  margin-bottom: 8px;
+}
+.field-help { font-family: var(--font-sans); font-size: 12px; color: var(--text-muted); margin-top: 6px; }
+
+/* Error state */
+.input-dark.is-error,
+.textarea-dark.is-error,
+.select-dark.is-error { border-color: var(--danger); background-color: var(--danger-soft); }
+.field-error { font-family: var(--font-sans); font-size: 12px; color: var(--danger); margin-top: 6px; }
+
+/* Toggle switch */
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--text-secondary);
+  user-select: none;
+}
+.toggle input { position: absolute; opacity: 0; width: 0; height: 0; }
+.toggle .track {
+  position: relative;
+  flex: none;
+  width: 42px;
+  height: 24px;
+  border-radius: var(--r-pill);
+  background: rgba(232,234,238,0.08);
+  border: 1px solid var(--glass-border);
+  transition: all var(--dur-base) var(--ease-brand);
+}
+.toggle .knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--platinum-mid);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.45);
+  transition: all var(--dur-base) var(--ease-brand);
+}
+.toggle input:checked + .track {
+  background: linear-gradient(to bottom, var(--gold-hi), var(--gold-lo));
+  border-color: var(--gold);
+}
+.toggle input:checked + .track .knob { left: 22px; background: var(--text-inverse); }
+.toggle input:focus-visible + .track { box-shadow: 0 0 0 3px rgba(212,175,55,0.3); }
+
+/* ============================================================
+   ORNAMENTS — signature gold/platinum dividers
+   ============================================================ */
+.ornament-divider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 2rem 0;
+}
+.ornament-divider::before,
+.ornament-divider::after {
+  content: '';
+  height: 1px;
+  width: 80px;
+  background: linear-gradient(to right, transparent, var(--platinum-mid), var(--gold), var(--platinum-mid), transparent);
+}
+.ornament-divider .diamond {
+  width: 5px;
+  height: 5px;
+  background: var(--rose-gold);
+  transform: rotate(45deg);
+}
+
+/* Hairline gradient divider, horizontal */
+.rule-gold {
+  height: 1px;
+  background: linear-gradient(to right, transparent, var(--platinum-mid), var(--gold), var(--platinum-mid), transparent);
+}
+
+/* Stamp corner L-shapes */
+.stamp-corner {
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  border-color: var(--gold);
+  opacity: 0.4;
+  pointer-events: none;
+}
+.stamp-corner-tl { top: 12px; left: 12px; border-top: 2px solid; border-left: 2px solid; }
+.stamp-corner-tr { top: 12px; right: 12px; border-top: 2px solid; border-right: 2px solid; }
+.stamp-corner-bl { bottom: 12px; left: 12px; border-bottom: 2px solid; border-left: 2px solid; }
+.stamp-corner-br { bottom: 12px; right: 12px; border-bottom: 2px solid; border-right: 2px solid; }
+
+/* ============================================================
+   ANIMATED GRADIENT SURFACES (for cards, chips, frames)
+   Implementation of the "gold / silver / rose-gold animated
+   gradients you see in the logo" directive.
+   ============================================================ */
+@keyframes souvenote-surface-pan {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+.surface-gold-animated {
+  background: linear-gradient(120deg, #A07828 0%, #D4BB7E 25%, #F4D870 45%, #EEDDAA 55%, #C8A844 72%, #A07828 100%);
+  background-size: 220% 220%;
+  animation: souvenote-surface-pan 18s ease-in-out infinite;
+}
+.surface-silver-animated {
+  background: linear-gradient(120deg, #9EAAB6 0%, #C8D4DC 25%, #E8EEF2 45%, #F4F7F9 55%, #C4CDD4 72%, #9EAAB6 100%);
+  background-size: 220% 220%;
+  animation: souvenote-surface-pan 22s ease-in-out infinite;
+}
+.surface-rosegold-animated {
+  background: linear-gradient(120deg, #B8896A 0%, #D9A28A 22%, #F0C8B0 44%, #F8DDC9 56%, #D9A28A 74%, #B8896A 100%);
+  background-size: 220% 220%;
+  animation: souvenote-surface-pan 26s ease-in-out infinite;
+}
+.surface-trimetal-animated {
+  background: linear-gradient(120deg,
+    #D4AF37 0%, #F1D074 15%,        /* gold */
+    #E8EAEE 30%, #FFFFFF 42%,       /* silver */
+    #E5B8B1 58%, #C88B86 72%,       /* rose gold */
+    #F1D074 88%, #D4AF37 100%);     /* back to gold */
+  background-size: 300% 300%;
+  animation: souvenote-surface-pan 28s ease-in-out infinite;
+}
+
+/* ============================================================
+   GLASS CARD
+   ============================================================ */
+.glass-card {
+  background: var(--glass);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--r-xl);
+  transition: all 0.5s var(--ease-brand);
+}
+
+/* ============================================================
+   PAGE BASE — quick reset for previews
+   ============================================================ */
+.souvenote-dark {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-serif);
+}

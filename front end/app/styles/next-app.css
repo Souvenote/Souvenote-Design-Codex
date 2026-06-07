@@ -1,0 +1,27 @@
+/* Next.js app integration helpers. Keep visual styling in the converted handoff CSS files. */
+html { scroll-behavior: smooth; }
+
+body { min-height: 100vh; }
+
+.souv-route-shell {
+  min-height: 100vh;
+  position: relative;
+}
+
+.souv-route-page {
+  min-height: 100vh;
+  position: relative;
+}
+
+a.souv-cta-flow,
+a.souv-btn-colorful,
+a.souv-btn-log,
+a.auth-submit,
+a.auth-submit-secondary,
+a.opt-pack-cta,
+a.souv-cardbank-sendlink,
+a.opt-back {
+  text-decoration: none;
+}
+
+.opt-pricing-page .opt-pricing:first-of-type { padding-top: 132px; }
