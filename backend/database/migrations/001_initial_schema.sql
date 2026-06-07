@@ -189,3 +189,49 @@ CREATE TABLE audit_logs (
     metadata JSONB,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- pricing_catalog
+-- Purpose: Stores active pricing offers shown to users.
+-- id: Unique ID for the pricing record.
+-- offer_code: Stable code used by the backend, such as try_risk_free_one_card.
+-- name: User-facing offer name.
+-- offer_type: Type of offer, such as try_risk_free or big_sender.
+-- price_cents: Price per card in cents.
+-- currency: Currency for the offer.
+-- card_count_min: Minimum number of cards for this offer.
+-- card_count_max: Maximum number of cards for this offer.
+-- credits_per_card: Number of AI credits included per card.
+-- shipping_included: Whether shipping is included in the price.
+-- is_active: Whether this offer should be returned by the API.
+-- metadata: Extra pricing behavior, such as hold days or no-send fee.
+-- created_at: When the pricing record was created.
+-- updated_at: When the pricing record was last updated.
+CREATE TABLE pricing_catalog (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    offer_code VARCHAR(255) NOT NULL UNIQUE,
+    name VARCHAR(255) NOT NULL,
+    offer_type VARCHAR(100) NOT NULL,
+    price_cents INTEGER NOT NULL,
+    currency VARCHAR(10) NOT NULL DEFAULT 'usd',
+    card_count_min INTEGER NOT NULL,
+    card_count_max INTEGER NOT NULL,
+    credits_per_card INTEGER NOT NULL DEFAULT 10,
+    shipping_included BOOLEAN NOT NULL DEFAULT TRUE,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    metadata JSONB,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+
+-- indexes
+-- Purpose: Speeds up common backend queries.
+CREATE INDEX idx_credit_ledger_user_id ON credit_ledger(user_id);
+CREATE INDEX idx_card_drafts_user_id ON card_drafts(user_id);
+CREATE INDEX idx_generation_jobs_user_id ON generation_jobs(user_id);
+CREATE INDEX idx_generation_jobs_card_draft_id ON generation_jobs(card_draft_id);
+CREATE INDEX idx_assets_user_id ON assets(user_id);
+CREATE INDEX idx_assets_card_draft_id ON assets(card_draft_id);
+CREATE INDEX idx_orders_user_id ON orders(user_id);
+CREATE INDEX idx_payments_user_id ON payments(user_id);
+CREATE INDEX idx_audit_logs_user_id ON audit_logs(user_id);
