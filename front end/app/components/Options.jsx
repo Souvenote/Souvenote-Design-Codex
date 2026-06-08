@@ -4,7 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { StampCorners } from "./Ornaments";
 
-// Options.jsx — DEDICATED to the "With Credits" view (index.html + options.html).
+// Options.jsx — dedicated to the create-options, pricing, referral, and modal surfaces.
 // Independent copy: edits here do NOT affect the "0 Credits · Modal" view (Options.intercept.jsx).
 // Tiles · Referral · Card Packs · AI Credit Packs · (optional) Pricing modal.
 
@@ -129,7 +129,7 @@ function OptionsHeader({ user, credits, lowBalance }) {
 // ============================================================
 // SECTION — TILE GRID (2×2)
 // ============================================================
-function TileGrid({ credits, onGated = undefined }) {
+function TileGrid({ credits, cardBank = 0, onGated = undefined, onSelect = undefined }) {
   const TILES = [
     {
       id: 'personalize',
@@ -137,7 +137,9 @@ function TileGrid({ credits, onGated = undefined }) {
       title: 'Personalize a Template',
       sub: 'Need inspiration? Personalize one of our pre-built cards like Horoscope or Comic cards!',
       gated: true,
+      requiresCredits: true,
       badge: 'Most popular',
+      href: '/create/personalize-a-template',
     },
     {
       id: 'build',
@@ -145,6 +147,8 @@ function TileGrid({ credits, onGated = undefined }) {
       title: 'Build My Card',
       sub: 'Have your own idea? Answer a few questions and watch your card come to life.',
       gated: true,
+      requiresCredits: true,
+      href: '/create/build-my-card',
     },
     {
       id: 'community',
@@ -152,6 +156,7 @@ function TileGrid({ credits, onGated = undefined }) {
       title: 'Community Cards',
       sub: 'Browse, send, or remix cards shared by the Souvenote community.',
       gated: false,
+      href: '/create/community-cards',
     },
     {
       id: 'library',
@@ -159,6 +164,7 @@ function TileGrid({ credits, onGated = undefined }) {
       title: 'My Cards & Songs',
       sub: 'Resume a draft. Re-send a saved card. Queue another song.',
       gated: false,
+      href: '/create/my-cards-and-songs',
     },
   ];
 
@@ -166,12 +172,23 @@ function TileGrid({ credits, onGated = undefined }) {
     <section className="opt-tiles" data-screen-label="02 Tile Grid">
       <div className="opt-tiles-inner">
         {TILES.map((t) => {
-          const locked = t.gated && credits === 0;
+          const locked = t.requiresCredits && credits === 0;
           return (
-            <button
+            <Link
               key={t.id}
+              href={t.href}
               className={`opt-tile opt-tile-${t.tone} ${locked ? 'is-locked' : ''}`}
-              onClick={() => locked && onGated && onGated(t)}
+              onClick={(event) => {
+                if (onSelect) {
+                  event.preventDefault();
+                  onSelect(t, { credits, cardBank, locked });
+                  return;
+                }
+                if (locked) {
+                  event.preventDefault();
+                  if (onGated) onGated(t);
+                }
+              }}
               aria-label={t.title}
             >
               <span className="opt-tile-surface" aria-hidden="true"></span>
@@ -196,7 +213,7 @@ function TileGrid({ credits, onGated = undefined }) {
                   <LockGlyph />
                 </span>
               )}
-            </button>
+            </Link>
           );
         })}
       </div>
@@ -759,86 +776,132 @@ function RiskFreeCallout({ inline }) {
 // ============================================================
 // MODAL — Pricing + Referral (hard intercept variant)
 // ============================================================
-function PricingReceiveModal({ open, onClose, currency }) {
+function PricingReceiveModal({ open, onClose, currency, mode = 'full' }) {
   if (!open) return null;
+  const safeMode = ['full', 'credits', 'cards'].includes(mode) ? mode : 'full';
+  const showCredits = safeMode !== 'cards';
+  const showCards = safeMode !== 'credits';
+  const showReferral = safeMode !== 'cards';
+  const modalCopy = {
+    full: {
+      eyebrow: 'NO CREDITS OR CARDS YET - ADD A PACK TO CONTINUE',
+      title: (
+        <>
+          Pick up a{' '}
+          <span className="souv-hero-italic text-metallic-gold">pack,</span>{' '}
+          or invite a{' '}
+          <span className="souv-hero-italic text-metallic-rose-gold">friend</span>
+        </>
+      ),
+      sub: 'Choose a card pack to unlock physical sends with credits included, or top up AI credits only. When payment is connected, users should land back on the path they tapped.',
+      cancel: 'Not yet - back to options',
+    },
+    credits: {
+      eyebrow: 'OUT OF CREDITS - TOP UP TO CONTINUE',
+      title: (
+        <>
+          Add{' '}
+          <span className="souv-hero-italic text-metallic-gold">AI credits</span>{' '}
+          to keep generating
+        </>
+      ),
+      sub: 'One credit equals one action for song creation, design generation, or image editing. Card-bank sends can stay available while generation waits for credits.',
+      cancel: 'Not yet - back to creating',
+    },
+    cards: {
+      eyebrow: 'NO CARDS AVAILABLE - ADD CARDS TO SEND',
+      title: (
+        <>
+          Add a{' '}
+          <span className="souv-hero-italic text-metallic-gold">card pack</span>{' '}
+          before delivery
+        </>
+      ),
+      sub: 'Sending a finished or community card requires at least one card in the user card bank. Card packs include shipping and AI credits where noted.',
+      cancel: 'Not yet - back to delivery',
+    },
+  }[safeMode];
+
   return (
-    <div className="opt-modal-wrap" role="dialog" aria-modal="true" aria-labelledby="m-title" data-screen-label="07 Modal_Pricing_Referral">
+    <div className="opt-modal-wrap" role="dialog" aria-modal="true" aria-labelledby="m-title" data-screen-label={`07 Modal_${safeMode}`}>
       <div className="opt-modal-scrim" onClick={onClose} />
-      <div className="opt-modal">
+      <div className={`opt-modal opt-modal-${safeMode}`}>
         <button className="opt-modal-close" aria-label="Close" onClick={onClose}>
           <IconClose />
         </button>
         <header className="opt-modal-head">
-          <div className="souv-eyebrow opt-eyebrow">NO CREDITS YET · ADD ONE TO CONTINUE</div>
-          <h2 id="m-title" className="opt-modal-title">
-            Pick up a{' '}
-            <span className="souv-hero-italic text-metallic-gold">pack,</span>{' '}
-            or invite a{' '}
-            <span className="souv-hero-italic text-metallic-rose-gold">friend</span>
-          </h2>
-          <p className="opt-modal-sub">
-            One credit equals one action. You can top up here without leaving — when payment
-            confirms, you land back on the path you tapped.
-          </p>
+          <div className="souv-eyebrow opt-eyebrow">{modalCopy.eyebrow}</div>
+          <h2 id="m-title" className="opt-modal-title">{modalCopy.title}</h2>
+          <p className="opt-modal-sub">{modalCopy.sub}</p>
         </header>
 
         <div className="opt-modal-body">
-          <div className="opt-modal-section">
-            <div className="opt-modal-section-title">
-              <IconToken />
-              <span>AI Credit Packs</span>
-            </div>
-            <div className="opt-modal-credits">
-              {AI_PACKS.map((p) => (
-                <button key={p.id} className={`opt-modal-credit ${p.featured ? 'is-featured' : ''}`}>
-                  {p.featured && <span className="opt-modal-credit-badge"><IconStar /></span>}
-                  <div className="opt-modal-credit-name">{p.name}</div>
-                  <div className="opt-modal-credit-tokens">
-                    <b>{p.tokens}</b>
-                    <em>credits</em>
-                  </div>
-                  <div className="opt-modal-credit-price">{p.price}</div>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="opt-modal-section">
-            <div className="opt-modal-section-title">
-              <IconGift />
-              <span>Card Packs · credits included</span>
-            </div>
-            <div className="opt-modal-cards">
-              {CARD_PACKS.filter(p => ['trf','tiered','family'].includes(p.id)).map((p) => (
-                <button key={p.id} className={`opt-modal-cardpack ${p.featured ? 'is-featured' : ''}`}>
-                  {p.featured && <span className="opt-modal-credit-badge"><IconStar /></span>}
-                  <div className="opt-modal-cardpack-name">{p.name}</div>
-                  <div className="opt-modal-cardpack-stats">
-                    <span><b>{p.tokens || p.creditsPerCard}</b> credits</span>
-                    <span><b>{p.cards ? p.cards.replace(' physical 5×7','') : `${p.minCards}+`}</b> cards</span>
-                  </div>
-                  <div className="opt-modal-cardpack-price">{p.price || (p.pricePerCard ? `$${p.pricePerCard}` : '')}<em>{p.priceUnit}</em></div>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="opt-modal-section opt-modal-referral">
-            <div className="opt-modal-referral-copy">
+          {showCredits && (
+            <div className="opt-modal-section">
               <div className="opt-modal-section-title">
-                <IconCommunity />
-                <span>Or invite a friend and earn 3 credits</span>
+                <IconToken />
+                <span>AI Credit Packs</span>
               </div>
-              <p className="opt-modal-sub opt-modal-sub-tight">
-                Send one invite, get three credits when they sign up. Enough for an image, a song,
-                and a retry — instantly.
-              </p>
+              <div className="opt-modal-credits">
+                {AI_PACKS.map((p) => (
+                  <button key={p.id} className={`opt-modal-credit ${p.featured ? 'is-featured' : ''}`}>
+                    {p.featured && <span className="opt-modal-credit-badge"><IconStar /></span>}
+                    <div className="opt-modal-credit-name">{p.name}</div>
+                    <div className="opt-modal-credit-tokens">
+                      <b>{p.tokens}</b>
+                      <em>credits</em>
+                    </div>
+                    <div className="opt-modal-credit-price">{p.price}</div>
+                  </button>
+                ))}
+              </div>
             </div>
-            <div className="opt-modal-referral-row">
-              <input type="email" className="opt-input" placeholder="friend@example.com" />
-              <button type="button" className="souv-cta-flow"><span>Invite</span></button>
+          )}
+
+          {showCards && (
+            <div className="opt-modal-section">
+              <div className="opt-modal-section-title">
+                <IconGift />
+                <span>Card Packs - credits included</span>
+              </div>
+              <div className="opt-modal-cards">
+                {CARD_PACKS.filter(p => ['trf','tiered','family'].includes(p.id)).map((p) => {
+                  const cardCount = p.cards ? p.cards.split(' ')[0] : `${p.minCards}+`;
+
+                  return (
+                    <button key={p.id} className={`opt-modal-cardpack ${p.featured ? 'is-featured' : ''}`}>
+                      {p.featured && <span className="opt-modal-credit-badge"><IconStar /></span>}
+                      <div className="opt-modal-cardpack-name">{p.name}</div>
+                      <div className="opt-modal-cardpack-stats">
+                        <span><b>{p.tokens || p.creditsPerCard}</b> credits</span>
+                        <span><b>{cardCount}</b> cards</span>
+                      </div>
+                      <div className="opt-modal-cardpack-price">{p.price || (p.pricePerCard ? `$${p.pricePerCard}` : '')}<em>{p.priceUnit}</em></div>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          </div>
+          )}
+
+          {showReferral && (
+            <div className="opt-modal-section opt-modal-referral">
+              <div className="opt-modal-referral-copy">
+                <div className="opt-modal-section-title">
+                  <IconCommunity />
+                  <span>Or invite a friend and earn 3 credits</span>
+                </div>
+                <p className="opt-modal-sub opt-modal-sub-tight">
+                  Send one invite, get three credits when they sign up. Enough for an image, a song,
+                  and a retry - instantly.
+                </p>
+              </div>
+              <div className="opt-modal-referral-row">
+                <input type="email" className="opt-input" placeholder="friend@example.com" />
+                <button type="button" className="souv-cta-flow"><span>Invite</span></button>
+              </div>
+            </div>
+          )}
         </div>
 
         <footer className="opt-modal-foot">
@@ -848,7 +911,7 @@ function PricingReceiveModal({ open, onClose, currency }) {
             </span>
           )}
           <button className="souv-btn-log opt-modal-cancel" onClick={onClose}>
-            Not yet — back to options
+            {modalCopy.cancel}
           </button>
         </footer>
       </div>

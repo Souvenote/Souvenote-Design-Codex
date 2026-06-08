@@ -9,9 +9,9 @@ import Link from "next/link";
 //             loggedIn=true  → Credits ticker · Profile · Cart · Menu
 
 const NAV_LINKS = [
-  { label: 'Personalize a Template', sub: 'Curated designs, ready to make yours.', href: '#todo-personalize-template' },
-  { label: 'Build My Card',          sub: 'Start from scratch: photo, moment, song.', href: '#todo-build-my-card' },
-  { label: 'Community Cards',        sub: 'Cards shared by the Souvenote community.', href: '#todo-community-cards' },
+  { label: 'Personalize a Template', sub: 'Curated designs, ready to make yours.', href: '/create/personalize-a-template' },
+  { label: 'Build My Card',          sub: 'Start from scratch: photo, moment, song.', href: '/create/build-my-card' },
+  { label: 'Community Cards',        sub: 'Cards shared by the Souvenote community.', href: '/create/community-cards' },
 ];
 
 // --- icons ---------------------------------------------------------------
@@ -179,7 +179,7 @@ function NavRight({ loggedIn, user, credits, cardBank, cartCount, profileOpen, s
               </div>
               <div className="souv-popmenu-sep" />
               <Link href="#todo-profile" className="souv-popmenu-item">Profile</Link>
-              <Link href="#todo-my-cards" className="souv-popmenu-item">My Cards &amp; Songs</Link>
+              <Link href="/create/my-cards-and-songs" className="souv-popmenu-item">My Cards &amp; Songs</Link>
               <div className="souv-popmenu-sep" />
               <div className="souv-popmenu-item">Top up Credits</div>
               <Link href="#todo-gift-a-souvenote" className="souv-popmenu-item souv-popmenu-item-send">Gift a Souvenote</Link>

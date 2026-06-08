@@ -26,6 +26,7 @@ function AuthIcon({ name, w = 18 }) {
     case 'alert':   return <svg {...props}><circle cx="12" cy="12" r="9" /><path d="M12 8v5M12 16.5v.5" /></svg>;
     case 'clock':   return <svg {...props}><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3.5 2" /></svg>;
     case 'play':    return <svg {...props} fill="currentColor" stroke="none"><path d="M7 5v14l12-7z" /></svg>;
+    case 'star':    return <svg viewBox="0 0 24 24" width={w} height={w} fill="currentColor" aria-hidden="true"><path d="M12 2.4l2.85 6.18 6.78.74-5.07 4.6 1.46 6.68L12 17.27 5.98 20.6l1.46-6.68-5.07-4.6 6.78-.74L12 2.4z" /></svg>;
     default:        return null;
   }
 }
@@ -226,9 +227,9 @@ function SignUpView() {
             I agree to the <a href="#todo-terms">Terms of Service</a> and the <a href="#todo-privacy">Privacy Policy</a>.
           </AuthCheckbox>
 
-          <button type="button" className="auth-submit">
+          <Link href="/welcome" className="auth-submit">
             Create Account <AuthIcon name="arrow" w={16} />
-          </button>
+          </Link>
 
           <div className="auth-cardfoot">
             Already have an account?{' '}
@@ -284,9 +285,9 @@ function LoginView() {
           Remember me on this device · 30-day rolling session
         </AuthCheckbox>
 
-        <button type="button" className="auth-submit">
+        <Link href="/create" className="auth-submit">
           Log In <AuthIcon name="arrow" w={16} />
-        </button>
+        </Link>
 
         <div className="auth-cardfoot">
           Don't have an account?{' '}
@@ -298,24 +299,17 @@ function LoginView() {
 }
 
 // ============================================================
-// POST-SIGNUP MODAL (00c) — rendered over a faded Page 2 hint
+// WELCOME MODAL (00c)
 // ============================================================
-function PostSignupView({ stepDob = false }) {
+function WelcomeModal({ stepDob = false }) {
   const [step, setStep] = React.useState(stepDob ? 'dob' : 'welcome');
   const [dob, setDob] = React.useState('');
 
   return (
-    <div className="auth-stage" style={{ paddingTop: 48 }}>
-      {/* Faded background hint of Page 2 */}
-      <div style={{
-        position: 'absolute', inset: 0, opacity: 0.18, pointerEvents: 'none',
-        background:
-          'radial-gradient(40% 30% at 50% 30%, rgba(212,175,55,0.10), transparent 70%)',
-        filter: 'blur(2px)',
-      }} />
-      <div className="auth-modal-wrap" style={{ position: 'static', padding: 0 }}>
-        <div className="auth-modal-scrim" style={{ position: 'fixed', zIndex: 0 }} />
-        <div className="auth-modal" style={{ zIndex: 2 }}>
+    <div className="auth-stage auth-stage-modal-only">
+      <div className="auth-modal-wrap auth-modal-wrap-welcome">
+        <div className="auth-modal-scrim" />
+        <div className="auth-modal auth-welcome-modal">
           <div className="auth-modal-confetti">
             <i /><i /><i /><i /><i /><i /><i /><i />
           </div>
@@ -323,19 +317,42 @@ function PostSignupView({ stepDob = false }) {
           {step === 'welcome' ? (
             <>
               <span className="auth-modal-pill">
-                <AuthIcon name="gift" w={14} /> <b>2 credits</b> in your account
+                <AuthIcon name="gift" w={14} /> <b>2 CREDITS</b> in your account.
               </span>
-              <h2 className="auth-modal-title">
-                Welcome to{' '}
-                <span className="souv-hero-italic text-metallic-rose-gold">Souvenote</span>
+              <h2 className="auth-modal-title auth-welcome-title">
+                <span>Welcome to</span>
+                <img src="/assets/WordmarkLobster.png" alt="Souvenote" />
               </h2>
-              <p className="auth-modal-sub">
-                One image and one song generation are on us. Let's make the first card.
+              <p className="auth-modal-sub auth-welcome-sub">
+                To get started, select <span className="auth-shimmer-gold">Personalize a Template</span> to see what's possible or <span className="auth-shimmer-rose">Build My Card</span> if you already have a design idea.
               </p>
-              <div className="auth-modal-acts">
-                <button type="button" className="auth-submit" onClick={() => setStep('dob')}>
-                  Start Creating <AuthIcon name="arrow" w={16} />
-                </button>
+              <div className="auth-welcome-options" aria-label="Create options">
+                <Link className="opt-tile opt-tile-gold auth-welcome-option" href="/create/personalize-a-template">
+                  <span className="opt-tile-surface" aria-hidden="true"></span>
+                  <span className="opt-tile-grain" aria-hidden="true"></span>
+                  <span className="opt-tile-badge">
+                    <AuthIcon name="star" w={12} />
+                    <em>Most popular</em>
+                  </span>
+                  <span className="opt-tile-body">
+                    <span className="opt-tile-title">Personalize a Template</span>
+                    <span className="opt-tile-sub">Need inspiration? Personalize one of our pre-built cards like Horoscope or Comic cards!</span>
+                  </span>
+                  <span className="opt-tile-music" aria-hidden="true">
+                    <AuthIcon name="note" w={18} />
+                  </span>
+                </Link>
+                <Link className="opt-tile opt-tile-rose auth-welcome-option" href="/create/build-my-card">
+                  <span className="opt-tile-surface" aria-hidden="true"></span>
+                  <span className="opt-tile-grain" aria-hidden="true"></span>
+                  <span className="opt-tile-body">
+                    <span className="opt-tile-title">Build My Card</span>
+                    <span className="opt-tile-sub">Have your own idea? Answer a few questions and watch your card come to life.</span>
+                  </span>
+                  <span className="opt-tile-music" aria-hidden="true">
+                    <AuthIcon name="note" w={18} />
+                  </span>
+                </Link>
               </div>
             </>
           ) : (
@@ -592,6 +609,7 @@ const AUTH_STATES = [
 
 function AuthApp({ initialState = 'signup' }) {
   const [state, setState] = React.useState(initialState);
+  const isModalOnly = state === 'welcome' || state === 'welcome-dob';
 
   React.useEffect(() => {
     function syncToggle() {
@@ -620,20 +638,20 @@ function AuthApp({ initialState = 'signup' }) {
   }, [state]);
 
   return (
-    <div className="auth-page">
-      <AuthTopbar state={state} />
+    <div className={`auth-page ${isModalOnly ? 'auth-page-modal-only' : ''}`}>
+      {!isModalOnly && <AuthTopbar state={state} />}
 
       {state === 'signup'         && <SignUpView />}
       {state === 'login'          && <LoginView />}
-      {state === 'welcome'        && <PostSignupView stepDob={false} />}
-      {state === 'welcome-dob'    && <PostSignupView stepDob={true} />}
+      {state === 'welcome'        && <WelcomeModal stepDob={false} />}
+      {state === 'welcome-dob'    && <WelcomeModal stepDob={true} />}
       {state === 'forgot'         && <ForgotView />}
       {state === 'reset'          && <ResetView />}
       {state === 'verify'         && <VerifyView variant="success" />}
       {state === 'verify-expired' && <VerifyView variant="expired" />}
       {state === 'recover'        && <RecoverView />}
 
-      <AuthFooter />
+      {!isModalOnly && <AuthFooter />}
     </div>
   );
 }

@@ -322,6 +322,7 @@
   box-shadow: 0 8px 22px rgba(212,175,55,0.30), inset 0 1px 0 rgba(255,245,210,0.6);
   cursor: pointer;
   margin-top: 6px;
+  text-decoration: none;
   transition: transform .3s var(--ease-brand), box-shadow .3s var(--ease-brand);
 }
 .auth-submit:hover { transform: translateY(-1px); box-shadow: 0 12px 30px rgba(212,175,55,0.42); }
@@ -418,8 +419,15 @@
 .auth-row-between { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 
 /* ============================================================
-   POST-SIGNUP MODAL (00c)
+   WELCOME MODAL (00c)
    ============================================================ */
+.auth-page-modal-only {
+  min-height: 100vh;
+}
+.auth-stage-modal-only {
+  min-height: 100vh;
+  padding: 0;
+}
 .auth-modal-wrap {
   position: fixed; inset: 0; z-index: 100;
   display: flex; align-items: center; justify-content: center;
@@ -504,6 +512,176 @@
 .auth-modal-dob .auth-field { margin-bottom: 14px; }
 .auth-modal-dob .auth-modal-acts { flex-direction: row; }
 .auth-modal-dob .auth-modal-acts button { flex: 1; }
+
+.auth-modal-wrap-welcome {
+  padding: 22px;
+  overflow-y: hidden;
+}
+.auth-welcome-modal {
+  width: min(820px, 100%);
+  padding: 34px 42px 36px;
+}
+.auth-welcome-title {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.auth-welcome-title::after {
+  content: "";
+  position: absolute;
+  z-index: 2;
+  left: calc(50% + clamp(104px, 8vw, 118px));
+  top: 50%;
+  width: min(240px, 70vw);
+  height: 78px;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  background: linear-gradient(105deg, transparent 20%, rgba(255,255,255,0.12) 38%, rgba(255,245,196,0.55) 50%, rgba(255,255,255,0.12) 62%, transparent 80%);
+  background-size: 220% 100%;
+  background-position: 120% 0;
+  mix-blend-mode: screen;
+  -webkit-mask: url("/assets/WordmarkLobster.png") center / contain no-repeat;
+  mask: url("/assets/WordmarkLobster.png") center / contain no-repeat;
+  animation: auth-wordmark-slow-shimmer 18s ease-in-out infinite alternate;
+}
+.auth-welcome-title span {
+  position: relative;
+  z-index: 1;
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 500;
+  font-size: clamp(2.3rem, 4.6vw, 3.55rem);
+  line-height: 1;
+  letter-spacing: -0.015em;
+  color: var(--platinum-hi);
+  text-shadow:
+    0 1px 0 rgba(255,255,255,0.10),
+    0 12px 26px rgba(0,0,0,0.34);
+}
+.auth-welcome-title img {
+  position: relative;
+  z-index: 1;
+  width: min(240px, 70vw);
+  height: auto;
+  display: inline-block;
+  filter: drop-shadow(0 8px 22px rgba(0,0,0,0.35));
+}
+@keyframes auth-wordmark-slow-shimmer {
+  from { background-position: 120% 0; opacity: 0.34; }
+  50% { opacity: 0.62; }
+  to { background-position: -120% 0; opacity: 0.34; }
+}
+.auth-welcome-sub {
+  max-width: 60ch;
+  margin-bottom: 26px;
+}
+.auth-shimmer-gold,
+.auth-shimmer-rose {
+  display: inline-block;
+  font-weight: 700;
+  background-size: 220% 220%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  animation: souvenote-surface-pan 12s ease-in-out infinite;
+}
+.auth-shimmer-gold {
+  background-image: linear-gradient(120deg, #8A7224 0%, #D4AF37 22%, #F7E6A2 42%, #D4AF37 62%, #F1D074 82%, #8A7224 100%);
+  text-shadow: 0 0 18px rgba(212,175,55,0.16);
+}
+.auth-shimmer-rose {
+  background-image: linear-gradient(120deg, #9A6258 0%, #C88B86 22%, #F0C9BE 42%, #D9A28A 62%, #E5B8B1 82%, #9A6258 100%);
+  text-shadow: 0 0 18px rgba(200,139,134,0.18);
+}
+.auth-welcome-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 22px;
+  max-width: 590px;
+  margin: 0 auto;
+}
+.auth-welcome-option {
+  width: 100%;
+  min-height: 0;
+  justify-content: center;
+  padding: 64px 22px 56px;
+  text-decoration: none;
+}
+.auth-welcome-option .opt-tile-body {
+  gap: 24px;
+  max-width: 25ch;
+}
+.auth-welcome-option .opt-tile-title {
+  min-height: calc(2 * 1.08em);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display), system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-style: italic;
+  font-weight: 500;
+  font-size: clamp(29px, 3.2vw, 34px);
+  line-height: 1.08;
+  letter-spacing: -0.005em;
+  color: rgba(34, 23, 6, 0.58);
+  -webkit-text-fill-color: rgba(34, 23, 6, 0.58);
+  text-shadow:
+    0 -1px 1px rgba(0, 0, 0, 0.38),
+    0 1px 0 rgba(255, 246, 222, 0.62),
+    0 2px 2px rgba(255, 246, 222, 0.30);
+}
+.auth-welcome-option .opt-tile-sub {
+  font-family: var(--font-display), system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-style: italic;
+  font-weight: 500;
+  font-size: clamp(17px, 1.7vw, 20px);
+  line-height: 1.42;
+  color: rgba(34, 23, 6, 0.66);
+  -webkit-text-fill-color: rgba(34, 23, 6, 0.66);
+  text-shadow:
+    0 -1px 1px rgba(0, 0, 0, 0.22),
+    0 1px 0 rgba(255, 246, 222, 0.46);
+  max-width: 23ch;
+}
+
+@media (max-width: 720px) {
+  .auth-modal-wrap-welcome {
+    align-items: flex-start;
+    padding: 18px;
+    overflow-y: auto;
+  }
+  .auth-welcome-modal {
+    padding: 34px 22px 30px;
+  }
+  .auth-welcome-title {
+    gap: 10px;
+  }
+  .auth-welcome-title::after {
+    left: 50%;
+    top: calc(50% + 40px);
+    height: 70px;
+  }
+  .auth-welcome-title img {
+    width: min(220px, 78vw);
+  }
+  .auth-welcome-options {
+    grid-template-columns: 1fr;
+    max-width: 340px;
+    gap: 18px;
+  }
+}
+
+@media (max-height: 640px) {
+  .auth-modal-wrap-welcome {
+    align-items: flex-start;
+    overflow-y: auto;
+  }
+}
 
 /* ============================================================
    VERIFICATION / RECOVERY / RESET icons

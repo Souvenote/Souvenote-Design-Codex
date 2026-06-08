@@ -14,10 +14,10 @@ const SOCIAL = [
 
 // Built routes use Next.js paths. Future pages stay as explicit TODO anchors.
 const PAGE_HREFS = {
-  'Build My Card': '#todo-build-my-card',
-  'Personalize a Template': '#todo-personalize-template',
-  'Community Cards': '#todo-community-cards',
-  'My Cards & Songs': '#todo-my-cards',
+  'Build My Card': '/create/build-my-card',
+  'Personalize a Template': '/create/personalize-a-template',
+  'Community Cards': '/create/community-cards',
+  'My Cards & Songs': '/create/my-cards-and-songs',
   'Profile': '#todo-profile',
   'Gift a Souvenote': '#todo-gift-a-souvenote',
   'Refer a Friend': '#todo-refer-a-friend',
