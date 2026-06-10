@@ -11,7 +11,7 @@ import Link from "next/link";
 const NAV_LINKS = [
   { label: 'Personalize a Template', sub: 'Curated designs, ready to make yours.', href: '/create/personalize-a-template' },
   { label: 'Build My Card',          sub: 'Start from scratch: photo, moment, song.', href: '/create/build-my-card' },
-  { label: 'Community Cards',        sub: 'Cards shared by the Souvenote community.', href: '/create/community-cards' },
+  { label: 'Pricing',                sub: 'Card packs, credits, and what shipping covers.', href: '/pricing' },
 ];
 
 // --- icons ---------------------------------------------------------------
@@ -211,7 +211,7 @@ function NavRight({ loggedIn, user, credits, cardBank, cartCount, profileOpen, s
           <>
             <div className="souv-overlay" onClick={() => setMenuOpen(false)} />
             <div className="souv-popmenu">
-              <Link href="/pricing" className="souv-popmenu-item">Pricing</Link>
+              <Link href="/create/community-cards" className="souv-popmenu-item">Community Cards</Link>
               <Link href="#todo-faq" className="souv-popmenu-item">FAQ</Link>
               <Link href="#todo-contact" className="souv-popmenu-item">Contact Us</Link>
               <div className="souv-popmenu-sep" />

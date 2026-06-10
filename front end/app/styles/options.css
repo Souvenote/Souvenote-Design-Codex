@@ -267,13 +267,6 @@
   --tile-stop-hi: #EEF1F4;
   --tile-ink:     #15191E;
 }
-.opt-tile-peach {
-  --tile-stop-a:  #C99A8E;
-  --tile-stop-b:  #9E7164;
-  --tile-stop-c:  #6E4A3E;
-  --tile-stop-hi: #DCB5A8;
-  --tile-ink:     #2A1610;
-}
 
 /* "Most popular" badge — top-centre, gold pill (matches pack-card badge) */
 .opt-tile-badge {

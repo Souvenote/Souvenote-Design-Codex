@@ -47,7 +47,7 @@ function Footer() {
             <img src="/assets/WordmarkLobster.png" alt="Souvenote" className="souv-footer-wordmark-img" />
           </span>
           <p className="souv-footer-lede">
-            Because the card you give, should be as unique as they are.
+            Because the card you send should be as unique as they are.
           </p>
           <div className="souv-footer-social">
             {SOCIAL.map(s => (

@@ -143,7 +143,7 @@ function TileGrid({ credits, cardBank = 0, onGated = undefined, onSelect = undef
     },
     {
       id: 'build',
-      tone: 'bronze',
+      tone: 'rose',
       title: 'Build My Card',
       sub: 'Have your own idea? Answer a few questions and watch your card come to life.',
       gated: true,
@@ -152,7 +152,7 @@ function TileGrid({ credits, cardBank = 0, onGated = undefined, onSelect = undef
     },
     {
       id: 'community',
-      tone: 'rose',
+      tone: 'silver',
       title: 'Community Cards',
       sub: 'Browse, send, or remix cards shared by the Souvenote community.',
       gated: false,
@@ -160,7 +160,7 @@ function TileGrid({ credits, cardBank = 0, onGated = undefined, onSelect = undef
     },
     {
       id: 'library',
-      tone: 'silver',
+      tone: 'bronze',
       title: 'My Cards & Songs',
       sub: 'Resume a draft. Re-send a saved card. Queue another song.',
       gated: false,

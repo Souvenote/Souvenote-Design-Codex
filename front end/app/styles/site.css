@@ -89,10 +89,10 @@ img { display: block; max-width: 100%; }
 .souv-gem.g2 { top: 32%; left: 88%; animation-delay: -3s; }
 .souv-gem.g3 { top: 58%; left: 22%; animation-delay: -2s;   width: 10px; height: 10px; }
 .souv-gem.g4 { top: 74%; left: 78%; animation-delay: -4s;   width: 16px; height: 16px; }
-.souv-gem.g5 { top: 22%; left: 56%; animation-delay: -5s;   width: 11px; height: 11px; }
+.souv-gem.g5 { top: 16%; left: 78%; animation-delay: -5s;   width: 11px; height: 11px; }
 .souv-gem.g6 { top: 88%; left: 44%; animation-delay: -2.5s; }
-.souv-gem.g7 { top: 48%; left: 64%; animation-delay: -1.5s; width: 13px; height: 13px; }
-.souv-gem.g8 { top: 8%;  left: 38%; animation-delay: -3.5s; width: 9px;  height: 9px; }
+.souv-gem.g7 { top: 52%; left: 74%; animation-delay: -1.5s; width: 13px; height: 13px; }
+.souv-gem.g8 { top: 10%; left: 14%; animation-delay: -3.5s; width: 9px;  height: 9px; }
 @keyframes souv-gem-flare {
   0%, 100% { opacity: 0;  transform: scale(.5) rotate(0deg); }
   20%      { opacity: 1;  transform: scale(1)  rotate(45deg); }
@@ -748,7 +748,7 @@ a.souv-popmenu-item { display: block; text-decoration: none; }
   filter: drop-shadow(0 6px 14px rgba(0,0,0,0.35));
 }
 .souv-flipcard-tagline {
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: var(--font-display);
   font-style: italic;
   font-weight: 500;
   font-size: clamp(22px, 2.8vw, 36px);
