@@ -3,25 +3,34 @@
 import * as React from "react";
 import Link from "next/link";
 
-// Hero.jsx — headline + trial CTA + rotating card with music preview
+type MusicPreviewButtonProps = {
+  label?: string;
+};
 
-function MusicPreviewButton({ label = 'Preview song' }) {
+type HeroProps = {
+  accentMetal?: "gold" | "silver" | "rose";
+  loggedIn?: boolean;
+};
+
+function MusicPreviewButton({ label = "Preview song" }: MusicPreviewButtonProps) {
   const [playing, setPlaying] = React.useState(false);
+
   return (
     <button
       type="button"
-      className={`souv-music-fab ${playing ? 'is-playing' : ''}`}
-      onClick={(e) => { e.stopPropagation(); setPlaying(p => !p); }}
-      aria-label={playing ? 'Pause song' : label}
+      className={`souv-music-fab ${playing ? "is-playing" : ""}`}
+      onClick={(event) => {
+        event.stopPropagation();
+        setPlaying((current) => !current);
+      }}
+      aria-label={playing ? "Pause song" : label}
     >
       {playing ? (
-        // Pause icon
         <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
           <rect x="6" y="5" width="4" height="14" rx="1" />
           <rect x="14" y="5" width="4" height="14" rx="1" />
         </svg>
       ) : (
-        // Music note + play
         <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
           <path d="M9 17V5l11-2v12" stroke="currentColor" strokeWidth="1.6" fill="none" strokeLinecap="round" strokeLinejoin="round" />
           <circle cx="6" cy="17" r="2.4" />
@@ -36,14 +45,10 @@ function HeroFlipCard() {
   return (
     <div className="souv-flipcard souv-flipcard-spin">
       <div className="souv-flipcard-inner">
-        {/* Front: gold gradient with the Souvenote main logo */}
-        <div className="souv-flipcard-face souv-flipcard-front">
-          <div className="souv-flipcard-back-stack">
-            <p className="souv-flipcard-tagline text-metallic-silver">Turn real memories into physical cards</p>
-          </div>
+        <div className="souv-flipcard-face souv-flipcard-front souv-flipcard-card-face">
+          <img src="/assets/hero-souvenote-card-face.png" alt="Souvenote card face" className="souv-flipcard-art" />
           <MusicPreviewButton label="Preview Souvenote theme" />
         </div>
-        {/* Back: real card artwork — moon and back */}
         <div className="souv-flipcard-face souv-flipcard-back souv-flipcard-art-face">
           <img src="/assets/hero-card-moon.jpg" alt="I love you to the moon and back" className="souv-flipcard-art" />
           <MusicPreviewButton label="Preview card song" />
@@ -53,11 +58,11 @@ function HeroFlipCard() {
   );
 }
 
-function Hero({ accentMetal = 'gold', loggedIn = false }) {
+function Hero({ accentMetal = "gold", loggedIn = false }: HeroProps) {
   const accentClass = {
-    gold:   'text-metallic-gold',
-    silver: 'text-metallic-silver',
-    rose:   'text-metallic-rose-gold',
+    gold: "text-metallic-gold",
+    silver: "text-metallic-silver",
+    rose: "text-metallic-rose-gold",
   }[accentMetal];
 
   return (
@@ -68,13 +73,18 @@ function Hero({ accentMetal = 'gold', loggedIn = false }) {
       <div className="souv-hero-inner">
         <div className="souv-hero-copy">
           <h1 className="souv-hero-title">
-            <span className="souv-hero-italic text-metallic-silver">A card</span>{' '}
-            <span className={`souv-hero-italic ${accentClass}`} style={accentMetal === 'gold' ? { textShadow: '0 0 20px rgba(241,208,116,.42), 0 0 40px rgba(212,175,55,.2)' } : undefined}>worth</span>
+            <span className="souv-hero-italic text-metallic-silver">A card</span>{" "}
+            <span
+              className={`souv-hero-italic ${accentClass}`}
+              style={accentMetal === "gold" ? { textShadow: "0 0 20px rgba(241,208,116,.42), 0 0 40px rgba(212,175,55,.2)" } : undefined}
+            >
+              worth
+            </span>
             <br />
             <span className="souv-hero-italic text-metallic-rose-gold">keeping</span>
           </h1>
           <div className="souv-hero-ctas">
-            <Link className="souv-btn-colorful" href={loggedIn ? "/create" : "/signup"}><span>Start for Free</span></Link>
+            <Link className="souv-btn-colorful" href={loggedIn ? "/welcome" : "/signup"}><span>Start for Free</span></Link>
             {!loggedIn && <Link className="souv-btn-log" href="/login">Log In</Link>}
           </div>
           <p className="souv-hero-lede">
@@ -92,3 +102,4 @@ function Hero({ accentMetal = 'gold', loggedIn = false }) {
 }
 
 export { Hero, MusicPreviewButton };
+export type { HeroProps, MusicPreviewButtonProps };

@@ -3,6 +3,14 @@ import "./styles/colors_and_type.css";
 import "./styles/site.css";
 import "./styles/auth.css";
 import "./styles/options.css";
+import "./styles/bmc.css";
+import "./styles/cardart.css";
+import "./styles/pt.css";
+import "./styles/mycards.css";
+import "./styles/cart.css";
+import "./styles/delivery.css";
+import "./styles/account.css";
+import "./styles/pages.css";
 import "./styles/landing-chrome.css";
 import "./styles/next-app.css";
 

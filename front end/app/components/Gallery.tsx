@@ -4,35 +4,56 @@ import * as React from "react";
 import { Eyebrow } from "./Ornaments";
 import { MusicPreviewButton } from "./Hero";
 
-// Gallery.jsx — horizontal carousel of card template previews; hover-to-flip 3D rotation
+type GalleryTemplate = {
+  id: number;
+  name: string;
+  occasion: string;
+  surface: string;
+};
 
-const TEMPLATES = [
-  { id: 1, name: 'Your Life As A Hero',     occasion: 'Comic Strip',     surface: 'surface-gold-animated' },
-  { id: 2, name: 'Stars Aligned For You',   occasion: 'Horoscope',       surface: 'surface-rosegold-animated' },
-  { id: 3, name: 'A Day In History',        occasion: 'On This Day',     surface: 'surface-silver-animated' },
-  { id: 4, name: 'Once Upon A Card',        occasion: 'Fairy Tale',      surface: 'surface-rosegold-animated' },
-  { id: 5, name: 'Find The Birthday',       occasion: "Where's Waldo",   surface: 'surface-trimetal-animated' },
-  { id: 6, name: 'Cards For The Strange',   occasion: 'Dark Holidays',   surface: 'surface-silver-animated' },
+type CardImageSwapProps = {
+  image: string | null;
+  onChange: (url: string) => void;
+  onClear: () => void;
+  label?: string;
+};
+
+type GalleryCardProps = {
+  c: GalleryTemplate;
+  active: boolean;
+};
+
+const TEMPLATES: GalleryTemplate[] = [
+  { id: 1, name: "Your Life As A Hero", occasion: "Comic Strip", surface: "surface-gold-animated" },
+  { id: 2, name: "Stars Aligned For You", occasion: "Horoscope", surface: "surface-rosegold-animated" },
+  { id: 3, name: "A Day In History", occasion: "On This Day", surface: "surface-silver-animated" },
+  { id: 4, name: "Once Upon A Card", occasion: "Fairy Tale", surface: "surface-rosegold-animated" },
+  { id: 5, name: "Find The Birthday", occasion: "Where's Waldo", surface: "surface-trimetal-animated" },
+  { id: 6, name: "Cards For The Strange", occasion: "Dark Holidays", surface: "surface-silver-animated" },
 ];
 
-// Small "swap image" affordance, anchored to the top-right of a card face.
-// Click → pick file → preview overlays the gradient. Click × to clear.
-function CardImageSwap({ image, onChange, onClear, label = 'Change image' }) {
-  const inputRef = React.useRef(null);
-  const handlePick = (e) => {
-    const file = e.target.files && e.target.files[0];
+function CardImageSwap({ image, onChange, onClear, label = "Change image" }: CardImageSwapProps) {
+  const inputRef = React.useRef<HTMLInputElement | null>(null);
+
+  const handlePick = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
     if (!file) return;
+
     const url = URL.createObjectURL(file);
     onChange(url);
-    e.target.value = '';
+    event.target.value = "";
   };
+
   return (
-    <div className="souv-gallery-swap" onClick={(e) => e.stopPropagation()}>
+    <div className="souv-gallery-swap" onClick={(event) => event.stopPropagation()}>
       {image ? (
         <button
           type="button"
           className="souv-gallery-swap-btn is-clear"
-          onClick={(e) => { e.stopPropagation(); onClear(); }}
+          onClick={(event) => {
+            event.stopPropagation();
+            onClear();
+          }}
           aria-label="Remove image"
           title="Remove image"
         >
@@ -44,7 +65,10 @@ function CardImageSwap({ image, onChange, onClear, label = 'Change image' }) {
         <button
           type="button"
           className="souv-gallery-swap-btn"
-          onClick={(e) => { e.stopPropagation(); inputRef.current && inputRef.current.click(); }}
+          onClick={(event) => {
+            event.stopPropagation();
+            inputRef.current?.click();
+          }}
           aria-label={label}
           title={label}
         >
@@ -67,33 +91,12 @@ function CardImageSwap({ image, onChange, onClear, label = 'Change image' }) {
   );
 }
 
-function GalleryMusicOrnament() {
-  return (
-    <div className="souv-music-orn souv-music-orn-card" aria-hidden="true">
-      <div className="souv-music-row">
-        <span className="souv-music-note">
-          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 17V5l11-2v12" /><circle cx="6" cy="17" r="2.5" /><circle cx="17" cy="15" r="2.5" /></svg>
-        </span>
-        <button className="souv-music-play" aria-label="Play">
-          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
-        </button>
-        <div className="souv-music-track">
-          <div className="souv-music-progress" />
-          <div className="souv-music-handle" />
-        </div>
-        <span className="souv-music-time">0:42</span>
-      </div>
-    </div>
-  );
-}
-
-function GalleryCard({ c, active }) {
-  // Per-face image state. Front/back can be swapped independently.
-  const [frontImg, setFrontImg] = React.useState(null);
-  const [backImg, setBackImg]   = React.useState(null);
+function GalleryCard({ c, active }: GalleryCardProps) {
+  const [frontImg, setFrontImg] = React.useState<string | null>(null);
+  const [backImg, setBackImg] = React.useState<string | null>(null);
 
   return (
-    <div className={`souv-gallery-card ${active ? 'is-active' : ''}`}>
+    <div className={`souv-gallery-card ${active ? "is-active" : ""}`}>
       <div className="souv-gallery-flip">
         <div className="souv-gallery-flip-inner">
           <div className={`souv-gallery-surface souv-gallery-flip-face souv-gallery-flip-front ${c.surface}`}>
@@ -133,12 +136,11 @@ function GalleryCard({ c, active }) {
 
 function Gallery() {
   const [i, setI] = React.useState(0);
-  const trackRef = React.useRef(null);
+  const trackRef = React.useRef<HTMLDivElement | null>(null);
 
   React.useEffect(() => {
-    if (!trackRef.current) return;
-    const el = trackRef.current.children[i];
-    if (el) el.scrollIntoView({ behavior: 'smooth', inline: 'start', block: 'nearest' });
+    const el = trackRef.current?.children[i];
+    if (el) el.scrollIntoView({ behavior: "smooth", inline: "start", block: "nearest" });
   }, [i]);
 
   return (
@@ -148,19 +150,19 @@ function Gallery() {
           <div className="souv-gallery-rail-line" />
           <Eyebrow>Gallery</Eyebrow>
           <h2 className="souv-h1">
-            <span className="souv-hero-italic text-metallic-silver">Explore the</span>{' '}
+            <span className="souv-hero-italic text-metallic-silver">Explore the</span>{" "}
             <span className="souv-hero-italic text-metallic-rose-gold">possibilities</span>
           </h2>
           <p className="souv-gallery-sub">Remix our card templates to match the vibe of your loved one.</p>
           <div className="souv-gallery-controls">
-            <button className="souv-chev" onClick={() => setI(Math.max(0, i - 1))} aria-label="Previous">‹</button>
-            <button className="souv-chev" onClick={() => setI(Math.min(TEMPLATES.length - 1, i + 1))} aria-label="Next">›</button>
+            <button className="souv-chev" onClick={() => setI(Math.max(0, i - 1))} aria-label="Previous">&lsaquo;</button>
+            <button className="souv-chev" onClick={() => setI(Math.min(TEMPLATES.length - 1, i + 1))} aria-label="Next">&rsaquo;</button>
           </div>
         </div>
         <div className="souv-gallery-track-wrap">
           <div ref={trackRef} className="souv-gallery-track">
-            {TEMPLATES.map((c, idx) => (
-              <GalleryCard key={c.id} c={c} active={idx === i} />
+            {TEMPLATES.map((template, idx) => (
+              <GalleryCard key={template.id} c={template} active={idx === i} />
             ))}
           </div>
         </div>

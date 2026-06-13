@@ -3,9 +3,12 @@
 import * as React from "react";
 import { Eyebrow } from "./Ornaments";
 
-// FAQ.jsx
+type FaqItem = {
+  q: string;
+  a: string;
+};
 
-const FAQ_ITEMS = [
+const FAQ_ITEMS: FaqItem[] = [
   { q: 'How does the Try Risk-Free option work?',
     a: 'We place a temporary 5-day hold of $9.99 on your card, which unlocks 10 AI design and song credits right away. If you love your card and send it, the $9.99 is finalized\u2014 printing and shipping included, with no extra fees. If you decide not to send, the hold is released after 5 days and you\u2019re only charged $2.00 for the credits you unlocked.' },
   { q: 'What does a personalized song sound like?',
@@ -27,7 +30,7 @@ function FAQ() {
       <div className="souv-faq-head">
         <Eyebrow>Questions</Eyebrow>
         <h2 className="souv-h1">
-          <span className="souv-hero-italic text-metallic-silver">Frequently Asked</span>{' '}
+        <span className="souv-hero-italic text-metallic-silver">Frequently Asked</span>{" "}
           <span className="souv-hero-italic text-metallic-rose-gold">Questions</span>
         </h2>
       </div>

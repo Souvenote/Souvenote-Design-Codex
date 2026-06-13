@@ -6,15 +6,15 @@ import { Footer } from "./Footer";
 import { Navbar } from "./Navbar";
 import { BackButton, OptionsHeader, PricingReceiveModal, TileGrid } from "./Options";
 import { PageChrome } from "./PageChrome";
+import { getTotalDemoCredits, useDemoBalance } from "./DemoBalance";
 import {
   demoAccountBalance,
   getCreateFlowGate,
-  getTotalCredits,
   type PricingModalMode,
 } from "./createFlowRules";
+import { goToPricingAfterPurchase } from "./PricingReturn";
 
 const user = { name: "Cameron Wilson", email: "cameron@souvenote.com", initials: "CW" };
-const accountBalance = demoAccountBalance;
 
 type CreateTile = {
   href: string;
@@ -26,13 +26,19 @@ export function CreateOptionsClient() {
   const router = useRouter();
   const [pricingModalOpen, setPricingModalOpen] = useState(false);
   const [pricingModalMode, setPricingModalMode] = useState<PricingModalMode>("full");
-  const totalCredits = getTotalCredits(accountBalance);
+  const accountBalance = useDemoBalance(demoAccountBalance);
+  const totalCredits = getTotalDemoCredits(accountBalance);
 
   function handleTileSelect(tile: CreateTile) {
     if (tile.requiresCredits) {
       const gate = getCreateFlowGate(accountBalance, "generation");
 
       if ("modalMode" in gate) {
+        if (gate.modalMode === "full") {
+          router.push(goToPricingAfterPurchase("/create"));
+          return;
+        }
+
         setPricingModalMode(gate.modalMode);
         setPricingModalOpen(true);
         return;
@@ -53,13 +59,15 @@ export function CreateOptionsClient() {
           cardBank={accountBalance.cardBank}
           cartCount={0}
         />
-        <OptionsHeader user={user} credits={totalCredits} lowBalance={false} />
-        <TileGrid
-          credits={totalCredits}
-          cardBank={accountBalance.cardBank}
-          onSelect={handleTileSelect}
-        />
-        <BackButton href="/home" label="Back to home" />
+        <main>
+          <OptionsHeader user={user} credits={totalCredits} lowBalance={false} />
+          <TileGrid
+            credits={totalCredits}
+            cardBank={accountBalance.cardBank}
+            onSelect={handleTileSelect}
+          />
+          <BackButton href="/home" label="Back to home" />
+        </main>
         <Footer />
       </div>
       <PricingReceiveModal

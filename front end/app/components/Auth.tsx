@@ -2,15 +2,90 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { writeDemoBalance } from "./DemoBalance";
+import type { DemoBalance } from "./DemoBalance";
 
-// Auth.jsx — Souvenote auth surface.
+// Auth.tsx - Souvenote auth surface.
 // 7 state components: signup, login, welcome (post-signup modal), forgot, reset, verify, recover.
+
+type AuthIconName =
+  | "check"
+  | "arrow"
+  | "back"
+  | "eye"
+  | "eye-off"
+  | "mail"
+  | "lock"
+  | "shield"
+  | "gift"
+  | "note"
+  | "image"
+  | "alert"
+  | "clock"
+  | "play"
+  | "star";
+
+type AuthIconProps = {
+  name: AuthIconName;
+  w?: number;
+};
+
+type AuthTopbarProps = {
+  state: AuthState;
+};
+
+type AuthCheckboxProps = {
+  checked: boolean;
+  onChange?: (checked: boolean) => void;
+  children: React.ReactNode;
+};
+
+type SocialButtonsProps = {
+  verb?: string;
+  onContinue?: () => void;
+};
+
+type OrDividerProps = {
+  label?: string;
+};
+
+type WelcomeModalProps = {
+  stepDob?: boolean;
+};
+
+type VerifyVariant = "success" | "expired";
+
+type VerifyViewProps = {
+  variant?: VerifyVariant;
+};
+
+type AuthRouteState = "signup" | "login" | "welcome" | "forgot" | "reset" | "verify" | "verify-expired" | "recover";
+type AuthState = AuthRouteState | "welcome-dob";
+
+type AuthStateOption = {
+  id: AuthRouteState;
+  label: string;
+};
+
+type AuthAppProps = {
+  initialState?: AuthState;
+};
 
 // ============================================================
 // SHARED ICONS
 // ============================================================
-function AuthIcon({ name, w = 18 }) {
-  const props = { width: w, height: w, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.6, strokeLinecap: 'round', strokeLinejoin: 'round' };
+const STARTER_SIGNUP_BALANCE: DemoBalance = {
+  credits: { images: 1, songs: 1 },
+  cardBank: 0,
+};
+
+function issueStarterSignupTokens() {
+  writeDemoBalance(STARTER_SIGNUP_BALANCE);
+}
+
+function AuthIcon({ name, w = 18 }: AuthIconProps) {
+  const props: React.SVGProps<SVGSVGElement> = { width: w, height: w, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.6, strokeLinecap: 'round', strokeLinejoin: 'round' };
   switch (name) {
     case 'check':   return <svg {...props}><path d="M5 12.5l4 4 10-10" /></svg>;
     case 'arrow':   return <svg {...props}><path d="M5 12h14M13 6l6 6-6 6" /></svg>;
@@ -60,7 +135,7 @@ function FacebookF() {
 // ============================================================
 // SHELL
 // ============================================================
-function AuthTopbar({ state }) {
+function AuthTopbar({ state }: AuthTopbarProps) {
   // No back chrome for the post-signup modal state (modal is over Page 2)
   return (
     <header className="auth-topbar">
@@ -82,15 +157,15 @@ function AuthFooter() {
     <footer className="auth-foot">
       <span>© 2026 Souvenote · Made with care in Canada</span>
       <span className="auth-foot-links">
-        <a href="#todo-privacy">Privacy</a>
-        <a href="#todo-terms">Terms</a>
-        <a href="#todo-help">Help</a>
+        <Link href="/legal/privacy-policy">Privacy</Link>
+        <Link href="/legal/terms-of-service">Terms</Link>
+        <Link href="/faq">Help</Link>
       </span>
     </footer>
   );
 }
 
-function AuthCheckbox({ checked, onChange, children }) {
+function AuthCheckbox({ checked, onChange, children }: AuthCheckboxProps) {
   return (
     <label className={`auth-check ${checked ? 'is-checked' : ''}`}>
       <span className="auth-check-box"><AuthIcon name="check" w={12} /></span>
@@ -100,18 +175,18 @@ function AuthCheckbox({ checked, onChange, children }) {
   );
 }
 
-function SocialButtons({ verb = 'Continue' }) {
+function SocialButtons({ verb = 'Continue', onContinue }: SocialButtonsProps) {
   return (
     <div className="auth-socials">
-      <button type="button" className="auth-social">
+      <button type="button" className="auth-social" onClick={onContinue}>
         <span className="auth-social-icon"><GoogleG /></span>
         <span>{verb} with Google</span>
       </button>
-      <button type="button" className="auth-social">
+      <button type="button" className="auth-social" onClick={onContinue}>
         <span className="auth-social-icon" style={{ color: 'var(--platinum-hi)' }}><AppleA /></span>
         <span>{verb} with Apple</span>
       </button>
-      <button type="button" className="auth-social">
+      <button type="button" className="auth-social" onClick={onContinue}>
         <span className="auth-social-icon"><FacebookF /></span>
         <span>{verb} with Facebook</span>
       </button>
@@ -119,7 +194,7 @@ function SocialButtons({ verb = 'Continue' }) {
   );
 }
 
-function OrDivider({ label = 'or with email' }) {
+function OrDivider({ label = 'or with email' }: OrDividerProps) {
   return (
     <div className="auth-divider">
       <span className="rule" />
@@ -130,7 +205,7 @@ function OrDivider({ label = 'or with email' }) {
 }
 
 // Password strength estimator (simple, visual only)
-function strength(p) {
+function strength(p: string) {
   if (!p) return 0;
   let s = 0;
   if (p.length >= 8) s++;
@@ -139,7 +214,7 @@ function strength(p) {
   if (/[^a-zA-Z0-9]/.test(p)) s++;
   return Math.min(s, 4);
 }
-function strengthLabel(s) {
+function strengthLabel(s: number) {
   return ['Too short', 'Weak', 'Okay', 'Strong', 'Solid'][s] || 'Strong';
 }
 
@@ -147,6 +222,7 @@ function strengthLabel(s) {
 // SIGN UP (00a)
 // ============================================================
 function SignUpView() {
+  const router = useRouter();
   const [email, setEmail] = React.useState('cameron@souvenote.com');
   const [pw, setPw] = React.useState('Moonlight2026!');
   const [pw2, setPw2] = React.useState('Moonlight2026!');
@@ -156,25 +232,25 @@ function SignUpView() {
   const [marketing, setMarketing] = React.useState(true);
   const [terms, setTerms] = React.useState(true);
   const s = strength(pw);
+  const continueToWelcome = React.useCallback(() => {
+    issueStarterSignupTokens();
+    router.push('/welcome');
+  }, [router]);
 
   return (
-    <>
-      <div className="auth-ribbon">
-        <span className="rule" />
-        <span>Start with <b>1 free image</b> and <b>1 free song</b>.</span>
-        <span className="rule" />
-      </div>
-      <div className="auth-stage">
-        <div className="auth-card auth-card-wide">
+    <div className="auth-stage">
+      <div className="auth-card auth-card-wide">
+        <div className="auth-split auth-split-signup">
+          <div className="auth-split-copy">
           <div className="auth-eyebrow">Sign Up · Welcome</div>
-          <h1 className="auth-title">
-            Make your{' '}
-            <span className="souv-hero-italic text-metallic-rose-gold">first card</span>{' '}
-            in minutes.
+          <h1 className="auth-title auth-title-hero">
+            Start with <span className="souv-hero-italic text-metallic-rose-gold">1 free image</span> and <span className="souv-hero-italic text-metallic-gold">1 free song</span>.
           </h1>
-          <p className="auth-sub">Two free credits the moment you sign up: one image, one song. No card required.</p>
+          <p className="auth-sub">2 free credits the moment you sign up to create a complete card.</p>
+          </div>
 
-          <SocialButtons verb="Continue" />
+          <div className="auth-split-form">
+          <SocialButtons verb="Continue" onContinue={continueToWelcome} />
           <OrDivider />
 
           <div className="auth-field">
@@ -224,10 +300,10 @@ function SignUpView() {
           </AuthCheckbox>
 
           <AuthCheckbox checked={terms} onChange={setTerms}>
-            I agree to the <a href="#todo-terms">Terms of Service</a> and the <a href="#todo-privacy">Privacy Policy</a>.
+            I agree to the <Link href="/legal/terms-of-service">Terms of Service</Link> and the <Link href="/legal/privacy-policy">Privacy Policy</Link>.
           </AuthCheckbox>
 
-          <Link href="/welcome" className="auth-submit">
+          <Link href="/welcome" className="auth-submit" onClick={issueStarterSignupTokens}>
             Create Account <AuthIcon name="arrow" w={16} />
           </Link>
 
@@ -235,9 +311,10 @@ function SignUpView() {
             Already have an account?{' '}
             <Link href="/login">Log in →</Link>
           </div>
+          </div>
         </div>
       </div>
-    </>
+    </div>
   );
 }
 
@@ -252,14 +329,18 @@ function LoginView() {
 
   return (
     <div className="auth-stage" style={{ paddingTop: 48 }}>
-      <div className="auth-card auth-card-narrow">
+      <div className="auth-card auth-card-login">
+        <div className="auth-split auth-split-login">
+          <div className="auth-split-copy">
         <div className="auth-eyebrow">Welcome back</div>
         <h1 className="auth-title">
           Pick up where you{' '}
           <span className="souv-hero-italic text-metallic-rose-gold">left off</span>
         </h1>
         <p className="auth-sub">Sessions roll for thirty days when you tick remember-me.</p>
+          </div>
 
+          <div className="auth-split-form">
         <SocialButtons verb="Continue" />
         <OrDivider label="or with email" />
 
@@ -293,6 +374,8 @@ function LoginView() {
           Don't have an account?{' '}
           <Link href="/signup">Sign up →</Link>
         </div>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -301,8 +384,8 @@ function LoginView() {
 // ============================================================
 // WELCOME MODAL (00c)
 // ============================================================
-function WelcomeModal({ stepDob = false }) {
-  const [step, setStep] = React.useState(stepDob ? 'dob' : 'welcome');
+function WelcomeModal({ stepDob = false }: WelcomeModalProps) {
+  const [step, setStep] = React.useState<"dob" | "welcome">(stepDob ? 'dob' : 'welcome');
   const [dob, setDob] = React.useState('');
 
   return (
@@ -311,7 +394,7 @@ function WelcomeModal({ stepDob = false }) {
         <div className="auth-modal-scrim" />
         <div className="auth-modal auth-welcome-modal">
           <div className="auth-modal-confetti">
-            <i /><i /><i /><i /><i /><i /><i /><i />
+            <i /><i /><i /><i /><i /><i /><i />
           </div>
 
           {step === 'welcome' ? (
@@ -502,7 +585,7 @@ function ResetView() {
 // ============================================================
 // EMAIL VERIFICATION (00f)
 // ============================================================
-function VerifyView({ variant = 'success' }) {
+function VerifyView({ variant = 'success' }: VerifyViewProps) {
   return (
     <div className="auth-stage" style={{ paddingTop: 48 }}>
       <div className="auth-card auth-card-narrow auth-status-center">
@@ -596,7 +679,7 @@ function RecoverView() {
 // ============================================================
 // TOP-LEVEL
 // ============================================================
-const AUTH_STATES = [
+const AUTH_STATES: AuthStateOption[] = [
   { id: 'signup',   label: 'Sign Up' },
   { id: 'login',    label: 'Log In' },
   { id: 'welcome',  label: 'Welcome' },
@@ -607,27 +690,34 @@ const AUTH_STATES = [
   { id: 'recover',  label: 'Recover' },
 ];
 
-function AuthApp({ initialState = 'signup' }) {
-  const [state, setState] = React.useState(initialState);
+function isAuthRouteState(value: string | undefined): value is AuthRouteState {
+  return Boolean(value && AUTH_STATES.some((state) => state.id === value));
+}
+
+function AuthApp({ initialState = 'signup' }: AuthAppProps) {
+  const [state, setState] = React.useState<AuthState>(initialState);
   const isModalOnly = state === 'welcome' || state === 'welcome-dob';
 
   React.useEffect(() => {
     function syncToggle() {
-      document.querySelectorAll('#auth-state-toggle a[data-s]').forEach(a => {
+      document.querySelectorAll<HTMLAnchorElement>('#auth-state-toggle a[data-s]').forEach(a => {
         a.classList.toggle('is-active', a.dataset.s === state);
       });
     }
     syncToggle();
-    function handler(ev) {
-      const a = ev.target.closest('#auth-state-toggle a[data-s]');
+    function handler(ev: MouseEvent) {
+      if (!(ev.target instanceof Element)) return;
+      const a = ev.target.closest<HTMLAnchorElement>('#auth-state-toggle a[data-s]');
       if (!a) return;
+      const nextState = a.dataset.s;
+      if (!isAuthRouteState(nextState)) return;
       ev.preventDefault();
-      setState(a.dataset.s);
-      window.location.hash = a.dataset.s;
+      setState(nextState);
+      window.location.hash = nextState;
     }
     function hashHandler() {
       const h = (window.location.hash || '').replace('#', '');
-      if (AUTH_STATES.find(s => s.id === h)) setState(h);
+      if (isAuthRouteState(h)) setState(h);
     }
     document.addEventListener('click', handler);
     window.addEventListener('hashchange', hashHandler);

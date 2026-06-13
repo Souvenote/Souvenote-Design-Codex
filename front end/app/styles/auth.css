@@ -146,13 +146,45 @@
     0 0 0 1px rgba(212,175,55,0.10),
     inset 0 1px 0 rgba(255,235,180,0.10);
 }
-.auth-card-wide { max-width: 680px; padding: 56px 56px 48px; }
+.auth-card-wide,
+.auth-card-login {
+  max-width: min(1040px, calc(100vw - 48px));
+  padding: 48px 48px 42px;
+}
 .auth-card-narrow { max-width: 460px; }
+
+.auth-split {
+  display: grid;
+  grid-template-columns: minmax(0, 0.95fr) minmax(340px, 1fr);
+  gap: clamp(28px, 4vw, 48px);
+  align-items: center;
+}
+.auth-split-copy {
+  min-width: 0;
+}
+.auth-split-form {
+  min-width: 0;
+}
+.auth-title-hero {
+  max-width: 7.5em;
+}
 
 /* Sign Up surface runs larger than the other auth states */
 .auth-card-wide .auth-eyebrow { font-size: 11.5px; margin-bottom: 16px; }
 .auth-card-wide .auth-title { font-size: clamp(2.2rem, 3.4vw, 3rem); margin-bottom: 14px; }
+.auth-card-wide .auth-title.auth-title-hero {
+  font-size: clamp(3.15rem, 5.8vw, 5.3rem);
+  line-height: 0.96;
+  margin-bottom: 20px;
+}
 .auth-card-wide .auth-sub { font-size: 17.5px; margin-bottom: 32px; max-width: 48ch; }
+.auth-split-copy .auth-sub { max-width: 32ch; margin-bottom: 0; }
+.auth-card-login .auth-title {
+  font-size: clamp(2.35rem, 4vw, 3.45rem);
+  line-height: 1.02;
+  margin-bottom: 16px;
+}
+.auth-card-login .auth-sub { margin-bottom: 0; }
 .auth-card-wide .auth-label { font-size: 11px; }
 .auth-card-wide .auth-input, .auth-card-wide .auth-select { font-size: 15.5px; padding: 15px 16px; }
 .auth-card-wide .auth-social { font-size: 13.5px; padding: 14px 20px; }
@@ -471,7 +503,6 @@
 .auth-modal-confetti i:nth-child(5) { left: 88%; top: 18%; background: var(--rose-gold); }
 .auth-modal-confetti i:nth-child(6) { left: 18%; bottom: 12%; background: var(--platinum-mid); }
 .auth-modal-confetti i:nth-child(7) { left: 80%; bottom: 14%; background: var(--gold); }
-.auth-modal-confetti i:nth-child(8) { left: 52%; bottom: 8%;  background: var(--rose-gold-hi); }
 
 .auth-modal-title {
   font-family: var(--font-display); font-weight: 800;
@@ -531,24 +562,6 @@
   flex-wrap: wrap;
   margin-bottom: 12px;
 }
-.auth-welcome-title::after {
-  content: "";
-  position: absolute;
-  z-index: 2;
-  left: calc(50% + clamp(104px, 8vw, 118px));
-  top: 50%;
-  width: min(240px, 70vw);
-  height: 78px;
-  transform: translate(-50%, -50%);
-  pointer-events: none;
-  background: linear-gradient(105deg, transparent 20%, rgba(255,255,255,0.12) 38%, rgba(255,245,196,0.55) 50%, rgba(255,255,255,0.12) 62%, transparent 80%);
-  background-size: 220% 100%;
-  background-position: 120% 0;
-  mix-blend-mode: screen;
-  -webkit-mask: url("/assets/WordmarkLobster.png") center / contain no-repeat;
-  mask: url("/assets/WordmarkLobster.png") center / contain no-repeat;
-  animation: auth-wordmark-slow-shimmer 18s ease-in-out infinite alternate;
-}
 .auth-welcome-title span {
   position: relative;
   z-index: 1;
@@ -570,11 +583,6 @@
   height: auto;
   display: inline-block;
   filter: drop-shadow(0 8px 22px rgba(0,0,0,0.35));
-}
-@keyframes auth-wordmark-slow-shimmer {
-  from { background-position: 120% 0; opacity: 0.34; }
-  50% { opacity: 0.62; }
-  to { background-position: -120% 0; opacity: 0.34; }
 }
 .auth-welcome-sub {
   max-width: 60ch;
@@ -660,11 +668,6 @@
   }
   .auth-welcome-title {
     gap: 10px;
-  }
-  .auth-welcome-title::after {
-    left: 50%;
-    top: calc(50% + 40px);
-    height: 70px;
   }
   .auth-welcome-title img {
     width: min(220px, 78vw);
@@ -761,8 +764,30 @@
 /* ============================================================
    RESPONSIVE
    ============================================================ */
+@media (max-width: 880px) {
+  .auth-card-wide,
+  .auth-card-login {
+    max-width: min(620px, calc(100vw - 32px));
+    padding: 38px 32px 32px;
+  }
+  .auth-split {
+    grid-template-columns: 1fr;
+    gap: 28px;
+  }
+  .auth-title-hero { max-width: 9em; }
+  .auth-card-wide .auth-title.auth-title-hero {
+    font-size: clamp(2.55rem, 10vw, 3.65rem);
+  }
+  .auth-card-login .auth-title {
+    font-size: clamp(2.2rem, 8vw, 3rem);
+  }
+  .auth-split-copy .auth-sub { max-width: 40ch; }
+}
+
 @media (max-width: 540px) {
   .auth-card { padding: 32px 24px 28px; }
+  .auth-card-wide,
+  .auth-card-login { padding: 32px 24px 28px; }
   .auth-topbar { padding: 18px 20px; }
   .auth-foot { padding: 18px 20px 22px; }
   .auth-field-row { grid-template-columns: 1fr; }

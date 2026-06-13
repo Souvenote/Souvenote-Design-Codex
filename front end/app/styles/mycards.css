@@ -1,0 +1,178 @@
+/* mycards.css — Page 5a: My Cards & Songs. Prefix .mcs-*. Layers on bmc.css + site.css + cardart.css. */
+
+/* ============================================================
+   SECTION SCAFFOLD
+   ============================================================ */
+.mcs-section { margin-bottom: 48px; }
+.mcs-section-head {
+  display: flex; align-items: center; gap: 14px; margin-bottom: 22px;
+}
+.mcs-section-title {
+  display: inline-flex; align-items: baseline; gap: 12px; white-space: nowrap; flex-shrink: 0;
+  font-family: var(--font-serif); font-style: italic; font-weight: 700;
+  font-size: 26px; letter-spacing: -0.01em; color: var(--platinum-hi);
+}
+.mcs-section-count {
+  font-family: var(--font-num); font-weight: 600; font-size: 13px;
+  color: var(--rose-gold-hi); font-style: normal;
+}
+.mcs-section-rule {
+  flex: 1; height: 1px;
+  background: linear-gradient(to right, rgba(232,234,238,0.12), transparent);
+}
+.mcs-section-link {
+  font-family: var(--font-sans); font-weight: 700; font-size: 10.5px;
+  letter-spacing: .14em; text-transform: uppercase; color: var(--text-muted);
+  background: none; cursor: pointer; transition: color .25s var(--ease-brand);
+}
+.mcs-section-link:hover { color: var(--gold-hi); }
+
+/* Expiry badge (shared) */
+.mcs-expiry {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 11px; border-radius: var(--r-pill);
+  font-family: var(--font-sans); font-weight: 700; font-size: 9.5px;
+  letter-spacing: .14em; text-transform: uppercase;
+  color: var(--gold-hi); background: rgba(212,175,55,0.08); border: 1px solid rgba(212,175,55,0.26);
+}
+.mcs-expiry svg { width: 12px; height: 12px; }
+.mcs-expiry.is-soon { color: var(--rose-gold-hi); background: rgba(200,139,134,0.10); border-color: rgba(200,139,134,0.34); }
+
+/* ============================================================
+   DRAFTS (in progress) — wide rows
+   ============================================================ */
+.mcs-drafts { display: flex; flex-direction: column; gap: 14px; }
+.mcs-draft {
+  display: grid; grid-template-columns: 78px 1fr auto; gap: 20px; align-items: center;
+  padding: 16px; border-radius: var(--r-xl);
+  background:
+    radial-gradient(50% 120% at 0% 0%, rgba(200,139,134,0.08), transparent 70%),
+    linear-gradient(180deg, rgba(232,234,238,0.03), rgba(232,234,238,0.008));
+  border: 1px solid rgba(200,139,134,0.30);
+  box-shadow: inset 0 1px 0 rgba(255,235,225,0.05);
+  transition: border-color .3s var(--ease-brand), transform .3s var(--ease-brand);
+}
+.mcs-draft:hover { border-color: rgba(200,139,134,0.55); transform: translateY(-2px); }
+.mcs-draft-thumb { width: 78px; }
+.mcs-draft-thumb .cardart { border-radius: var(--r-md); }
+.mcs-draft-info { min-width: 0; }
+.mcs-draft-title {
+  font-family: var(--font-serif); font-style: italic; font-weight: 700;
+  font-size: 18px; color: var(--platinum-hi); letter-spacing: -0.01em;
+}
+.mcs-draft-where {
+  font-family: var(--font-sans); font-weight: 600; font-size: 11px;
+  letter-spacing: .04em; color: var(--text-secondary); margin-top: 5px;
+}
+.mcs-draft-where b { color: var(--rose-gold-hi); }
+.mcs-draft-track {
+  display: flex; align-items: center; gap: 10px; margin-top: 12px; max-width: 380px;
+}
+.mcs-draft-bar { flex: 1; height: 5px; border-radius: var(--r-pill); background: rgba(232,234,238,0.08); overflow: hidden; }
+.mcs-draft-bar i { display: block; height: 100%; border-radius: var(--r-pill); background: linear-gradient(90deg,#C88B86,#E5B8B1); }
+.mcs-draft-step {
+  font-family: var(--font-num); font-weight: 600; font-size: 10.5px;
+  letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); white-space: nowrap;
+}
+.mcs-draft-acts { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
+
+/* ============================================================
+   SAVED CARDS — grid
+   ============================================================ */
+.mcs-cards-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 22px; }
+.mcs-card {
+  display: flex; flex-direction: column;
+  padding: 14px; border-radius: var(--r-xl);
+  background: linear-gradient(180deg, rgba(232,234,238,0.03), rgba(232,234,238,0.008));
+  border: 1px solid rgba(212,175,55,0.16);
+  transition: transform .3s var(--ease-brand), border-color .3s var(--ease-brand), box-shadow .3s var(--ease-brand);
+}
+.mcs-card:hover {
+  transform: translateY(-5px); border-color: rgba(200,139,134,0.5);
+  box-shadow: 0 22px 50px rgba(0,0,0,0.5), 0 0 0 1px rgba(200,139,134,0.22);
+}
+.mcs-card-art { position: relative; border-radius: var(--r-lg); overflow: hidden; }
+.mcs-card-badges { position: absolute; top: 10px; left: 10px; right: 10px; z-index: 3; display: flex; justify-content: space-between; gap: 8px; }
+.mcs-card-songdot {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 9px; border-radius: var(--r-pill);
+  background: rgba(8,8,11,0.62); backdrop-filter: blur(6px); border: 1px solid rgba(212,175,55,0.3);
+  font-family: var(--font-sans); font-weight: 700; font-size: 8px; letter-spacing: .14em; text-transform: uppercase; color: var(--gold-hi);
+}
+.mcs-card-songdot.is-gift {
+  color: var(--rose-gold-hi);
+  border-color: rgba(200,139,134,0.42);
+}
+.mcs-card-songdot svg { width: 10px; height: 10px; }
+.mcs-card-body { padding: 13px 6px 4px; }
+.mcs-card-title { font-family: var(--font-serif); font-style: italic; font-weight: 700; font-size: 16px; color: var(--platinum-hi); line-height: 1.2; }
+.mcs-card-date { font-family: var(--font-sans); font-weight: 600; font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); margin-top: 6px; }
+.mcs-card-acts { display: flex; gap: 8px; margin-top: 14px; align-items: center; }
+.mcs-card-acts .bmc-cta { flex: 1; padding: 12px 14px; font-size: 10.5px; }
+
+/* small icon button (download / more / submit) */
+.mcs-iconbtn {
+  width: 40px; height: 40px; flex-shrink: 0; border-radius: var(--r-md);
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--platinum-mid); background: rgba(232,234,238,0.03);
+  border: 1px solid var(--divider); cursor: pointer; transition: all .25s var(--ease-brand);
+}
+.mcs-iconbtn:hover { color: var(--gold-hi); border-color: var(--gold); }
+.mcs-iconbtn svg { width: 17px; height: 17px; }
+
+/* ============================================================
+   SONGS — list rows
+   ============================================================ */
+.mcs-songs { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.mcs-song {
+  display: grid; grid-template-columns: auto 1fr auto; gap: 16px; align-items: center;
+  padding: 18px 20px; border-radius: var(--r-xl);
+  background: linear-gradient(180deg, rgba(212,175,55,0.04), rgba(212,175,55,0.01));
+  border: 1px solid rgba(212,175,55,0.20);
+  transition: border-color .3s var(--ease-brand);
+}
+.mcs-song:hover { border-color: rgba(212,175,55,0.42); }
+.mcs-song-fab {
+  width: 48px; height: 48px; flex-shrink: 0; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: #2a1015; background: linear-gradient(135deg,#F4D6D0,#C88B86); border: none; cursor: pointer;
+  box-shadow: 0 6px 16px rgba(200,139,134,0.32), inset 0 1px 0 rgba(255,235,225,0.6);
+}
+.mcs-song-fab svg { width: 19px; height: 19px; }
+.mcs-song-info { min-width: 0; }
+.mcs-song-name { font-family: var(--font-serif); font-style: italic; font-weight: 700; font-size: 16px; color: var(--platinum-hi); }
+.mcs-song-sub { font-family: var(--font-sans); font-weight: 600; font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--text-muted); margin-top: 4px; }
+.mcs-song-wave { display: flex; align-items: flex-end; gap: 2px; height: 30px; margin-top: 10px; }
+.mcs-song-wave i { flex: 1; min-width: 0; border-radius: 2px; background: linear-gradient(180deg, rgba(241,208,116,0.7), rgba(212,175,55,0.25)); transition: opacity .3s; }
+.mcs-song.is-playing .mcs-song-wave i { animation: mcs-eq 0.9s ease-in-out infinite alternate; }
+@keyframes mcs-eq { from { transform: scaleY(0.5); } to { transform: scaleY(1); } }
+.mcs-song-side { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
+
+/* ============================================================
+   EMPTY STATES
+   ============================================================ */
+.mcs-empty {
+  display: flex; flex-direction: column; align-items: center; text-align: center;
+  padding: 52px 28px;
+  background:
+    radial-gradient(60% 80% at 50% 0%, rgba(200,139,134,0.06), transparent 70%),
+    rgba(20,14,4,0.22);
+  border: 1px dashed rgba(200,139,134,0.34); border-radius: var(--r-2xl);
+}
+.mcs-empty-ico {
+  width: 64px; height: 64px; border-radius: 50%; margin-bottom: 18px;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--rose-gold-hi); background: rgba(200,139,134,0.07); border: 1px solid rgba(200,139,134,0.3);
+}
+.mcs-empty-ico svg { width: 30px; height: 30px; }
+.mcs-empty-title { font-family: var(--font-serif); font-style: italic; font-weight: 700; font-size: 22px; color: var(--platinum-hi); margin-bottom: 8px; }
+.mcs-empty-sub { font-family: var(--font-serif); font-size: 15px; line-height: 1.55; color: var(--text-secondary); max-width: 44ch; margin-bottom: 20px; }
+
+@media (max-width: 1100px) { .mcs-cards-grid { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 820px) {
+  .mcs-cards-grid { grid-template-columns: repeat(2, 1fr); }
+  .mcs-songs { grid-template-columns: 1fr; }
+  .mcs-draft { grid-template-columns: 64px 1fr; }
+  .mcs-draft-acts { grid-column: 1 / -1; flex-direction: row; justify-content: space-between; align-items: center; }
+}
+@media (max-width: 480px) { .mcs-cards-grid { grid-template-columns: 1fr 1fr; gap: 14px; } }

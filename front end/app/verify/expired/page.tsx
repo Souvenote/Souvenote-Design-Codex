@@ -5,7 +5,7 @@ export default function AuthPage() {
   return (
     <div className="souv-route-page">
       <PageChrome variant="auth" />
-      <AuthApp initialState="verify-expired" />
+      <main><AuthApp initialState="verify-expired" /></main>
     </div>
   );
 }

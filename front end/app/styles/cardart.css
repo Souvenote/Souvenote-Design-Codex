@@ -1,0 +1,36 @@
+/* cardart.css — shared CSS-art 5×7 card front. Used by My Cards & Songs. */
+
+.cardart {
+  position: relative; aspect-ratio: 5 / 7; width: 100%;
+  border-radius: var(--r-lg); overflow: hidden;
+  border: 1px solid rgba(212,175,55,0.22);
+  box-shadow: inset 0 1px 0 rgba(255,235,180,0.07);
+}
+.cardart-glyph {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -54%);
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  font-family: var(--font-serif); font-style: italic; font-weight: 700;
+  font-size: clamp(17px, 2vw, 26px); line-height: 1.08; text-align: center;
+  white-space: pre-line;
+  text-shadow: 0 2px 14px rgba(0,0,0,0.45);
+  padding: 0 18px; max-width: 94%;
+}
+.cardart-glyph-sub {
+  font-family: var(--font-sans); font-style: normal; font-weight: 600;
+  font-size: 9px; letter-spacing: .26em; text-transform: uppercase;
+  opacity: 0.7;
+}
+.cardart-fig { position: absolute; left: 14%; right: 14%; bottom: 5%; height: 36%; }
+.cardart-corner {
+  position: absolute; width: 22px; height: 22px;
+  border-top: 1.5px solid rgba(241,208,116,0.5);
+  border-left: 1.5px solid rgba(241,208,116,0.5);
+}
+.cardart-corner.tl { top: 11px; left: 11px; border-top-left-radius: 3px; }
+.cardart-corner.br {
+  bottom: 11px; right: 11px;
+  border-top: none; border-left: none;
+  border-bottom: 1.5px solid rgba(241,208,116,0.5);
+  border-right: 1.5px solid rgba(241,208,116,0.5);
+  border-bottom-right-radius: 3px;
+}

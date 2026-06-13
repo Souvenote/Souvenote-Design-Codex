@@ -1,4 +1,4 @@
-type PageChromeVariant = "landing" | "auth" | "options";
+type PageChromeVariant = "landing" | "auth" | "options" | "bmc" | "personalize" | "pages";
 
 type PageChromeProps = {
   variant?: PageChromeVariant;
@@ -16,7 +16,16 @@ const gemClasses = [
 ];
 
 export function PageChrome({ variant = "landing" }: PageChromeProps) {
-  const haloClass = variant === "auth" ? "auth-halo" : variant === "options" ? "opt-page-halo" : "souv-page-halo";
+  const haloClass =
+    variant === "auth"
+      ? "auth-halo"
+      : variant === "options"
+        ? "opt-page-halo"
+        : variant === "bmc"
+          ? "bmc-page-halo"
+          : variant === "personalize"
+            ? "pt-halo"
+            : "souv-page-halo";
   const gems = variant === "auth" ? gemClasses.slice(0, 7) : gemClasses;
 
   return (

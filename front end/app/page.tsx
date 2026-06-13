@@ -7,18 +7,20 @@ import { Navbar } from "./components/Navbar";
 import { OrnamentDivider } from "./components/Ornaments";
 import { PageChrome } from "./components/PageChrome";
 
-export default function LandingLoggedOutPage() {
+export default function LandingPage() {
   return (
     <div className="souv-route-page">
       <PageChrome variant="landing" />
-      <Navbar loggedIn={false} />
-      <Hero accentMetal="silver" loggedIn={false} />
-      <OrnamentDivider />
-      <Gallery />
-      <OrnamentDivider />
-      <HowItWorks />
-      <OrnamentDivider />
-      <FAQ />
+      <Navbar logo="wordmark" />
+      <main>
+        <Hero accentMetal="silver" />
+        <OrnamentDivider />
+        <Gallery />
+        <OrnamentDivider />
+        <HowItWorks />
+        <OrnamentDivider />
+        <FAQ />
+      </main>
       <Footer />
     </div>
   );

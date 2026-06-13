@@ -1,0 +1,221 @@
+/* ============================================================
+   Souvenote — Content Pages
+   Shared styling for the secondary pages: FAQ, Contact, and the
+   legal docs (Cookie / Refund / Terms / Privacy).
+   Built on the same dark-editorial chrome as the marketing site.
+   ============================================================ */
+
+/* Page wrapper — clears the fixed navbar */
+.pg-page { position: relative; z-index: 2; padding: 24px 0 0; }
+
+/* ── Page hero ───────────────────────────────────────────── */
+.pg-hero {
+  position: relative; z-index: 2;
+  max-width: 880px; margin: 0 auto;
+  padding: 150px 32px 8px;
+  text-align: center;
+}
+.pg-kicker {
+  display: inline-flex; align-items: center; gap: 10px;
+  font-family: var(--font-sans);
+  font-weight: 700; font-size: 11px;
+  letter-spacing: 0.32em; text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 22px;
+}
+.pg-kicker .sep { width: 4px; height: 4px; background: var(--rose-gold); transform: rotate(45deg); opacity: .8; }
+.pg-kicker .muted { color: var(--platinum-lo); letter-spacing: 0.32em; }
+
+.pg-title {
+  font-family: var(--font-display);
+  font-weight: 800; letter-spacing: -0.03em;
+  font-size: clamp(2.4rem, 5.2vw, 4.4rem); line-height: 1.05;
+  color: var(--platinum-hi);
+  margin: 0;
+}
+.pg-title .pg-italic { font-family: var(--font-serif); font-weight: 800; }
+
+.pg-meta {
+  margin-top: 22px;
+  font-family: var(--font-sans);
+  font-weight: 500; font-size: 11.5px; letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--text-muted);
+}
+.pg-meta b { color: var(--platinum-mid); font-weight: 600; }
+
+.pg-lede {
+  max-width: 600px; margin: 22px auto 0;
+  font-family: var(--font-serif);
+  font-size: 1.0625rem; line-height: 1.7; letter-spacing: 0.01em;
+  color: var(--text-secondary);
+}
+
+/* ── Placeholder banner ──────────────────────────────────── */
+.pg-placeholder-note {
+  display: flex; align-items: center; gap: 12px;
+  max-width: 1040px; margin: 36px auto 0;
+  padding: 13px 20px;
+  border: 1px dashed rgba(212,175,55,0.32);
+  border-radius: var(--r-lg);
+  background: rgba(212,175,55,0.035);
+}
+.pg-placeholder-note .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--gold); flex-shrink: 0; box-shadow: 0 0 10px rgba(212,175,55,.6); }
+.pg-placeholder-note span {
+  font-family: var(--font-sans); font-size: 12.5px; letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+.pg-placeholder-note b { color: var(--gold-hi); font-weight: 600; }
+
+/* ============================================================
+   LEGAL DOCUMENT LAYOUT
+   ============================================================ */
+.pg-legal {
+  position: relative; z-index: 2;
+  display: grid; grid-template-columns: 232px minmax(0, 1fr);
+  gap: 72px;
+  max-width: 1040px; margin: 0 auto;
+  padding: 56px 32px 40px;
+  align-items: start;
+}
+
+/* Sticky table of contents */
+.pg-toc { position: sticky; top: 110px; }
+.pg-toc-label {
+  font-family: var(--font-sans); font-weight: 700; font-size: 10px;
+  letter-spacing: 0.28em; text-transform: uppercase; color: var(--text-muted);
+  padding: 0 0 14px 16px; margin-bottom: 6px;
+  border-bottom: 1px solid var(--divider);
+}
+.pg-toc ul { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.pg-toc a {
+  display: block; position: relative;
+  padding: 8px 16px; border-radius: var(--r-sm);
+  font-family: var(--font-sans); font-weight: 500; font-size: 13px; line-height: 1.35;
+  letter-spacing: 0.005em; color: var(--text-muted); text-decoration: none;
+  border-left: 2px solid transparent;
+  transition: color .25s var(--ease-brand), background .25s var(--ease-brand), border-color .25s var(--ease-brand);
+}
+.pg-toc a:hover { color: var(--platinum-mid); }
+.pg-toc a.is-active {
+  color: var(--gold-hi);
+  border-left-color: var(--gold);
+  background: linear-gradient(to right, rgba(212,175,55,0.08), transparent);
+}
+
+/* Content column */
+.pg-doc { min-width: 0; }
+.pg-doc-intro {
+  font-family: var(--font-serif); font-size: 1.0625rem; line-height: 1.75;
+  color: var(--text-secondary);
+  padding-bottom: 8px;
+  margin-bottom: 8px;
+}
+.pg-section { scroll-margin-top: 110px; padding: 38px 0; border-top: 1px solid var(--divider); }
+.pg-section:first-of-type { border-top: 0; padding-top: 8px; }
+.pg-section-num {
+  font-family: var(--font-sans); font-weight: 700; font-size: 11px;
+  letter-spacing: 0.22em; color: var(--gold); margin-bottom: 12px;
+}
+.pg-section h2 {
+  font-family: var(--font-display); font-weight: 700; letter-spacing: -0.015em;
+  font-size: clamp(1.4rem, 2.2vw, 1.85rem); line-height: 1.2;
+  color: var(--platinum-hi); margin: 0 0 16px;
+}
+.pg-section p {
+  font-family: var(--font-serif); font-size: 1rem; line-height: 1.78;
+  color: var(--text-secondary); margin: 0 0 16px;
+}
+.pg-section p:last-child { margin-bottom: 0; }
+.pg-section ul.pg-bullets { margin: 4px 0 16px; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 10px; }
+.pg-section ul.pg-bullets li {
+  position: relative; padding-left: 22px;
+  font-family: var(--font-serif); font-size: 1rem; line-height: 1.7; color: var(--text-secondary);
+}
+.pg-section ul.pg-bullets li::before {
+  content: ''; position: absolute; left: 4px; top: 11px;
+  width: 5px; height: 5px; background: var(--rose-gold); transform: rotate(45deg);
+}
+
+/* ── Doc footer CTA ──────────────────────────────────────── */
+.pg-doc-cta {
+  margin-top: 40px; padding: 28px 32px;
+  display: flex; align-items: center; justify-content: space-between; gap: 24px; flex-wrap: wrap;
+  border: 1px solid var(--glass-border); border-radius: var(--r-xl);
+  background: var(--glass);
+}
+.pg-doc-cta-title { font-family: var(--font-display); font-weight: 700; font-size: 1.15rem; color: var(--platinum-hi); margin: 0 0 4px; }
+.pg-doc-cta-sub { font-family: var(--font-serif); font-size: 0.95rem; color: var(--text-muted); margin: 0; }
+
+/* ============================================================
+   CONTACT PAGE
+   ============================================================ */
+.pg-contact {
+  position: relative; z-index: 2;
+  display: grid; grid-template-columns: 0.9fr 1.1fr; gap: 56px;
+  max-width: 1080px; margin: 0 auto;
+  padding: 56px 32px 40px;
+  align-items: start;
+}
+.pg-contact-aside { display: flex; flex-direction: column; gap: 14px; }
+.pg-contact-card {
+  display: flex; gap: 16px; align-items: flex-start;
+  padding: 22px 24px;
+  border: 1px solid var(--glass-border); border-radius: var(--r-xl);
+  background: var(--glass);
+  transition: border-color .3s var(--ease-brand), transform .3s var(--ease-brand);
+}
+.pg-contact-card:hover { border-color: rgba(212,175,55,0.3); transform: translateY(-2px); }
+.pg-contact-ico {
+  flex-shrink: 0; width: 42px; height: 42px; border-radius: var(--r-lg);
+  display: grid; place-items: center;
+  background: rgba(212,175,55,0.08); border: 1px solid rgba(212,175,55,0.18);
+  color: var(--gold-hi);
+}
+.pg-contact-ico svg { width: 20px; height: 20px; }
+.pg-contact-card h3 { font-family: var(--font-sans); font-weight: 600; font-size: 13px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--platinum-hi); margin: 2px 0 5px; }
+.pg-contact-card p { font-family: var(--font-serif); font-size: 0.95rem; line-height: 1.55; color: var(--text-muted); margin: 0; }
+.pg-contact-card a { color: var(--gold-hi); text-decoration: none; }
+.pg-contact-card a:hover { text-decoration: underline; }
+
+/* Form */
+.pg-form {
+  padding: 32px 36px 36px;
+  border: 1px solid var(--glass-border); border-radius: var(--r-2xl);
+  background: var(--glass);
+}
+.pg-form-title { font-family: var(--font-display); font-weight: 700; font-size: 1.4rem; color: var(--platinum-hi); margin: 0 0 4px; }
+.pg-form-sub { font-family: var(--font-serif); font-size: 0.95rem; color: var(--text-muted); margin: 0 0 26px; }
+.pg-field { margin-bottom: 18px; }
+.pg-field.pg-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.pg-field label, .pg-field-label {
+  display: block; margin-bottom: 8px;
+  font-family: var(--font-sans); font-weight: 600; font-size: 11px;
+  letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-secondary);
+}
+.pg-form textarea.input-dark { min-height: 130px; resize: vertical; font-family: var(--font-serif); line-height: 1.6; }
+.pg-form .btn-matte { width: 100%; margin-top: 8px; }
+.pg-form-fineprint { margin-top: 16px; text-align: center; font-family: var(--font-sans); font-size: 11px; letter-spacing: 0.04em; color: var(--text-muted); }
+
+/* ============================================================
+   FAQ PAGE — extra spacing tweaks + contact strip
+   ============================================================ */
+.pg-faq-wrap { padding-top: 104px; }
+.pg-faq-wrap .pg-hero { padding-top: 40px; }
+.pg-faq-wrap .souv-faq-head { display: none; }
+.pg-faq-wrap .souv-faq { padding-top: 8px; }
+.pg-faq-contact {
+  position: relative; z-index: 2;
+  max-width: 720px; margin: 0 auto;
+  padding: 8px 32px 0; text-align: center;
+}
+.pg-faq-contact h3 { font-family: var(--font-display); font-weight: 700; font-size: 1.5rem; color: var(--platinum-hi); margin: 0 0 8px; }
+.pg-faq-contact p { font-family: var(--font-serif); font-size: 1rem; color: var(--text-muted); margin: 0 0 24px; }
+
+/* ── Responsive ──────────────────────────────────────────── */
+@media (max-width: 860px) {
+  .pg-legal { grid-template-columns: 1fr; gap: 8px; }
+  .pg-toc { display: none; }
+  .pg-contact { grid-template-columns: 1fr; gap: 28px; }
+  .pg-hero { padding-top: 130px; }
+  .pg-field.pg-row { grid-template-columns: 1fr; }
+}

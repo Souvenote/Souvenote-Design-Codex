@@ -15,6 +15,8 @@ export const demoAccountBalance: AccountBalance = {
   cardBank: 1,
 };
 
+export const MIN_GENERATION_CREDITS = 2;
+
 export type CreateFlowGate =
   | { allowed: true }
   | {
@@ -31,10 +33,12 @@ export function getCreateFlowGate(
   balance: AccountBalance,
   requirement: CreateGateRequirement,
 ): CreateFlowGate {
-  const hasCredits = getTotalCredits(balance) > 0;
+  const totalCredits = getTotalCredits(balance);
+  const hasCredits = totalCredits > 0;
+  const hasGenerationCredits = totalCredits >= MIN_GENERATION_CREDITS;
   const hasCards = balance.cardBank > 0;
 
-  if (requirement === "generation" && !hasCredits) {
+  if (requirement === "generation" && !hasGenerationCredits) {
     return {
       allowed: false,
       modalMode: hasCards ? "credits" : "full",

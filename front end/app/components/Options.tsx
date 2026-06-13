@@ -2,15 +2,191 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { StampCorners } from "./Ornaments";
+import {
+  BIG_SENDER_TIERS,
+  type BigSenderTier,
+  MAX_BIG_SENDER_CARDS,
+  MIN_BIG_SENDER_CARDS,
+  clampBigSenderQuantity,
+  getBigSenderPricing,
+  makeBigSenderCartItem,
+  makeTryRiskFreeCartItem,
+} from "./pricingCatalog";
+import { MIN_GENERATION_CREDITS, type PricingModalMode } from "./createFlowRules";
+import { goToPricingAfterPurchase } from "./PricingReturn";
 
-// Options.jsx — dedicated to the create-options, pricing, referral, and modal surfaces.
+// Options.tsx - dedicated to the create-options, pricing, referral, and modal surfaces.
 // Independent copy: edits here do NOT affect the "0 Credits · Modal" view (Options.intercept.jsx).
 // Tiles · Referral · Card Packs · AI Credit Packs · (optional) Pricing modal.
 
 // ============================================================
 // ICONS — single-path strokes, currentColor, viewBox 0 0 24 24
 // ============================================================
+type CurrencyCode = "CAD" | "USD" | (string & {});
+
+type BackButtonProps = {
+  href?: string;
+  label?: string;
+};
+
+type OptionsHeaderProps = {
+  user?: unknown;
+  credits: number;
+  lowBalance: boolean;
+};
+
+type OptionTileTone = "gold" | "rose" | "silver" | "bronze";
+
+type OptionTileBase = {
+  id: string;
+  tone: OptionTileTone;
+  title: string;
+  sub: string;
+  gated: boolean;
+  requiresCredits?: boolean;
+  badge?: string;
+};
+
+type SelectableOptionTile = OptionTileBase & {
+  href: string;
+  comingSoon?: false;
+};
+
+type StaticOptionTile = OptionTileBase & {
+  comingSoon: true;
+  href?: never;
+};
+
+type OptionTile = SelectableOptionTile | StaticOptionTile;
+
+type TileSelectContext = {
+  credits: number;
+  cardBank: number;
+  locked: boolean;
+};
+
+type TileGridProps = {
+  credits: number;
+  cardBank?: number;
+  onGated?: (tile: SelectableOptionTile) => void;
+  onSelect?: (tile: SelectableOptionTile, context: TileSelectContext) => void;
+};
+
+type CardPack = {
+  id: string;
+  name: string;
+  price?: string;
+  priceUnit?: string;
+  tokens?: string;
+  cards?: string;
+  creditsPerCard?: string;
+  blurb: string;
+  accent: string;
+  featured?: boolean;
+  badge?: string;
+  minCards?: number;
+  maxCards?: number;
+  tiers?: BigSenderTier[];
+  pricePerCard?: number;
+};
+
+type CardPacksData = {
+  trf: CardPack;
+  tiered: CardPack;
+  family: CardPack & { pricePerCard: number };
+  twentyfive: null;
+  community: CardPack;
+  saved: CardPack;
+};
+
+type CreditPack = {
+  id: string;
+  name: string;
+  price: string;
+  tokens: string;
+  blurb: string;
+  accent: string;
+  featured?: boolean;
+  badge?: string;
+};
+
+type CartItem = {
+  id: string;
+  type: "credits" | "pack";
+  name: string;
+  meta: string;
+  sub: string;
+  price: number;
+  qty: number;
+  unitNote: string;
+  replaceGroup?: string;
+  cardCount?: number;
+  lockedQuantity?: boolean;
+};
+
+type CardPacksProps = {
+  currency: CurrencyCode;
+};
+
+type CreditPacksProps = {
+  currency: CurrencyCode;
+  variant?: "lowCredits";
+};
+
+type PackCardProps = {
+  pack: CardPack | CreditPack;
+  kind: "card" | "credit";
+  compact?: boolean;
+  wide?: boolean;
+};
+
+type HowItWorksItem = {
+  label: string;
+  body: React.ReactNode;
+};
+
+type HowItWorksProps = {
+  items: HowItWorksItem[];
+};
+
+type MetaBulletsProps = {
+  items: React.ReactNode[];
+};
+
+type ScalePickerProps = {
+  qty: number;
+  setQty: (qty: number | string) => void;
+  min: number;
+  max: number;
+  total: string;
+  helper?: React.ReactNode;
+};
+
+type TieredPackCardProps = {
+  pack: CardPack;
+};
+
+type FamilyPackCardProps = {
+  pack: CardPack & { pricePerCard: number };
+};
+
+type TryRiskFreeCardProps = {
+  pack: CardPack;
+};
+
+type RiskFreeCalloutProps = {
+  inline?: boolean;
+};
+
+type PricingReceiveModalProps = {
+  open: boolean;
+  onClose: () => void;
+  currency: CurrencyCode;
+  mode?: PricingModalMode;
+};
+
 function IconTemplate() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
@@ -94,7 +270,7 @@ function IconClose() {
 // ============================================================
 // SHARED — Back button (centered pill beneath page content)
 // ============================================================
-function BackButton({ href = '/', label = 'Back' }) {
+function BackButton({ href = '/', label = 'Back' }: BackButtonProps) {
   return (
     <div className="opt-back-row" data-screen-label="Back">
       <Link className="opt-back" href={href}>
@@ -110,7 +286,7 @@ function BackButton({ href = '/', label = 'Back' }) {
 // ============================================================
 // SECTION — HEADER (heading + welcome)
 // ============================================================
-function OptionsHeader({ user, credits, lowBalance }) {
+function OptionsHeader({ user, credits, lowBalance }: OptionsHeaderProps) {
   return (
     <section className="opt-head" data-screen-label="01 Header">
       <div className="opt-head-inner">
@@ -129,8 +305,8 @@ function OptionsHeader({ user, credits, lowBalance }) {
 // ============================================================
 // SECTION — TILE GRID (2×2)
 // ============================================================
-function TileGrid({ credits, cardBank = 0, onGated = undefined, onSelect = undefined }) {
-  const TILES = [
+function TileGrid({ credits, cardBank = 0, onGated = undefined, onSelect = undefined }: TileGridProps) {
+  const TILES: OptionTile[] = [
     {
       id: 'personalize',
       tone: 'gold',
@@ -156,7 +332,8 @@ function TileGrid({ credits, cardBank = 0, onGated = undefined, onSelect = undef
       title: 'Community Cards',
       sub: 'Browse, send, or remix cards shared by the Souvenote community.',
       gated: false,
-      href: '/create/community-cards',
+      comingSoon: true,
+      badge: 'Coming soon',
     },
     {
       id: 'library',
@@ -172,25 +349,11 @@ function TileGrid({ credits, cardBank = 0, onGated = undefined, onSelect = undef
     <section className="opt-tiles" data-screen-label="02 Tile Grid">
       <div className="opt-tiles-inner">
         {TILES.map((t) => {
-          const locked = t.requiresCredits && credits === 0;
-          return (
-            <Link
-              key={t.id}
-              href={t.href}
-              className={`opt-tile opt-tile-${t.tone} ${locked ? 'is-locked' : ''}`}
-              onClick={(event) => {
-                if (onSelect) {
-                  event.preventDefault();
-                  onSelect(t, { credits, cardBank, locked });
-                  return;
-                }
-                if (locked) {
-                  event.preventDefault();
-                  if (onGated) onGated(t);
-                }
-              }}
-              aria-label={t.title}
-            >
+          const locked = Boolean(t.requiresCredits && credits < MIN_GENERATION_CREDITS);
+          const comingSoon = t.comingSoon;
+          const tileClassName = `opt-tile opt-tile-${t.tone} ${locked ? 'is-locked' : ''} ${comingSoon ? 'is-coming-soon' : ''}`;
+          const tileContent = (
+            <>
               <span className="opt-tile-surface" aria-hidden="true"></span>
               <span className="opt-tile-grain" aria-hidden="true"></span>
               {t.badge && (
@@ -213,6 +376,44 @@ function TileGrid({ credits, cardBank = 0, onGated = undefined, onSelect = undef
                   <LockGlyph />
                 </span>
               )}
+            </>
+          );
+
+          if (comingSoon) {
+            return (
+              <button
+                key={t.id}
+                type="button"
+                className={tileClassName}
+                disabled
+                aria-label={`${t.title} coming soon`}
+              >
+                {tileContent}
+              </button>
+            );
+          }
+
+          const selectableTile = t as SelectableOptionTile;
+
+          return (
+            <Link
+              key={t.id}
+              href={selectableTile.href}
+              className={tileClassName}
+              onClick={(event) => {
+                if (onSelect) {
+                  event.preventDefault();
+                  onSelect(selectableTile, { credits, cardBank, locked });
+                  return;
+                }
+                if (locked) {
+                  event.preventDefault();
+                  if (onGated) onGated(selectableTile);
+                }
+              }}
+              aria-label={t.title}
+            >
+              {tileContent}
             </Link>
           );
         })}
@@ -267,7 +468,7 @@ function ReferralBlock() {
         </div>
         <form
           className="opt-referral-form"
-          onSubmit={(e) => { e.preventDefault(); if (email) { setSent(true); setTimeout(() => setSent(false), 2400); setEmail(''); } }}
+          onSubmit={(event: React.FormEvent<HTMLFormElement>) => { event.preventDefault(); if (email) { setSent(true); setTimeout(() => setSent(false), 2400); setEmail(''); } }}
         >
           <label className="opt-referral-label" htmlFor="ref-email">Their email</label>
           <div className="opt-referral-row">
@@ -310,7 +511,7 @@ function Tick() {
 // ============================================================
 // SECTION — CARD PACKS
 // ============================================================
-const CARD_PACKS_DATA = {
+const CARD_PACKS_DATA: CardPacksData = {
   trf: {
     id: 'trf',
     name: 'Try Risk-Free',
@@ -327,13 +528,9 @@ const CARD_PACKS_DATA = {
     name: 'Big Sender',
     priceUnit: 'Sliding Scale · Includes shipping and 10 AI design and song credits',
     creditsPerCard: '10',
-    minCards: 2,
-    maxCards: 30,
-    tiers: [
-      { min: 2,  max: 10, pricePerCard: 8.99, label: '2–10 cards' },
-      { min: 11, max: 20, pricePerCard: 7.99, label: '11–20 cards' },
-      { min: 21, max: 99, pricePerCard: 6.99, label: '21–30+ cards' },
-    ],
+    minCards: MIN_BIG_SENDER_CARDS,
+    maxCards: MAX_BIG_SENDER_CARDS,
+    tiers: BIG_SENDER_TIERS,
     blurb: 'Stock up at your own pace. The more cards you grab, the lower the per-card price. Twelve-month send window.',
     accent: 'gold',
   },
@@ -374,7 +571,7 @@ const CARD_PACKS_DATA = {
 };
 
 // Legacy flat array for the receive modal’s pack picker.
-const CARD_PACKS = [
+const CARD_PACKS: CardPack[] = [
   CARD_PACKS_DATA.trf,
   CARD_PACKS_DATA.tiered,
   CARD_PACKS_DATA.family,
@@ -382,7 +579,7 @@ const CARD_PACKS = [
   CARD_PACKS_DATA.saved,
 ];
 
-function CardPacks({ currency }) {
+function CardPacks({ currency }: CardPacksProps) {
   return (
     <section className="opt-pricing" data-screen-label="04 Card Packs" id="card-packs">
       <div className="opt-pricing-head">
@@ -419,13 +616,13 @@ function CardPacks({ currency }) {
 // ============================================================
 // SECTION — AI CREDIT PACKS
 // ============================================================
-const AI_PACKS = [
+const AI_PACKS: CreditPack[] = [
   { id: 'starter', name: 'Starter', price: '$2.00', tokens: '10',  blurb: 'Top off a short session.',           accent: 'platinum' },
   { id: 'creator', name: 'Creator', price: '$10.00', tokens: '80',  blurb: 'A full evening of iteration.',      accent: 'gold', featured: true, badge: 'Most popular' },
   { id: 'power',   name: 'Power',   price: '$25.00', tokens: '250', blurb: 'For repeat senders and remixers.', accent: 'rose' },
 ];
 
-function CreditPacks({ currency, variant = undefined }) {
+function CreditPacks({ currency, variant = undefined }: CreditPacksProps) {
   const lowCredits = variant === 'lowCredits';
   return (
     <section className="opt-pricing opt-pricing-ai" data-screen-label="05 Credit Packs" id="credit-packs">
@@ -442,7 +639,7 @@ function CreditPacks({ currency, variant = undefined }) {
           <>
             <h2 className="souv-h1 opt-h2 opt-h2-topup">
               Top up{' '}
-              <span className="souv-hero-italic text-metallic-rose-gold">credits only</span>
+              <span className="souv-hero-italic text-metallic-rose-gold">credits</span>
             </h2>
             <p className="opt-pricing-lede">
               Bring your card to life.<br />
@@ -463,7 +660,39 @@ function CreditPacks({ currency, variant = undefined }) {
   );
 }
 
-function PackCard({ pack, kind, compact, wide }) {
+// ============================================================
+// PERSISTENT CART — add a chosen pack, then jump to the cart
+// ============================================================
+function souvAddToCart(item: CartItem) {
+  if (typeof window === 'undefined') return;
+  try {
+    const key = 'souv_cart';
+    let cur = JSON.parse(window.localStorage.getItem(key) || '[]') as CartItem[];
+    if (item.replaceGroup) {
+      cur = cur.filter((i) => i.replaceGroup !== item.replaceGroup && i.id !== item.id);
+    }
+    const hit = item.replaceGroup ? null : cur.find((i) => i.id === item.id);
+    if (hit) hit.qty += item.qty || 1;
+    else cur.push(item);
+    window.localStorage.setItem(key, JSON.stringify(cur));
+  } catch (e) {
+    // Local storage may be unavailable; routing still lets the user continue.
+  }
+}
+
+function useSouvBuyAndGo() {
+  const router = useRouter();
+  return React.useCallback((item: CartItem) => {
+    souvAddToCart(item);
+    router.push('/cart');
+  }, [router]);
+}
+
+function PackCard({ pack, kind, compact, wide }: PackCardProps) {
+  const buyAndGo = useSouvBuyAndGo();
+  const isCardPack = kind === 'card';
+  const cardPack = isCardPack ? pack as CardPack : null;
+  const priceUnit = cardPack?.priceUnit;
   return (
     <article className={`opt-pack opt-pack-${pack.accent} ${pack.featured ? 'is-featured' : ''} ${compact ? 'is-compact' : ''} ${wide ? 'is-wide' : ''}`}>
       {pack.featured && (
@@ -477,25 +706,25 @@ function PackCard({ pack, kind, compact, wide }) {
         <div className="opt-pack-name">{pack.name}</div>
         <div className="opt-pack-price">
           {pack.price}
-          {pack.priceUnit && <span className="opt-pack-unit"> {pack.priceUnit}</span>}
+          {priceUnit && <span className="opt-pack-unit"> {priceUnit}</span>}
         </div>
       </header>
       <div className="opt-pack-rule" />
       <ul className="opt-pack-stats">
-        {kind === 'card' && (
+        {cardPack && (
           <>
             <li>
               <span>Credits</span>
-              <b>{pack.tokens}</b>
+              <b>{cardPack.tokens}</b>
             </li>
             <li>
               <span>Cards</span>
-              <b>{pack.cards}</b>
+              <b>{cardPack.cards}</b>
             </li>
-            {pack.creditsPerCard && (
+            {cardPack.creditsPerCard && (
               <li>
                 <span>Per card</span>
-                <b>{pack.creditsPerCard}</b>
+                <b>{cardPack.creditsPerCard}</b>
               </li>
             )}
           </>
@@ -508,7 +737,16 @@ function PackCard({ pack, kind, compact, wide }) {
         )}
       </ul>
       <p className="opt-pack-blurb">{pack.blurb}</p>
-      <button className={`opt-pack-cta ${pack.featured ? 'is-gold' : ''}`}>
+      <button className={`opt-pack-cta ${pack.featured ? 'is-gold' : ''}`} onClick={() => buyAndGo({
+        id: `${kind}-${pack.id}`,
+        type: kind === 'credit' ? 'credits' : 'pack',
+        name: kind === 'credit' ? `${pack.name} credits` : pack.name,
+        meta: kind === 'credit' ? `${pack.tokens} AI credits · images & songs` : `${cardPack?.cards || '1'} cards · shipping included`,
+        sub: pack.blurb,
+        price: parseFloat(String(pack.price).replace(/[^0-9.]/g, '')) || 0,
+        qty: 1,
+        unitNote: kind === 'credit' ? 'one-time top-up' : 'card pack',
+      })}>
         <span>Choose {pack.name}</span>
         <IconSparkArrow />
       </button>
@@ -519,7 +757,7 @@ function PackCard({ pack, kind, compact, wide }) {
 // ============================================================
 // SHARED — "How it works" 3-item list (used by all three packs)
 // ============================================================
-function HowItWorks({ items }) {
+function HowItWorks({ items }: HowItWorksProps) {
   return (
     <div className="opt-how">
       <div className="opt-how-eyebrow">
@@ -542,7 +780,7 @@ function HowItWorks({ items }) {
 // ============================================================
 // SHARED — meta line with rose-gold bullet separators
 // ============================================================
-function MetaBullets({ items }) {
+function MetaBullets({ items }: MetaBulletsProps) {
   return (
     <div className="opt-pk-meta opt-pk-meta-bullets">
       {items.map((it, i) => (
@@ -558,7 +796,7 @@ function MetaBullets({ items }) {
 // ============================================================
 // SHARED — card-scale picker (quantity stepper + live total)
 // ============================================================
-function ScalePicker({ qty, setQty, min, max, total, helper }) {
+function ScalePicker({ qty, setQty, min, max, total, helper }: ScalePickerProps) {
   return (
     <div className="opt-pack-family-form">
       <label className="opt-pack-family-qty-row">
@@ -586,17 +824,17 @@ function ScalePicker({ qty, setQty, min, max, total, helper }) {
 // BIG SENDER — sliding-scale volume pack
 //   2–10 : $8.99 · 11–20 : $7.99 · 21–30+ : $6.99
 // ============================================================
-function TieredPackCard({ pack }) {
-  const { minCards = 2, maxCards = 30, tiers } = pack;
-  const [qty, setQty] = React.useState(2);
+function TieredPackCard({ pack }: TieredPackCardProps) {
+  const buyAndGo = useSouvBuyAndGo();
+  const { minCards = MIN_BIG_SENDER_CARDS, maxCards = MAX_BIG_SENDER_CARDS, tiers = BIG_SENDER_TIERS } = pack;
+  const [qty, setQty] = React.useState(minCards);
 
-  function setQtyClamped(nextRaw) {
-    const next = Math.max(minCards, Math.min(maxCards, Math.floor(Number(nextRaw) || minCards)));
-    setQty(next);
+  function setQtyClamped(nextRaw: number | string) {
+    setQty(clampBigSenderQuantity(nextRaw));
   }
 
-  const currentTier = tiers.find((t) => qty >= t.min && qty <= t.max) || tiers[tiers.length - 1];
-  const total = (qty * currentTier.pricePerCard).toFixed(2);
+  const pricing = getBigSenderPricing(qty);
+  const total = pricing.totalText;
 
   return (
     <article className="opt-pack opt-pack-unified opt-pack-gold" data-screen-label="04b Big Sender">
@@ -643,7 +881,7 @@ function TieredPackCard({ pack }) {
         ]}
       />
 
-      <button className="opt-pack-cta is-gold opt-pk-cta">
+      <button className="opt-pack-cta is-gold opt-pk-cta" onClick={() => buyAndGo(makeBigSenderCartItem(qty))}>
         <span>Reserve {qty} cards · ${total}</span>
         <IconSparkArrow />
       </button>
@@ -655,11 +893,12 @@ function TieredPackCard({ pack }) {
 // SHARE THE LOVE — flat per-card family pack
 //   $7.49 / card · min 3 · keep 1 for every 3 bought
 // ============================================================
-function FamilyPackCard({ pack }) {
+function FamilyPackCard({ pack }: FamilyPackCardProps) {
+  const buyAndGo = useSouvBuyAndGo();
   const { minCards = 3, maxCards = 30, pricePerCard } = pack;
   const [qty, setQty] = React.useState(minCards);
 
-  function setQtyClamped(nextRaw) {
+  function setQtyClamped(nextRaw: number | string) {
     const next = Math.max(minCards, Math.min(maxCards, Math.floor(Number(nextRaw) || minCards)));
     setQty(next);
   }
@@ -697,7 +936,16 @@ function FamilyPackCard({ pack }) {
         helper={<>Keep up to <b>{keep}</b> for yourself, gift the rest.</>}
       />
 
-      <button className="opt-pack-cta is-gold opt-pk-cta">
+      <button className="opt-pack-cta is-gold opt-pk-cta" onClick={() => buyAndGo({
+        id: 'pack-family',
+        type: 'pack',
+        name: 'Share the Love',
+        meta: `${qty} cards · shipping included`,
+        sub: `Keep up to ${keep} for yourself, gift the rest.`,
+        price: parseFloat(total) || 0,
+        qty: 1,
+        unitNote: `$${pricePerCard.toFixed(2)} / card`,
+      })}>
         <span>Reserve {qty} cards · ${total}</span>
         <IconSparkArrow />
       </button>
@@ -708,7 +956,8 @@ function FamilyPackCard({ pack }) {
 // ============================================================
 // TRY RISK-FREE — single-card, hold-based option
 // ============================================================
-function TryRiskFreeCard({ pack }) {
+function TryRiskFreeCard({ pack }: TryRiskFreeCardProps) {
+  const buyAndGo = useSouvBuyAndGo();
   return (
     <article className="opt-pack opt-pack-unified opt-pack-gold" data-screen-label="04a Try Risk-Free">
       <header className="opt-pk-head">
@@ -731,7 +980,7 @@ function TryRiskFreeCard({ pack }) {
         ]}
       />
 
-      <button className="opt-pack-cta is-gold opt-pk-cta">
+      <button className="opt-pack-cta is-gold opt-pk-cta" onClick={() => buyAndGo(makeTryRiskFreeCartItem())}>
         <span>Choose Try Risk-Free</span>
         <IconSparkArrow />
       </button>
@@ -742,7 +991,7 @@ function TryRiskFreeCard({ pack }) {
 // ============================================================
 // SECTION — TRY RISK-FREE DEEP-DIVE (callout strip)
 // ============================================================
-function RiskFreeCallout({ inline }) {
+function RiskFreeCallout({ inline }: RiskFreeCalloutProps) {
   return (
     <section className={`opt-trf ${inline ? 'is-inline' : ''}`} data-screen-label="06 TRF Callout">
       <div className="opt-trf-inner">
@@ -776,12 +1025,56 @@ function RiskFreeCallout({ inline }) {
 // ============================================================
 // MODAL — Pricing + Referral (hard intercept variant)
 // ============================================================
-function PricingReceiveModal({ open, onClose, currency, mode = 'full' }) {
-  if (!open) return null;
+function PricingReceiveModal({ open, onClose, currency, mode = 'full' }: PricingReceiveModalProps) {
+  const router = useRouter();
   const safeMode = ['full', 'credits', 'cards'].includes(mode) ? mode : 'full';
-  const showCredits = safeMode !== 'cards';
-  const showCards = safeMode !== 'credits';
-  const showReferral = safeMode !== 'cards';
+
+  React.useEffect(() => {
+    if (open && safeMode === 'full') {
+      router.push(goToPricingAfterPurchase('/create'));
+    }
+  }, [open, router, safeMode]);
+
+  if (!open || safeMode === 'full') return null;
+
+  if (safeMode === 'credits') {
+    return (
+      <div className="opt-modal-wrap opt-modal-wrap-credits" role="dialog" aria-modal="true" aria-labelledby="m-credit-title" data-screen-label="07 Modal_credits">
+        <div className="opt-modal-scrim" onClick={onClose} />
+        <div className="opt-modal opt-modal-credits-only">
+          <button className="opt-modal-close opt-modal-credit-close" aria-label="Close" onClick={onClose}>
+            <IconClose />
+          </button>
+          <span className="opt-credit-modal-spark opt-credit-modal-spark-a" aria-hidden="true">×</span>
+          <span className="opt-credit-modal-spark opt-credit-modal-spark-b" aria-hidden="true">+</span>
+          <span className="opt-credit-modal-spark opt-credit-modal-spark-c" aria-hidden="true">·</span>
+          <header className="opt-modal-credit-hero">
+            <h2 id="m-credit-title" className="opt-modal-credit-title">
+              Top up <span className="text-metallic-rose-gold">credits</span>
+            </h2>
+            <p className="opt-modal-credit-sub">
+              Bring your card to life.<br />
+              <span>1 credit = 1 action for song creation, design generation and image editing.</span>
+            </p>
+          </header>
+          <div className="opt-modal-credit-pack-grid">
+            {AI_PACKS.map((pack) => (
+              <PackCard key={pack.id} pack={pack} kind="credit" />
+            ))}
+          </div>
+          {currency === 'USD' && (
+            <p className="opt-modal-fx opt-modal-credit-fx">
+              Displayed in USD; billed in CAD at the day-of exchange rate.
+            </p>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  const showCredits = false;
+  const showCards = true;
+  const showReferral = false;
   const modalCopy = {
     full: {
       eyebrow: 'NO CREDITS OR CARDS YET - ADD A PACK TO CONTINUE',
@@ -793,7 +1086,7 @@ function PricingReceiveModal({ open, onClose, currency, mode = 'full' }) {
           <span className="souv-hero-italic text-metallic-rose-gold">friend</span>
         </>
       ),
-      sub: 'Choose a card pack to unlock physical sends with credits included, or top up AI credits only. When payment is connected, users should land back on the path they tapped.',
+      sub: 'Choose a card pack to unlock physical sends with credits included, or top up AI credits. When payment is connected, users should land back on the path they tapped.',
       cancel: 'Not yet - back to options',
     },
     credits: {

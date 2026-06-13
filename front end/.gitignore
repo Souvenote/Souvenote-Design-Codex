@@ -4,6 +4,9 @@ node_modules/
 tsconfig.tsbuildinfo
 .npm-cache/
 .next-dev.*.log
+.next-dev-*.log
+.codex-dev.*.log
+.codex-*.log
 .env*.local
 npm-debug.log*
 yarn-debug.log*
