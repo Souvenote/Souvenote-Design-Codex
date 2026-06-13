@@ -37,6 +37,7 @@
   width: 200px; height: 280px;
   perspective: 1400px;
   perspective-origin: 50% 40%;
+  border-radius: 12px;
 }
 .pt-headcard-spin {
   position: relative;
@@ -44,10 +45,11 @@
   transform-style: preserve-3d;
   animation: ptCardSpin 14s linear infinite;
   will-change: transform;
+  border-radius: inherit;
 }
 .pt-headcard-face {
   position: absolute; inset: 0;
-  border-radius: 12px;
+  border-radius: inherit;
   overflow: hidden;
   -webkit-backface-visibility: hidden;
   backface-visibility: hidden;
@@ -61,7 +63,12 @@
   object-fit: cover;
   display: block;
 }
-.pt-headcard-back { transform: rotateY(180deg); }
+.pt-headcard-front { transform: translateZ(.5px); }
+.pt-headcard-back { transform: rotateY(180deg) translateZ(.5px); }
+.pt-headcard-back img {
+  transform: scale(1.055);
+  transform-origin: center;
+}
 
 @keyframes ptCardSpin {
   from { transform: rotateY(0deg); }
@@ -89,7 +96,7 @@
   margin: 0 0 12px;
 }
 .pt-lede {
-  font-family: var(--font-serif);
+  font-family: var(--font-sans);
   font-size: 20px; line-height: 1.55;
   color: var(--text-secondary);
   max-width: 58ch;
@@ -111,7 +118,7 @@
 .pt-banner:hover { border-color: rgba(212,175,55,0.35); }
 .pt-banner-text {
   display: flex; align-items: center; gap: 12px;
-  font-family: var(--font-serif); font-style: italic;
+  font-family: var(--font-sans); font-style: italic;
   font-size: 15px; color: var(--text-secondary);
 }
 .pt-banner-text b {
@@ -301,7 +308,7 @@
 }
 .pt-section-title {
   display: block;
-  font-family: var(--font-serif); font-style: italic; font-weight: 700;
+  font-family: var(--font-sans); font-style: italic; font-weight: 700;
   font-size: 15px; color: var(--text-secondary);
   letter-spacing: -0.005em; line-height: 1.25;
 }
@@ -449,7 +456,7 @@
 }
 
 .pt-card-art-glyph {
-  font-family: var(--font-serif); font-style: italic; font-weight: 700;
+  font-family: var(--font-sans); font-style: italic; font-weight: 700;
   font-size: 28px; line-height: 1.05;
   color: rgba(255,245,210,0.94);
   letter-spacing: -0.01em;
@@ -464,7 +471,7 @@
 .pt-card-art-foot {
   position: absolute; bottom: 14px; left: 0; right: 0;
   text-align: center;
-  font-family: var(--font-serif); font-style: italic;
+  font-family: var(--font-sans); font-style: italic;
   font-size: 12px;
   color: rgba(255,245,210,0.62);
 }
@@ -472,7 +479,7 @@
 /* Card title — heading above the art */
 .pt-card-name {
   order: -1;
-  font-family: var(--font-serif); font-weight: 700; font-style: italic;
+  font-family: var(--font-sans); font-weight: 700; font-style: italic;
   font-size: 18px; letter-spacing: -0.005em;
   color: var(--platinum-hi);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -539,7 +546,7 @@
 }
 .pt-chat-title {
   display: flex; align-items: center; gap: 10px;
-  font-family: var(--font-serif); font-weight: 700; font-style: italic;
+  font-family: var(--font-sans); font-weight: 700; font-style: italic;
   font-size: 15px; color: var(--platinum-hi);
 }
 .pt-chat-title-dot {
@@ -592,7 +599,7 @@
   overflow-y: auto;
 }
 .pt-chat-msg {
-  font-family: var(--font-serif);
+  font-family: var(--font-sans);
   font-size: 13.5px; line-height: 1.45;
   padding: 10px 12px;
   border-radius: var(--r-md);
@@ -698,7 +705,7 @@
 }
 .pt-modal-tmpl-meta {}
 .pt-modal-tmpl-name {
-  font-family: var(--font-serif); font-style: italic; font-weight: 700;
+  font-family: var(--font-sans); font-style: italic; font-weight: 700;
   font-size: 17px; color: var(--platinum-hi);
 }
 .pt-modal-tmpl-sub {
@@ -795,7 +802,7 @@
   margin: 0 0 8px;
 }
 .pt-modal-step-sub {
-  font-family: var(--font-serif);
+  font-family: var(--font-sans);
   font-size: 15.5px; line-height: 1.5;
   color: var(--text-secondary);
   max-width: 54ch;
@@ -829,11 +836,11 @@
   color: var(--text-muted);
 }
 .pt-photo-or-title {
-  font-family: var(--font-serif); font-style: italic; font-weight: 700;
+  font-family: var(--font-sans); font-style: italic; font-weight: 700;
   font-size: 18px; color: var(--platinum-hi);
 }
 .pt-photo-or-sub {
-  font-family: var(--font-serif); font-size: 13px; line-height: 1.5;
+  font-family: var(--font-sans); font-size: 13px; line-height: 1.5;
   color: var(--text-secondary);
   margin: 0 0 6px;
 }
@@ -867,11 +874,11 @@
 }
 .pt-upload-icon svg { width: 28px; height: 28px; }
 .pt-upload-title {
-  font-family: var(--font-serif); font-style: italic; font-weight: 700;
+  font-family: var(--font-sans); font-style: italic; font-weight: 700;
   font-size: 19px; color: var(--platinum-hi);
 }
 .pt-upload-sub {
-  font-family: var(--font-serif); font-size: 14px;
+  font-family: var(--font-sans); font-size: 14px;
   color: var(--text-secondary);
 }
 .pt-upload-rules {
@@ -985,7 +992,7 @@
 }
 .pt-attest-icon svg { width: 18px; height: 18px; }
 .pt-attest-text {
-  font-family: var(--font-serif); font-size: 14px; line-height: 1.5;
+  font-family: var(--font-sans); font-size: 14px; line-height: 1.5;
   color: var(--text-secondary);
 }
 .pt-attest-text b { color: var(--platinum-hi); font-weight: 600; }
@@ -1028,7 +1035,7 @@
   box-shadow: 0 6px 18px rgba(212,175,55,0.35);
 }
 .pt-prompt-title {
-  font-family: var(--font-serif); font-weight: 700; font-size: 22px;
+  font-family: var(--font-sans); font-weight: 700; font-size: 22px;
   color: var(--platinum-hi); margin: 0 0 10px;
 }
 .pt-prompt-body {
@@ -1061,7 +1068,7 @@
 }
 .pt-input::placeholder, .pt-textarea::placeholder { color: var(--text-muted); }
 .pt-help {
-  font-family: var(--font-serif); font-style: italic;
+  font-family: var(--font-sans); font-style: italic;
   font-size: 13.5px; color: var(--text-muted);
 }
 

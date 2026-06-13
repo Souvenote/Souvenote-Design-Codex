@@ -1,4 +1,4 @@
-/* mycards.css — Page 5a: My Cards & Songs. Prefix .mcs-*. Layers on bmc.css + site.css + cardart.css. */
+/* mycards.css — Page 5a: Saved Cards & Songs. Prefix .mcs-*. Layers on bmc.css + site.css + cardart.css. */
 
 /* ============================================================
    SECTION SCAFFOLD
@@ -9,7 +9,7 @@
 }
 .mcs-section-title {
   display: inline-flex; align-items: baseline; gap: 12px; white-space: nowrap; flex-shrink: 0;
-  font-family: var(--font-serif); font-style: italic; font-weight: 700;
+  font-family: var(--font-sans); font-style: italic; font-weight: 700;
   font-size: 26px; letter-spacing: -0.01em; color: var(--platinum-hi);
 }
 .mcs-section-count {
@@ -57,7 +57,7 @@
 .mcs-draft-thumb .cardart { border-radius: var(--r-md); }
 .mcs-draft-info { min-width: 0; }
 .mcs-draft-title {
-  font-family: var(--font-serif); font-style: italic; font-weight: 700;
+  font-family: var(--font-sans); font-style: italic; font-weight: 700;
   font-size: 18px; color: var(--platinum-hi); letter-spacing: -0.01em;
 }
 .mcs-draft-where {
@@ -105,7 +105,7 @@
 }
 .mcs-card-songdot svg { width: 10px; height: 10px; }
 .mcs-card-body { padding: 13px 6px 4px; }
-.mcs-card-title { font-family: var(--font-serif); font-style: italic; font-weight: 700; font-size: 16px; color: var(--platinum-hi); line-height: 1.2; }
+.mcs-card-title { font-family: var(--font-sans); font-style: italic; font-weight: 700; font-size: 16px; color: var(--platinum-hi); line-height: 1.2; }
 .mcs-card-date { font-family: var(--font-sans); font-weight: 600; font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); margin-top: 6px; }
 .mcs-card-acts { display: flex; gap: 8px; margin-top: 14px; align-items: center; }
 .mcs-card-acts .bmc-cta { flex: 1; padding: 12px 14px; font-size: 10.5px; }
@@ -140,7 +140,7 @@
 }
 .mcs-song-fab svg { width: 19px; height: 19px; }
 .mcs-song-info { min-width: 0; }
-.mcs-song-name { font-family: var(--font-serif); font-style: italic; font-weight: 700; font-size: 16px; color: var(--platinum-hi); }
+.mcs-song-name { font-family: var(--font-sans); font-style: italic; font-weight: 700; font-size: 16px; color: var(--platinum-hi); }
 .mcs-song-sub { font-family: var(--font-sans); font-weight: 600; font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--text-muted); margin-top: 4px; }
 .mcs-song-wave { display: flex; align-items: flex-end; gap: 2px; height: 30px; margin-top: 10px; }
 .mcs-song-wave i { flex: 1; min-width: 0; border-radius: 2px; background: linear-gradient(180deg, rgba(241,208,116,0.7), rgba(212,175,55,0.25)); transition: opacity .3s; }
@@ -165,8 +165,8 @@
   color: var(--rose-gold-hi); background: rgba(200,139,134,0.07); border: 1px solid rgba(200,139,134,0.3);
 }
 .mcs-empty-ico svg { width: 30px; height: 30px; }
-.mcs-empty-title { font-family: var(--font-serif); font-style: italic; font-weight: 700; font-size: 22px; color: var(--platinum-hi); margin-bottom: 8px; }
-.mcs-empty-sub { font-family: var(--font-serif); font-size: 15px; line-height: 1.55; color: var(--text-secondary); max-width: 44ch; margin-bottom: 20px; }
+.mcs-empty-title { font-family: var(--font-sans); font-style: italic; font-weight: 700; font-size: 22px; color: var(--platinum-hi); margin-bottom: 8px; }
+.mcs-empty-sub { font-family: var(--font-sans); font-size: 15px; line-height: 1.55; color: var(--text-secondary); max-width: 44ch; margin-bottom: 20px; }
 
 @media (max-width: 1100px) { .mcs-cards-grid { grid-template-columns: repeat(3, 1fr); } }
 @media (max-width: 820px) {

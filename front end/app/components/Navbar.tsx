@@ -6,6 +6,7 @@ import type { DemoCredits, DemoUser } from "./DemoUser";
 
 type NavLink = {
   label: string;
+  stackedLabel?: [string, string];
   sub: string;
   href: string;
 };
@@ -55,8 +56,9 @@ type NavbarProps = {
 };
 
 const NAV_LINKS: NavLink[] = [
-  { label: "Personalize a Template", sub: "Curated designs, ready to make yours.", href: "/create/personalize-a-template" },
-  { label: "Build My Card", sub: "Start from scratch: photo, moment, song.", href: "/create/build-my-card" },
+  { label: "Personalize a Template", stackedLabel: ["Personalize", "a Template"], sub: "Curated designs, ready to make yours.", href: "/create/personalize-a-template" },
+  { label: "Build My Card", stackedLabel: ["Build", "My Card"], sub: "Start from scratch: photo, moment, song.", href: "/create/build-my-card" },
+  { label: "Saved Cards & Songs", stackedLabel: ["Saved", "Cards & Songs"], sub: "Saved cards, drafts, songs, and send-ready creations.", href: "/create/my-cards-and-songs" },
   { label: "Pricing", sub: "Card packs, credits, and what shipping covers.", href: "/pricing" },
 ];
 
@@ -98,8 +100,8 @@ function CreditsTicker({ credits = 0, cardBank = 0 }: CreditsTickerProps) {
       <Link
         className="souv-credits souv-credits-stack souv-credits-link"
         href="/create/my-cards-and-songs"
-        title="View My Cards & Songs"
-        aria-label="View My Cards & Songs"
+        title="View Saved Cards & Songs"
+        aria-label="View Saved Cards & Songs"
       >
         <span className="souv-credit"><em>Credits</em><b>{credits}</b></span>
         <span className="souv-credit souv-credit-bank">
@@ -110,7 +112,7 @@ function CreditsTicker({ credits = 0, cardBank = 0 }: CreditsTickerProps) {
         <div className="souv-cardbank-pop-card">
           <div className="souv-cardbank-pop-arrow" />
           <div className="souv-rule-gold" />
-          <Link className="souv-cardbank-sendlink" href="/create/my-cards-and-songs">My Cards &amp; Songs</Link>
+          <Link className="souv-cardbank-sendlink" href="/create/my-cards-and-songs">Saved Cards &amp; Songs</Link>
         </div>
       </div>
     </div>
@@ -233,7 +235,7 @@ function NavRight({
               </div>
               <div className="souv-popmenu-sep" />
               <Link href="/account/profile" className="souv-popmenu-item">Profile</Link>
-              <Link href="/create/my-cards-and-songs" className="souv-popmenu-item">My Cards &amp; Songs</Link>
+              <Link href="/create/my-cards-and-songs" className="souv-popmenu-item">Saved Cards &amp; Songs</Link>
               <div className="souv-popmenu-sep" />
               <Link href="/pricing" className="souv-popmenu-item">Top Up Cards/Credits</Link>
               <Link href="/gift" className="souv-popmenu-item souv-popmenu-item-send">Gift a Souvenote</Link>
@@ -313,8 +315,15 @@ function Navbar({
               onMouseEnter={() => setHovered(link.label)}
               onMouseLeave={() => setHovered(null)}
             >
-              <Link href={link.href} className={`souv-nav-link ${hovered === link.label ? "is-hover" : ""}`}>
-                {link.label}
+              <Link href={link.href} className={`souv-nav-link ${hovered === link.label ? "is-hover" : ""}`} aria-label={link.label}>
+                {link.stackedLabel ? (
+                  <span className="souv-nav-label-stack">
+                    <span>{link.stackedLabel[0]}</span>
+                    <span>{link.stackedLabel[1]}</span>
+                  </span>
+                ) : (
+                  link.label
+                )}
                 <span className="souv-nav-underline" />
               </Link>
               {hovered === link.label && (

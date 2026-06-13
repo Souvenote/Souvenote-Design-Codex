@@ -132,6 +132,7 @@ function BmcWizard({
           onStartOver={startOver}
           onTopUp={openPricingForCredits}
           onApproveAll={() => router.push("/delivery")}
+          requiresCardPurchase={cardBank <= 0}
         />
       ) : (
         <div className="bmc-shell">

@@ -316,7 +316,7 @@ function CartPaid() {
         and your cards, packs, and credits are now on your account.
       </p>
       <div className="cart-empty-cta">
-        <Link href="/create/my-cards-and-songs" className="bmc-cta">Go to My Cards &amp; Songs <CartIco name="arrow" w={15} /></Link>
+        <Link href="/create/my-cards-and-songs" className="bmc-cta">Go to Saved Cards &amp; Songs <CartIco name="arrow" w={15} /></Link>
         <Link href="/create/personalize-a-template" className="bmc-cta-secondary">Keep browsing</Link>
       </div>
     </div>

@@ -25,7 +25,7 @@ const SOCIAL: SocialLink[] = [
 const PAGE_HREFS = {
   "Build My Card": "/create/build-my-card",
   "Personalize a Template": "/create/personalize-a-template",
-  "My Cards & Songs": "/create/my-cards-and-songs",
+  "Saved Cards & Songs": "/create/my-cards-and-songs",
   "Community Cards": null,
   Profile: "/account/profile",
   "Gift a Souvenote": "/gift",
@@ -41,7 +41,7 @@ const PAGE_HREFS = {
 } as const satisfies Record<string, string | null>;
 
 const FOOTER_COLS: FooterColumn[] = [
-  { title: "Create", items: ["Build My Card", "Personalize a Template", "My Cards & Songs", "Community Cards"] },
+  { title: "Create", items: ["Build My Card", "Personalize a Template", "Saved Cards & Songs", "Community Cards"] },
   { title: "Account", items: ["Profile", "Gift a Souvenote", "Refer a Friend", "Account Settings"] },
   { title: "Company", items: ["About", "Contact", "FAQ", "Terms of Service", "Privacy Policy", "Cookie Policy", "Refund Policy"] },
 ];

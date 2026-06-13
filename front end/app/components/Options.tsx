@@ -338,7 +338,7 @@ function TileGrid({ credits, cardBank = 0, onGated = undefined, onSelect = undef
     {
       id: 'library',
       tone: 'bronze',
-      title: 'My Cards & Songs',
+      title: 'Saved Cards & Songs',
       sub: 'Resume a draft. Re-send a saved card. Queue another song.',
       gated: false,
       href: '/create/my-cards-and-songs',
@@ -601,7 +601,7 @@ function CardPacks({ currency }: CardPacksProps) {
       </div>
 
       <ul className="opt-pricing-notes">
-        <li>Each card has a 12 month send window and are saved in My Cards &amp; Songs so you can send when the time is right.</li>
+        <li>Each card has a 12 month send window and are saved in Saved Cards &amp; Songs so you can send when the time is right.</li>
       </ul>
 
       {currency === 'USD' && (
@@ -877,7 +877,7 @@ function TieredPackCard({ pack }: TieredPackCardProps) {
         items={[
           { label: 'Share the Love', body: 'Send a completed card to your loved ones, or gift a Souvenote so someone else can create their own.' },
           { label: 'Flexible Sending Options', body: 'Send the same card to everyone, or a unique card to each.' },
-          { label: 'Always saved', body: 'Design now and send later.  Your creations will be saved in  "My Cards & Songs" for 12 months' },
+          { label: 'Always saved', body: 'Design now and send later. Your creations will be saved in "Saved Cards & Songs" for 12 months' },
         ]}
       />
 

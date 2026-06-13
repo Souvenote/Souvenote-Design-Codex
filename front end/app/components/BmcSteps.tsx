@@ -67,13 +67,23 @@ const MAX_REFS = 16;
 
 function BmcPhotoStep({ photoCount, setPhotoCount, describe, setDescribe, onContinue, country = 'CA' }: BmcPhotoStepProps) {
   const [files, setFiles] = React.useState<PhotoPreview[]>([]);
+  const [describeText, setDescribeText] = React.useState('');
+  const [describeTouched, setDescribeTouched] = React.useState(false);
   const [attested, setAttested] = React.useState(false); // completed via the gate
   const [modal, setModal] = React.useState(false);
   const inputRef = React.useRef<HTMLInputElement | null>(null);
+  const describeInputRef = React.useRef<HTMLTextAreaElement | null>(null);
   const filesRef = React.useRef<PhotoPreview[]>([]);
   const isCA = country === 'CA' || !country;
   const hasFiles = files.length > 0;
   const attestOk = !isCA || attested;
+  const hasDescription = describeText.trim().length > 0;
+
+  React.useEffect(() => {
+    if (describe) {
+      window.setTimeout(() => describeInputRef.current?.focus(), 0);
+    }
+  }, [describe]);
 
   React.useEffect(() => {
     setPhotoCount(files.length);
@@ -97,6 +107,8 @@ function BmcPhotoStep({ photoCount, setPhotoCount, describe, setDescribe, onCont
       return next;
     });
     setDescribe(false);
+    setDescribeText('');
+    setDescribeTouched(false);
     resetAttest();
   };
   const removeAt = (i: number) => setFiles(curr => {
@@ -106,8 +118,21 @@ function BmcPhotoStep({ photoCount, setPhotoCount, describe, setDescribe, onCont
   });
 
   const tryContinue = () => {
+    if (describe && !hasDescription) {
+      setDescribeTouched(true);
+      return;
+    }
     if (hasFiles && !attestOk) { setModal(true); return; }
     onContinue();
+  };
+
+  const openDescribeSection = () => {
+    setFiles((current) => {
+      current.forEach((file) => URL.revokeObjectURL(file.url));
+      return [];
+    });
+    setDescribe(true);
+    setDescribeTouched(false);
   };
 
   return (
@@ -150,17 +175,37 @@ function BmcPhotoStep({ photoCount, setPhotoCount, describe, setDescribe, onCont
           <span className="bmc-photo-or-title">Skip upload</span>
           <p className="bmc-photo-or-sub">Describe a memory, joke, or imaginary scene. We'll generate it from your words alone.</p>
           <button type="button" className={describe ? 'bmc-cta' : 'bmc-cta-secondary'}
-                  onClick={() => {
-                    setDescribe(true);
-                    setFiles((current) => {
-                      current.forEach((file) => URL.revokeObjectURL(file.url));
-                      return [];
-                    });
-                  }}>
+                  onClick={openDescribeSection}>
             Describe My Card <BmcIcon name="sparkle" w={14} />
           </button>
         </div>
       </div>
+
+      {describe && (
+        <div className="bmc-describe-inline">
+          <label className="bmc-label bmc-describe-label" htmlFor="bmc-describe-input">Describe your card</label>
+          <textarea
+            id="bmc-describe-input"
+            ref={describeInputRef}
+            className={`bmc-textarea bmc-describe-textarea ${describeTouched && !hasDescription ? 'is-error' : ''}`}
+            maxLength={500}
+            placeholder="Describe a memory, inside joke, or imaginary scene — the more vivid, the better. We'll build the whole card from this."
+            value={describeText}
+            onChange={(event) => {
+              setDescribeText(event.target.value);
+              if (event.target.value.trim()) setDescribeTouched(false);
+            }}
+          />
+          <div className="bmc-describe-help">
+            {describeTouched && !hasDescription ? (
+              <span className="is-error">Add a few details before continuing.</span>
+            ) : (
+              <span>No photo needed — we generate the art from your description.</span>
+            )}
+            <b>{500 - describeText.length} chars left</b>
+          </div>
+        </div>
+      )}
 
       {/* Live reference count + thumbnails */}
       {hasFiles && (
@@ -199,7 +244,7 @@ function BmcPhotoStep({ photoCount, setPhotoCount, describe, setDescribe, onCont
       <BmcFoot
         costLabel={<FreeCost />}
         onNext={tryContinue}
-        nextLabel={describe ? 'Describe & continue' : 'Continue'}
+        nextLabel="Continue"
       />
 
       {/* Read-to-the-bottom attestation gate */}
@@ -208,6 +253,31 @@ function BmcPhotoStep({ photoCount, setPhotoCount, describe, setDescribe, onCont
         onClose={() => setModal(false)}
         onAgree={() => { setAttested(true); setModal(false); onContinue(); }}
       />
+
+      {describe && describeTouched && !hasDescription && (
+        <div className="bmc-prompt-wrap" role="dialog" aria-modal="true">
+          <div className="bmc-prompt-scrim" onClick={() => setDescribeTouched(false)} />
+          <div className="bmc-prompt">
+            <span className="bmc-prompt-icon"><BmcIcon name="sparkle" w={22} /></span>
+            <h3 className="bmc-prompt-title">Describe your idea first</h3>
+            <p className="bmc-prompt-body">
+              Tell us the memory, inside joke, or scene you have in mind and we'll generate
+              the card from your words. Add a few details before continuing.
+            </p>
+            <button
+              type="button"
+              className="bmc-cta"
+              onClick={() => {
+                setDescribeTouched(false);
+                window.setTimeout(() => describeInputRef.current?.focus(), 0);
+              }}
+            >
+              Got it <BmcIcon name="arrow" w={14} />
+            </button>
+          </div>
+        </div>
+      )}
+
     </>
   );
 }

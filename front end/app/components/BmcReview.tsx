@@ -5,6 +5,8 @@ import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { BmcIcon } from "./BmcShared";
 import { GENRE_GROUPS } from "./BmcSteps";
+import { rememberPricingReturn } from "./PricingReturn";
+import { addPricingCartItemToCart, makeSingleCardSendCartItem } from "./pricingCatalog";
 
 // BmcReview.tsx - Build My Card Review page.
 // Front Card, Song, Inside Message panels + bottom action bar + "Are you sure?" modal.
@@ -48,6 +50,7 @@ type BmcReviewProps = {
   onTopUp?: () => void;
   credits?: number;
   generating?: boolean;
+  requiresCardPurchase?: boolean;
 };
 
 type EditingState = {
@@ -372,7 +375,52 @@ function BmcInviteModal({ open, onClose }: ModalProps) {
   return createPortal(ui, document.body);
 }
 
-function BmcReview({ onStartOver, onApproveAll, onTopUp, credits = 6, generating = false }: BmcReviewProps) {
+function BmcSendCardModal({ open, onClose, onSendOne, onBuyMore, onHome }: ModalProps & {
+  onSendOne: () => void;
+  onBuyMore: () => void;
+  onHome: () => void;
+}) {
+  if (!open) return null;
+
+  const ui = (
+    <div className="bmc-modal-wrap" role="dialog" aria-modal="true" aria-labelledby="bmc-send-card-title" data-screen-label="Review - Send Card Modal">
+      <div className="bmc-modal-scrim" onClick={onClose} />
+      <div className="bmc-modal bmc-send-card-modal is-gold">
+        <button type="button" className="bmc-modal-close" onClick={onClose} aria-label="Close"><BmcIcon name="close" w={16} /></button>
+        <div className="bmc-send-card-eyebrow">
+          <BmcIcon name="check" w={14} />
+          Your Souvenote is ready
+        </div>
+        <h2 id="bmc-send-card-title" className="bmc-modal-title">
+          Send this card?
+        </h2>
+        <p className="bmc-modal-sub bmc-send-card-sub">
+          You used your credits to create this card. To mail it, send this card for $6.99, purchase more than one card, or head home and come back later.
+        </p>
+        <div className="bmc-send-card-summary">
+          <span>Physical 5x7 card</span>
+          <b>$6.99 CAD</b>
+          <em>Shipping is always included.</em>
+        </div>
+        <div className="bmc-modal-acts bmc-send-card-actions">
+          <button type="button" className="bmc-cta" onClick={onSendOne}>
+            Send the card for $6.99 <BmcIcon name="arrow" w={15} />
+          </button>
+          <button type="button" className="bmc-cta-secondary" onClick={onBuyMore}>
+            Purchase more than 1 card
+          </button>
+          <button type="button" className="bmc-cta-quiet" onClick={onHome}>
+            Take me home
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+  if (typeof document === "undefined") return null;
+  return createPortal(ui, document.body);
+}
+
+function BmcReview({ onStartOver, onApproveAll, onTopUp, credits = 6, generating = false, requiresCardPurchase = false }: BmcReviewProps) {
   const router = useRouter();
   const [imgApproved, setImgApproved] = React.useState(false);
   const [songApproved, setSongApproved] = React.useState(false);
@@ -380,6 +428,7 @@ function BmcReview({ onStartOver, onApproveAll, onTopUp, credits = 6, generating
   const [editing, setEditing] = React.useState<EditingState>({ image: false, song: false, message: false });
   const [confirm, setConfirm] = React.useState(false);
   const [inviteOpen, setInviteOpen] = React.useState(false);
+  const [sendCardOpen, setSendCardOpen] = React.useState(false);
 
   // Open the "while you wait" invite modal as soon as generation kicks off.
   React.useEffect(() => { if (generating) setInviteOpen(true); }, [generating]);
@@ -396,7 +445,22 @@ function BmcReview({ onStartOver, onApproveAll, onTopUp, credits = 6, generating
     setImgApproved(true);
     setSongApproved(true);
     setMsgApproved(true);
+    if (requiresCardPurchase) {
+      setSendCardOpen(true);
+      return;
+    }
     approveAll();
+  };
+
+  const sendOneCard = () => {
+    addPricingCartItemToCart(makeSingleCardSendCartItem());
+    rememberPricingReturn('/delivery');
+    router.push('/cart');
+  };
+
+  const buyMoreCards = () => {
+    rememberPricingReturn('/delivery');
+    router.push('/pricing#card-packs');
   };
 
   return (
@@ -470,8 +534,15 @@ function BmcReview({ onStartOver, onApproveAll, onTopUp, credits = 6, generating
       />
 
       <BmcInviteModal open={inviteOpen} onClose={() => setInviteOpen(false)} />
+      <BmcSendCardModal
+        open={sendCardOpen}
+        onClose={() => setSendCardOpen(false)}
+        onSendOne={sendOneCard}
+        onBuyMore={buyMoreCards}
+        onHome={() => router.push('/home')}
+      />
     </div>
   );
 }
 
-export { BmcReview, BmcConfirmModal, BmcInviteModal, BmcReviewFront, BmcReviewSong, BmcReviewMessage };
+export { BmcReview, BmcConfirmModal, BmcInviteModal, BmcSendCardModal, BmcReviewFront, BmcReviewSong, BmcReviewMessage };

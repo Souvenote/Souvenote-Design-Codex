@@ -279,10 +279,10 @@ function MyCardsApp({ user, full = true }: MyCardsAppProps) {
     <>
       <Navbar loggedIn user={user} credits={demoBalance.credits} cardBank={demoBalance.cardBank} cartCount={0} />
 
-      <div className="bmc-shell" data-screen-label="05a My Cards & Songs">
+      <div className="bmc-shell" data-screen-label="05a Saved Cards & Songs">
         <div className="bmc-head" style={{ margin: "0 0 40px", maxWidth: 820 }}>
           <div className="bmc-eyebrow" style={{ whiteSpace: "nowrap" }}>
-            <span>My Cards &amp; Songs</span>
+            <span>Saved Cards &amp; Songs</span>
           </div>
           <h1 className="bmc-title">
             Everything you&apos;ve{" "}

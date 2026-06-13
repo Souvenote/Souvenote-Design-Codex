@@ -87,10 +87,10 @@
   letter-spacing: -0.01em; color: var(--platinum-hi); margin-bottom: 5px;
 }
 .cart-line-meta {
-  font-family: var(--font-serif); font-size: 0.98rem; color: var(--text-primary);
+  font-family: var(--font-sans); font-size: 0.98rem; color: var(--text-primary);
 }
 .cart-line-sub {
-  font-family: var(--font-serif); font-style: italic; font-size: 0.9rem;
+  font-family: var(--font-sans); font-style: italic; font-size: 0.9rem;
   color: var(--text-muted); margin-top: 3px;
 }
 .cart-line-remove {
@@ -208,7 +208,7 @@
 .cart-secure svg { color: var(--platinum-lo); }
 
 .cart-foot {
-  font-family: var(--font-serif); font-size: 0.9rem; line-height: 1.5;
+  font-family: var(--font-sans); font-size: 0.9rem; line-height: 1.5;
   color: var(--text-muted); text-align: center; margin: 16px 6px 0;
 }
 .cart-foot b { color: var(--gold-hi); font-style: italic; }
@@ -240,7 +240,7 @@
   margin: 0 0 16px;
 }
 .cart-gift-lede {
-  font-family: var(--font-serif);
+  font-family: var(--font-sans);
   font-size: 1.06rem;
   line-height: 1.65;
   color: var(--text-secondary);
@@ -287,7 +287,7 @@
   letter-spacing: -0.02em; color: var(--platinum-hi); margin: 0 0 12px;
 }
 .cart-empty-p {
-  font-family: var(--font-serif); font-size: 1.02rem; line-height: 1.6;
+  font-family: var(--font-sans); font-size: 1.02rem; line-height: 1.6;
   color: var(--text-muted); margin: 0 auto 28px; max-width: 400px;
 }
 .cart-empty-cta { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }

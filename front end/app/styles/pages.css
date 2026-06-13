@@ -33,7 +33,7 @@
   color: var(--platinum-hi);
   margin: 0;
 }
-.pg-title .pg-italic { font-family: var(--font-serif); font-weight: 800; }
+.pg-title .pg-italic { font-family: var(--font-sans); font-weight: 800; }
 
 .pg-meta {
   margin-top: 22px;
@@ -45,7 +45,7 @@
 
 .pg-lede {
   max-width: 600px; margin: 22px auto 0;
-  font-family: var(--font-serif);
+  font-family: var(--font-sans);
   font-size: 1.0625rem; line-height: 1.7; letter-spacing: 0.01em;
   color: var(--text-secondary);
 }
@@ -105,7 +105,7 @@
 /* Content column */
 .pg-doc { min-width: 0; }
 .pg-doc-intro {
-  font-family: var(--font-serif); font-size: 1.0625rem; line-height: 1.75;
+  font-family: var(--font-sans); font-size: 1.0625rem; line-height: 1.75;
   color: var(--text-secondary);
   padding-bottom: 8px;
   margin-bottom: 8px;
@@ -122,14 +122,14 @@
   color: var(--platinum-hi); margin: 0 0 16px;
 }
 .pg-section p {
-  font-family: var(--font-serif); font-size: 1rem; line-height: 1.78;
+  font-family: var(--font-sans); font-size: 1rem; line-height: 1.78;
   color: var(--text-secondary); margin: 0 0 16px;
 }
 .pg-section p:last-child { margin-bottom: 0; }
 .pg-section ul.pg-bullets { margin: 4px 0 16px; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 10px; }
 .pg-section ul.pg-bullets li {
   position: relative; padding-left: 22px;
-  font-family: var(--font-serif); font-size: 1rem; line-height: 1.7; color: var(--text-secondary);
+  font-family: var(--font-sans); font-size: 1rem; line-height: 1.7; color: var(--text-secondary);
 }
 .pg-section ul.pg-bullets li::before {
   content: ''; position: absolute; left: 4px; top: 11px;
@@ -144,7 +144,7 @@
   background: var(--glass);
 }
 .pg-doc-cta-title { font-family: var(--font-display); font-weight: 700; font-size: 1.15rem; color: var(--platinum-hi); margin: 0 0 4px; }
-.pg-doc-cta-sub { font-family: var(--font-serif); font-size: 0.95rem; color: var(--text-muted); margin: 0; }
+.pg-doc-cta-sub { font-family: var(--font-sans); font-size: 0.95rem; color: var(--text-muted); margin: 0; }
 
 /* ============================================================
    CONTACT PAGE
@@ -173,7 +173,7 @@
 }
 .pg-contact-ico svg { width: 20px; height: 20px; }
 .pg-contact-card h3 { font-family: var(--font-sans); font-weight: 600; font-size: 13px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--platinum-hi); margin: 2px 0 5px; }
-.pg-contact-card p { font-family: var(--font-serif); font-size: 0.95rem; line-height: 1.55; color: var(--text-muted); margin: 0; }
+.pg-contact-card p { font-family: var(--font-sans); font-size: 0.95rem; line-height: 1.55; color: var(--text-muted); margin: 0; }
 .pg-contact-card a { color: var(--gold-hi); text-decoration: none; }
 .pg-contact-card a:hover { text-decoration: underline; }
 
@@ -184,7 +184,7 @@
   background: var(--glass);
 }
 .pg-form-title { font-family: var(--font-display); font-weight: 700; font-size: 1.4rem; color: var(--platinum-hi); margin: 0 0 4px; }
-.pg-form-sub { font-family: var(--font-serif); font-size: 0.95rem; color: var(--text-muted); margin: 0 0 26px; }
+.pg-form-sub { font-family: var(--font-sans); font-size: 0.95rem; color: var(--text-muted); margin: 0 0 26px; }
 .pg-field { margin-bottom: 18px; }
 .pg-field.pg-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .pg-field label, .pg-field-label {
@@ -192,7 +192,7 @@
   font-family: var(--font-sans); font-weight: 600; font-size: 11px;
   letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-secondary);
 }
-.pg-form textarea.input-dark { min-height: 130px; resize: vertical; font-family: var(--font-serif); line-height: 1.6; }
+.pg-form textarea.input-dark { min-height: 130px; resize: vertical; font-family: var(--font-sans); line-height: 1.6; }
 .pg-form .btn-matte { width: 100%; margin-top: 8px; }
 .pg-form-fineprint { margin-top: 16px; text-align: center; font-family: var(--font-sans); font-size: 11px; letter-spacing: 0.04em; color: var(--text-muted); }
 
@@ -209,7 +209,7 @@
   padding: 8px 32px 0; text-align: center;
 }
 .pg-faq-contact h3 { font-family: var(--font-display); font-weight: 700; font-size: 1.5rem; color: var(--platinum-hi); margin: 0 0 8px; }
-.pg-faq-contact p { font-family: var(--font-serif); font-size: 1rem; color: var(--text-muted); margin: 0 0 24px; }
+.pg-faq-contact p { font-family: var(--font-sans); font-size: 1rem; color: var(--text-muted); margin: 0 0 24px; }
 
 /* ── Responsive ──────────────────────────────────────────── */
 @media (max-width: 860px) {

@@ -94,7 +94,7 @@
   gap: 14px;
   padding: 10px 24px;
   margin: 0 36px 8px;
-  font-family: var(--font-serif); font-style: italic;
+  font-family: var(--font-sans); font-style: italic;
   font-size: 14.5px;
   color: var(--platinum-hi);
   text-align: center;
@@ -148,37 +148,88 @@
 }
 .auth-card-wide,
 .auth-card-login {
-  max-width: min(1040px, calc(100vw - 48px));
-  padding: 48px 48px 42px;
+  max-width: min(1160px, calc(100vw - 48px));
+  padding: clamp(30px, 3.2vw, 42px);
 }
 .auth-card-narrow { max-width: 460px; }
 
-.auth-split {
+.auth-authflow {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(20px, 2.4vw, 28px);
+}
+
+.auth-authflow-intro {
+  max-width: 900px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.auth-authflow-intro .auth-eyebrow {
+  justify-content: center;
+}
+
+.auth-authflow-intro .auth-sub {
+  max-width: 58ch;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.auth-method-grid {
   display: grid;
-  grid-template-columns: minmax(0, 0.95fr) minmax(340px, 1fr);
-  gap: clamp(28px, 4vw, 48px);
-  align-items: center;
+  grid-template-columns: minmax(280px, 0.82fr) minmax(360px, 1.18fr);
+  gap: clamp(18px, 2.4vw, 28px);
+  align-items: start;
 }
-.auth-split-copy {
+
+.auth-method-panel {
   min-width: 0;
+  padding: clamp(20px, 2.2vw, 26px);
+  border: 1px solid rgba(232,234,238,0.12);
+  border-radius: var(--r-xl);
+  background:
+    radial-gradient(65% 45% at 50% 0%, rgba(212,175,55,0.08), transparent 72%),
+    linear-gradient(180deg, rgba(232,234,238,0.035), rgba(232,234,238,0.012));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
 }
-.auth-split-form {
-  min-width: 0;
+
+.auth-method-kicker {
+  margin-bottom: 10px;
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .28em;
+  text-transform: uppercase;
+  color: var(--gold);
 }
-.auth-title-hero {
-  max-width: 7.5em;
+
+.auth-method-title {
+  margin: 0 0 8px;
+  font-family: var(--font-display);
+  font-size: clamp(1.25rem, 1.7vw, 1.55rem);
+  line-height: 1.08;
+  color: var(--platinum-hi);
 }
+
+.auth-method-sub {
+  margin: 0 0 20px;
+  font-family: var(--font-sans);
+  font-size: 14.5px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.auth-title-hero { max-width: none; }
 
 /* Sign Up surface runs larger than the other auth states */
 .auth-card-wide .auth-eyebrow { font-size: 11.5px; margin-bottom: 16px; }
 .auth-card-wide .auth-title { font-size: clamp(2.2rem, 3.4vw, 3rem); margin-bottom: 14px; }
 .auth-card-wide .auth-title.auth-title-hero {
-  font-size: clamp(3.15rem, 5.8vw, 5.3rem);
-  line-height: 0.96;
-  margin-bottom: 20px;
+  font-size: clamp(2.65rem, 4vw, 3.85rem);
+  line-height: 0.98;
+  margin-bottom: 12px;
 }
-.auth-card-wide .auth-sub { font-size: 17.5px; margin-bottom: 32px; max-width: 48ch; }
-.auth-split-copy .auth-sub { max-width: 32ch; margin-bottom: 0; }
+.auth-card-wide .auth-sub { font-size: 18px; margin-bottom: 0; }
 .auth-card-login .auth-title {
   font-size: clamp(2.35rem, 4vw, 3.45rem);
   line-height: 1.02;
@@ -192,6 +243,32 @@
 .auth-card-wide .auth-submit { font-size: 13px; padding: 17px 24px; }
 .auth-card-wide .auth-cardfoot { font-size: 16px; }
 .auth-card-wide .auth-cardfoot a, .auth-card-wide .auth-cardfoot button.auth-link { font-size: 16px; }
+.auth-method-panel .auth-socials { margin-bottom: 0; }
+.auth-method-panel .auth-cardfoot { margin-top: 18px; }
+
+.auth-email-fields {
+  display: flex;
+  flex-direction: column;
+}
+
+@media (min-width: 1040px) {
+  .auth-email-fields-signup {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    column-gap: 14px;
+    align-items: start;
+  }
+
+  .auth-email-fields-signup .auth-field-row,
+  .auth-email-fields-signup .auth-check,
+  .auth-email-fields-signup .auth-submit,
+  .auth-email-fields-signup .auth-cardfoot {
+    grid-column: 1 / -1;
+  }
+
+  .auth-card-wide .auth-field { margin-bottom: 13px; }
+  .auth-card-wide .auth-hint { font-size: 12.5px; }
+}
 
 .auth-eyebrow {
   display: inline-flex; align-items: center; gap: 10px;
@@ -210,7 +287,7 @@
   margin: 0 0 12px;
 }
 .auth-sub {
-  font-family: var(--font-serif);
+  font-family: var(--font-sans);
   font-size: 16px; line-height: 1.55;
   color: var(--text-secondary);
   margin: 0 0 28px;
@@ -269,7 +346,7 @@
 .auth-input-reveal svg { width: 18px; height: 18px; }
 
 .auth-hint {
-  font-family: var(--font-serif); font-style: italic;
+  font-family: var(--font-sans); font-style: italic;
   font-size: 13.5px; line-height: 1.45;
   color: var(--text-muted);
   margin: 0;
@@ -309,7 +386,7 @@
   display: flex; align-items: flex-start; gap: 12px;
   cursor: pointer;
   margin-bottom: 14px;
-  font-family: var(--font-serif); font-size: 14px;
+  font-family: var(--font-sans); font-size: 14px;
   line-height: 1.5;
   color: var(--text-secondary);
 }
@@ -432,11 +509,11 @@
   padding-top: 22px;
   border-top: 1px solid var(--divider);
   text-align: center;
-  font-family: var(--font-serif); font-style: italic;
+  font-family: var(--font-sans); font-style: italic;
   font-size: 15px; color: var(--text-secondary);
 }
 .auth-cardfoot a, .auth-cardfoot button.auth-link {
-  display: inline; font-family: var(--font-serif); font-style: italic;
+  display: inline; font-family: var(--font-sans); font-style: italic;
   font-weight: 700; font-size: 15px;
   letter-spacing: 0; text-transform: none;
   color: var(--gold);
@@ -512,7 +589,7 @@
   margin: 0 0 12px;
 }
 .auth-modal-sub {
-  font-family: var(--font-serif);
+  font-family: var(--font-sans);
   font-size: 15.5px; line-height: 1.55;
   color: var(--text-secondary);
   max-width: 38ch; margin: 0 auto 22px;
@@ -738,7 +815,7 @@
 }
 .auth-restore-list li {
   display: flex; align-items: flex-start; gap: 12px;
-  font-family: var(--font-serif); font-size: 14.5px; line-height: 1.55;
+  font-family: var(--font-sans); font-size: 14.5px; line-height: 1.55;
   color: var(--text-secondary);
 }
 .auth-restore-list svg {
@@ -770,18 +847,17 @@
     max-width: min(620px, calc(100vw - 32px));
     padding: 38px 32px 32px;
   }
-  .auth-split {
+  .auth-method-grid {
     grid-template-columns: 1fr;
     gap: 28px;
   }
-  .auth-title-hero { max-width: 9em; }
   .auth-card-wide .auth-title.auth-title-hero {
     font-size: clamp(2.55rem, 10vw, 3.65rem);
   }
   .auth-card-login .auth-title {
     font-size: clamp(2.2rem, 8vw, 3rem);
   }
-  .auth-split-copy .auth-sub { max-width: 40ch; }
+  .auth-method-sub { min-height: 0; }
 }
 
 @media (max-width: 540px) {

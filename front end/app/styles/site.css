@@ -13,7 +13,7 @@ html { overflow-x: clip; }
 body {
   background: var(--bg-primary);
   color: var(--text-primary);
-  font-family: var(--font-serif);
+  font-family: var(--font-sans);
   min-height: 100vh;
 }
 button { font-family: inherit; cursor: pointer; border: 0; background: transparent; color: inherit; }
@@ -210,11 +210,13 @@ img { display: block; max-width: 100%; }
   display: flex; align-items: center; gap: 28px;
   flex: 1 1 auto; min-width: 0; justify-content: center;
 }
-.souv-nav.is-loggedin .souv-nav-links { gap: 44px; }
+.souv-nav.is-loggedin .souv-nav-links { gap: 30px; }
 .souv-nav-link-wrap { position: relative; }
 .souv-nav-link {
   position: relative;
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   text-decoration: none;
   padding: 8px 12px;
   font-family: var(--font-sans);
@@ -228,10 +230,20 @@ img { display: block; max-width: 100%; }
   white-space: nowrap;
 }
 .souv-nav.is-loggedin .souv-nav-link {
-  font-size: 20px;
+  font-size: 17px;
   font-weight: 800;
   letter-spacing: .035em;
-  padding: 10px 12px;
+  min-width: 116px;
+  padding: 8px 8px;
+}
+.souv-nav-label-stack {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  line-height: 1.04;
+  text-align: center;
 }
 .souv-nav-link-wrap:hover .souv-nav-link,
 .souv-nav-link.is-hover { color: var(--gold-hi); }
@@ -274,7 +286,7 @@ img { display: block; max-width: 100%; }
 }
 .souv-nav-popover-rule { height: 1px; background: var(--divider); margin: 8px 0 8px; }
 .souv-nav-popover-sub {
-  font-family: var(--font-serif); font-style: italic; font-size: 14px;
+  font-family: var(--font-sans); font-style: italic; font-size: 14px;
   color: var(--text-secondary); line-height: 1.45;
 }
 
@@ -344,7 +356,7 @@ img { display: block; max-width: 100%; }
 .souv-credit-bank b { color: var(--rose-gold-hi); }
 .souv-nav.is-loggedin .souv-credit b { font-size: 20px; }
 
-/* Balance hover reveals a My Cards & Songs popover (matches nav-link popover) */
+/* Balance hover reveals a Saved Cards & Songs popover (matches nav-link popover) */
 .souv-balance-wrap,
 .souv-cardbank-wrap { position: relative; cursor: default; }
 .souv-cardbank-pop {
@@ -506,9 +518,10 @@ img { display: block; max-width: 100%; }
   .souv-nav.is-loggedin .souv-nav-logo img { height: 46px; }
   .souv-nav.is-loggedin .souv-nav-links { gap: 16px; }
   .souv-nav.is-loggedin .souv-nav-link {
-    font-size: 14px;
+    min-width: 86px;
+    font-size: 12px;
     letter-spacing: .04em;
-    padding: 8px 6px;
+    padding: 7px 4px;
   }
   .souv-nav.is-loggedin .souv-nav-dot { margin: 0 -4px; }
   .souv-nav.is-loggedin .souv-credits-stack {
@@ -541,6 +554,7 @@ img { display: block; max-width: 100%; }
     gap: 7px;
   }
   .souv-nav.is-loggedin .souv-nav-link {
+    min-width: 66px;
     font-size: 10px;
     padding: 6px 2px;
   }
@@ -655,12 +669,12 @@ a.souv-popmenu-logout { display: block; text-decoration: none; }
   border: 1px solid var(--platinum-mid);
   color: var(--platinum-hi);
   display: flex; align-items: center; justify-content: center;
-  font-family: var(--font-serif-alt); font-weight: 600; font-size: 13px;
+  font-family: var(--font-sans); font-weight: 600; font-size: 13px;
   letter-spacing: .03em;
   box-shadow: inset 0 1px 0 rgba(255,255,255,.08);
 }
 .souv-popmenu-name {
-  font-family: var(--font-serif-alt); font-weight: 600; font-size: 14px;
+  font-family: var(--font-sans); font-weight: 600; font-size: 14px;
   color: var(--platinum-hi); letter-spacing: -.005em;
 }
 .souv-popmenu-email {
@@ -712,7 +726,7 @@ a.souv-popmenu-logout { display: block; text-decoration: none; }
   color: var(--platinum-hi);
 }
 .souv-hero-italic {
-  font-family: var(--font-serif); font-style: italic; font-weight: 400;
+  font-family: var(--font-sans); font-style: italic; font-weight: 400;
 }
 .souv-hero-ctas { display: flex; gap: 16px; margin-bottom: 46px; }
 .souv-btn-colorful {
@@ -753,7 +767,7 @@ a.souv-popmenu-logout { display: block; text-decoration: none; }
 .souv-btn-log:hover { color: var(--platinum-hi); border-color: var(--platinum-hi); background: rgba(232,234,238,0.04); }
 
 .souv-hero-lede {
-  font-family: var(--font-serif); font-style: italic; font-weight: 400;
+  font-family: var(--font-sans); font-style: italic; font-weight: 400;
   font-size: clamp(1.15rem, 1.6vw, 1.55rem);
   line-height: 1.55; color: var(--text-secondary);
   margin: 0 0 18px; max-width: 34ch;
@@ -972,11 +986,11 @@ a.souv-popmenu-logout { display: block; text-decoration: none; }
   line-height: 1; margin-bottom: 20px;
 }
 .souv-step-title {
-  font-family: var(--font-serif); font-style: italic; font-weight: 600;
+  font-family: var(--font-sans); font-style: italic; font-weight: 600;
   font-size: 26px; color: var(--platinum-hi); margin-bottom: 14px;
 }
 .souv-step-body {
-  font-family: var(--font-serif); font-size: 16px; line-height: 1.65;
+  font-family: var(--font-sans); font-size: 16px; line-height: 1.65;
   color: var(--text-secondary);
 }
 
@@ -991,7 +1005,7 @@ a.souv-popmenu-logout { display: block; text-decoration: none; }
   background: linear-gradient(to bottom, var(--gold), transparent);
 }
 .souv-gallery-sub {
-  font-family: var(--font-serif); font-style: italic; font-size: 17px;
+  font-family: var(--font-sans); font-style: italic; font-size: 17px;
   color: var(--text-secondary); line-height: 1.55; max-width: 36ch;
   margin: 22px 0 30px;
 }
@@ -1001,7 +1015,7 @@ a.souv-popmenu-logout { display: block; text-decoration: none; }
   background: rgba(232,234,238,0.03);
   border: 1px solid var(--divider);
   color: var(--platinum-mid);
-  font-size: 22px; font-family: var(--font-serif);
+  font-size: 22px; font-family: var(--font-sans);
   transition: all .3s var(--ease-brand);
 }
 .souv-chev:hover { color: var(--gold-hi); border-color: var(--gold); background: rgba(212,175,55,0.06); }
@@ -1076,7 +1090,7 @@ a.souv-popmenu-logout { display: block; text-decoration: none; }
 }
 .souv-gallery-meta { padding: 16px 4px 0; }
 .souv-gallery-name {
-  font-family: var(--font-serif); font-style: italic; font-weight: 600;
+  font-family: var(--font-sans); font-style: italic; font-weight: 600;
   font-size: 18px; color: var(--platinum-hi); margin-bottom: 4px;
 }
 
@@ -1143,7 +1157,7 @@ a.souv-popmenu-logout { display: block; text-decoration: none; }
 .souv-faq-q {
   display: flex; align-items: center; justify-content: space-between;
   width: 100%; padding: 24px 8px;
-  font-family: var(--font-serif-alt); font-weight: 500;
+  font-family: var(--font-sans); font-weight: 500;
   font-size: 18px;
   text-align: left; letter-spacing: -.01em;
   background-image: linear-gradient(90deg, #B48A20 0%, #E2C050 22%, #F8E088 38%, #D4A830 52%, #F4D870 68%, #D0A020 82%, #A07818 100%);
@@ -1173,7 +1187,7 @@ a.souv-popmenu-logout { display: block; text-decoration: none; }
 .souv-faq-a.is-open { max-height: 280px; }
 .souv-faq-a p {
   padding: 0 8px 26px;
-  font-family: var(--font-serif); font-size: 15.5px; line-height: 1.7;
+  font-family: var(--font-sans); font-size: 15.5px; line-height: 1.7;
   color: var(--text-secondary);
   margin: 0;
 }
@@ -1212,7 +1226,7 @@ a.souv-popmenu-logout { display: block; text-decoration: none; }
   animation: souv-logo-shimmer 36s ease-in-out infinite;
 }
 .souv-footer-lede {
-  font-family: var(--font-serif); font-style: italic; font-size: 15px;
+  font-family: var(--font-sans); font-style: italic; font-size: 15px;
   line-height: 1.55; color: var(--text-secondary); max-width: 30ch;
   margin: 0 0 22px;
 }
@@ -1251,7 +1265,7 @@ a.souv-popmenu-logout { display: block; text-decoration: none; }
   gap: 9px 44px;
 }
 .souv-footer-link {
-  font-family: var(--font-serif); font-size: 15px; color: var(--text-secondary);
+  font-family: var(--font-sans); font-size: 15px; color: var(--text-secondary);
   text-decoration: none; position: relative;
   transition: color .3s ease;
 }

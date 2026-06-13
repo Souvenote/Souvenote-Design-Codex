@@ -305,7 +305,7 @@ function SettingsPrefs() {
         </div>
       </div>
       <div className="acc-row">
-        <div className="acc-row-info"><div className="acc-row-label">Save my spot automatically</div><div className="acc-row-desc">Keep drafts in My Cards & Songs for 30 days.</div></div>
+        <div className="acc-row-info"><div className="acc-row-label">Save my spot automatically</div><div className="acc-row-desc">Keep drafts in Saved Cards & Songs for 30 days.</div></div>
         <AccToggle on={true} />
       </div>
       <div className="acc-row">

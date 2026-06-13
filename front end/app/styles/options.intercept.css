@@ -105,7 +105,7 @@
 .opt-q { font-style: italic; }
 
 .opt-lede {
-  font-family: var(--font-serif);
+  font-family: var(--font-sans);
   font-size: 17px; line-height: 1.6;
   color: var(--text-secondary);
   max-width: 56ch;
@@ -142,7 +142,7 @@
   background-image: linear-gradient(120deg, #A06058 0%, #D8958C 22%, #E8C0B6 38%, #C88680 52%, #E0ACA2 68%, #C48478 82%, #9A5048 100%);
 }
 .opt-balance-sub {
-  font-family: var(--font-serif); font-style: italic;
+  font-family: var(--font-sans); font-style: italic;
   font-size: 14px; color: var(--text-muted);
 }
 
@@ -281,7 +281,7 @@
   max-width: 24ch;
 }
 .opt-tile-title {
-  font-family: var(--font-serif); font-weight: 700;
+  font-family: var(--font-sans); font-weight: 700;
   font-size: clamp(26px, 2vw, 36px);
   letter-spacing: -0.015em;
   line-height: 1.08;
@@ -289,7 +289,7 @@
   text-shadow: 0 1px 0 rgba(255,255,255,0.22);
 }
 .opt-tile-sub {
-  font-family: var(--font-serif); font-style: italic;
+  font-family: var(--font-sans); font-style: italic;
   font-size: 17px;
   line-height: 1.45;
   color: color-mix(in oklab, var(--tile-ink) 82%, transparent);
@@ -374,7 +374,7 @@
 }
 .opt-referral-ticks li {
   display: flex; align-items: center; gap: 12px;
-  font-family: var(--font-serif); font-size: 15.5px;
+  font-family: var(--font-sans); font-size: 15.5px;
   color: var(--text-secondary);
 }
 .opt-referral-ticks svg {
@@ -443,7 +443,7 @@
 .opt-pricing-head .opt-eyebrow { text-align: center; }
 .opt-pricing-head .opt-h2 { text-align: center; }
 .opt-pricing-lede {
-  font-family: var(--font-serif);
+  font-family: var(--font-sans);
   font-size: 16px; line-height: 1.6;
   color: var(--text-secondary);
   max-width: 56ch; margin: 14px auto 0;
@@ -539,7 +539,7 @@
 .opt-pricing-fx {
   margin: 28px auto 0;
   text-align: center;
-  font-family: var(--font-serif); font-style: italic;
+  font-family: var(--font-sans); font-style: italic;
   font-size: 13.5px; color: var(--text-muted);
 }
 
@@ -554,7 +554,7 @@
 .opt-pricing-notes li {
   position: relative;
   padding-left: 24px;
-  font-family: var(--font-serif);
+  font-family: var(--font-sans);
   font-size: 15px; line-height: 1.55;
   color: #FFFFFF;
   text-wrap: pretty;
@@ -613,7 +613,7 @@
 
 .opt-pack-head { display: flex; flex-direction: column; gap: 6px; }
 .opt-pack-name {
-  font-family: var(--font-serif); font-weight: 700; font-style: italic;
+  font-family: var(--font-sans); font-weight: 700; font-style: italic;
   font-size: 22px; letter-spacing: -0.01em;
   color: var(--platinum-hi);
 }
@@ -659,7 +659,7 @@
 .opt-pack-stats li.opt-pack-stat-big b { font-size: 30px; line-height: 1; letter-spacing: -0.02em; color: var(--rose-gold-hi); }
 
 .opt-pack-blurb {
-  font-family: var(--font-serif); font-size: 15px; line-height: 1.55;
+  font-family: var(--font-sans); font-size: 15px; line-height: 1.55;
   color: var(--text-secondary);
   margin: 0;
   flex: 1;
@@ -852,12 +852,12 @@
   align-self: center;
 }
 .opt-trf-card-flow-title {
-  font-family: var(--font-serif-alt); font-style: italic; font-weight: 500;
+  font-family: var(--font-sans); font-style: italic; font-weight: 500;
   font-size: 15.5px; letter-spacing: -0.005em;
   color: var(--platinum-hi);
 }
 .opt-trf-card-flow-body {
-  font-family: var(--font-serif); font-style: italic; font-weight: 400;
+  font-family: var(--font-sans); font-style: italic; font-weight: 400;
   font-size: 13.5px; line-height: 1.55;
   color: var(--text-muted);
   grid-column: 2;
@@ -1101,7 +1101,7 @@
   box-shadow: 0 0 0 3px rgba(200,139,134,0.18);
 }
 .opt-pack-family-note {
-  font-family: var(--font-serif); font-style: italic; font-size: 13px;
+  font-family: var(--font-sans); font-style: italic; font-size: 13px;
   line-height: 1.5;
   color: var(--text-muted);
   padding: 0 2px;
@@ -1163,12 +1163,12 @@
   margin-bottom: 10px;
 }
 .opt-trf-title {
-  font-family: var(--font-serif); font-style: italic; font-weight: 700;
+  font-family: var(--font-sans); font-style: italic; font-weight: 700;
   font-size: 19px; color: var(--platinum-hi);
   margin-bottom: 8px;
 }
 .opt-trf-body {
-  font-family: var(--font-serif); font-size: 15px; line-height: 1.55;
+  font-family: var(--font-sans); font-size: 15px; line-height: 1.55;
   color: var(--text-secondary);
 }
 
@@ -1232,7 +1232,7 @@
   margin: 0 0 12px;
 }
 .opt-modal-sub {
-  font-family: var(--font-serif); font-size: 15.5px; line-height: 1.55;
+  font-family: var(--font-sans); font-size: 15.5px; line-height: 1.55;
   color: var(--text-secondary);
   max-width: 56ch; margin: 0 auto;
 }
@@ -1282,7 +1282,7 @@
 }
 .opt-modal-credit-badge svg { width: 13px; height: 13px; }
 .opt-modal-credit-name {
-  font-family: var(--font-serif); font-weight: 700; font-style: italic;
+  font-family: var(--font-sans); font-weight: 700; font-style: italic;
   font-size: 17px; color: var(--platinum-hi);
 }
 .opt-modal-credit-tokens {
@@ -1323,7 +1323,7 @@
   background: rgba(212,175,55,0.06);
 }
 .opt-modal-cardpack-name {
-  font-family: var(--font-serif); font-weight: 700; font-style: italic;
+  font-family: var(--font-sans); font-weight: 700; font-style: italic;
   font-size: 16px; color: var(--platinum-hi);
 }
 .opt-modal-cardpack-stats {
@@ -1470,7 +1470,7 @@
   border-top: 1px solid var(--divider);
 }
 .opt-modal-fx {
-  font-family: var(--font-serif); font-style: italic;
+  font-family: var(--font-sans); font-style: italic;
   font-size: 13px; color: var(--text-muted);
 }
 .opt-modal-cancel { margin-left: auto; padding: 10px 18px; }
@@ -1623,11 +1623,11 @@
 .opt-pk-blank.is-on .opt-pk-blank-box svg { opacity: 1; }
 .opt-pk-blank-text { display: flex; flex-direction: column; gap: 2px; }
 .opt-pk-blank-text b {
-  font-family: var(--font-serif-alt); font-style: italic; font-weight: 500;
+  font-family: var(--font-sans); font-style: italic; font-weight: 500;
   font-size: 15.5px; color: var(--platinum-hi);
 }
 .opt-pk-blank-text em {
-  font-style: italic; font-family: var(--font-serif); font-weight: 400;
+  font-style: italic; font-family: var(--font-sans); font-weight: 400;
   font-size: 13px; line-height: 1.45; color: var(--text-muted);
 }
 
@@ -1702,7 +1702,7 @@
 }
 .opt-pk-cost-line em {
   font-style: italic; white-space: nowrap;
-  font-family: var(--font-serif); font-weight: 400; font-size: 15px;
+  font-family: var(--font-sans); font-weight: 400; font-size: 15px;
   letter-spacing: 0; text-transform: none;
   color: var(--text-secondary);
 }
@@ -1715,7 +1715,7 @@
 
 /* Lead line (Try Risk-Free) */
 .opt-pk-lead {
-  font-family: var(--font-serif); font-style: italic;
+  font-family: var(--font-sans); font-style: italic;
   font-size: 14.5px; line-height: 1.55;
   color: var(--text-secondary);
   text-align: center;
@@ -1766,13 +1766,13 @@
 }
 .opt-how-label {
   grid-column: 2; grid-row: 1;
-  font-family: var(--font-serif-alt); font-style: italic; font-weight: 500;
+  font-family: var(--font-sans); font-style: italic; font-weight: 500;
   font-size: 15.5px; letter-spacing: -0.005em;
   color: var(--platinum-hi);
 }
 .opt-how-body {
   grid-column: 2; grid-row: 2;
-  font-family: var(--font-serif); font-style: italic; font-weight: 400;
+  font-family: var(--font-sans); font-style: italic; font-weight: 400;
   font-size: 13.5px; line-height: 1.55;
   color: var(--text-muted);
   text-wrap: pretty;
@@ -1788,7 +1788,7 @@
 
 /* Scale-picker helper line */
 .opt-pk-helper {
-  font-family: var(--font-serif); font-style: italic; font-size: 13px;
+  font-family: var(--font-sans); font-style: italic; font-size: 13px;
   line-height: 1.5; color: var(--text-muted); text-align: center;
 }
 .opt-pk-helper b { font-style: normal; color: var(--gold-hi); font-family: var(--font-num); font-weight: 600; }

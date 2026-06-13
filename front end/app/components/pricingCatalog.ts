@@ -22,6 +22,8 @@ export type PricingCartItem = {
   unitNote: string;
 };
 
+export const SOUV_CART_KEY = "souv_cart";
+
 export type BigSenderPricing = {
   qty: number;
   tier: BigSenderTier;
@@ -88,4 +90,38 @@ export function makeTryRiskFreeCartItem(): PricingCartItem {
     replaceGroup: "pack-try-risk-free",
     unitNote: "$9.99 hold",
   };
+}
+
+export function makeSingleCardSendCartItem(): PricingCartItem {
+  return {
+    id: "pack-send-this-card",
+    type: "pack",
+    name: "Send This Card",
+    meta: "1 card · shipping included",
+    sub: "Send the Souvenote you just created.",
+    price: 6.99,
+    qty: 1,
+    cardCount: 1,
+    lockedQuantity: true,
+    replaceGroup: "pack-send-this-card",
+    unitNote: "$6.99 / card",
+  };
+}
+
+export function addPricingCartItemToCart(item: PricingCartItem): void {
+  if (typeof window === "undefined") return;
+
+  try {
+    const raw = JSON.parse(window.localStorage.getItem(SOUV_CART_KEY) || "[]");
+    let current = Array.isArray(raw) ? raw : [];
+    if (item.replaceGroup) {
+      current = current.filter((candidate) => candidate?.replaceGroup !== item.replaceGroup && candidate?.id !== item.id);
+    }
+    const existing = item.replaceGroup ? null : current.find((candidate) => candidate?.id === item.id);
+    if (existing) existing.qty += item.qty || 1;
+    else current.push(item);
+    window.localStorage.setItem(SOUV_CART_KEY, JSON.stringify(current));
+  } catch {
+    // Cart storage is best-effort in the local prototype.
+  }
 }

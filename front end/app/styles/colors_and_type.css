@@ -1,4 +1,4 @@
-/* ============================================================
+﻿/* ============================================================
    Souvenote — Colors & Type
    Single source of truth. Root tokens + semantic helpers.
    Imported by every preview card, UI kit, and slide.
@@ -93,8 +93,6 @@
      colors_and_type.css gets identical fonts — no per-page <link> needed. ── */
   --font-display:   'Outfit', ui-sans-serif, system-ui, sans-serif;  /* hero + section headings */
   --font-wordmark:  'Lobster', cursive;                              /* large logo / wordmark only */
-  --font-serif:     'Outfit', ui-sans-serif, system-ui, sans-serif;  /* body + editorial */
-  --font-serif-alt: 'Outfit', ui-sans-serif, system-ui, sans-serif;  /* FAQ questions */
   --font-sans:      'Outfit', ui-sans-serif, system-ui, sans-serif;  /* UI + body small + buttons */
   --font-num:       'Outfit', ui-sans-serif, system-ui, sans-serif;  /* step numbers */
 }
@@ -125,7 +123,7 @@
 }
 .t-hero .accent,
 .t-accent {
-  font-family: var(--font-serif);
+  font-family: var(--font-sans);
   font-style: italic;
   font-weight: 400;
 }
@@ -142,7 +140,7 @@
 
 /* h2 — secondary heading, serif italic‑ready */
 .t-h2 {
-  font-family: var(--font-serif);
+  font-family: var(--font-sans);
   font-weight: 600;
   font-size: clamp(1.75rem, 3vw, 2.75rem);
   line-height: 1.15;
@@ -152,7 +150,7 @@
 
 /* h3 */
 .t-h3 {
-  font-family: var(--font-serif);
+  font-family: var(--font-sans);
   font-weight: 600;
   font-size: clamp(1.25rem, 1.8vw, 1.5rem);
   line-height: 1.3;
@@ -161,7 +159,7 @@
 
 /* Body — long-form editorial copy */
 .t-body {
-  font-family: var(--font-serif);
+  font-family: var(--font-sans);
   font-weight: 400;
   font-size: 1.0625rem;
   line-height: 1.7;
@@ -179,7 +177,7 @@
 
 /* FAQ question — Outfit */
 .t-faq-q {
-  font-family: var(--font-serif-alt);
+  font-family: var(--font-sans);
   font-weight: 400;
   font-size: 1.0625rem;
   line-height: 1.4;
@@ -237,7 +235,7 @@
 
 /* Caption — small italic under an image */
 .t-caption {
-  font-family: var(--font-serif);
+  font-family: var(--font-sans);
   font-weight: 400;
   font-style: italic;
   font-size: 0.8125rem;
@@ -583,5 +581,6 @@
 .souvenote-dark {
   background: var(--bg-primary);
   color: var(--text-primary);
-  font-family: var(--font-serif);
+  font-family: var(--font-sans);
 }
+

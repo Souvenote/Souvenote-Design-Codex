@@ -46,10 +46,6 @@ type SocialButtonsProps = {
   onContinue?: () => void;
 };
 
-type OrDividerProps = {
-  label?: string;
-};
-
 type WelcomeModalProps = {
   stepDob?: boolean;
 };
@@ -194,16 +190,6 @@ function SocialButtons({ verb = 'Continue', onContinue }: SocialButtonsProps) {
   );
 }
 
-function OrDivider({ label = 'or with email' }: OrDividerProps) {
-  return (
-    <div className="auth-divider">
-      <span className="rule" />
-      <span>{label}</span>
-      <span className="rule" />
-    </div>
-  );
-}
-
 // Password strength estimator (simple, visual only)
 function strength(p: string) {
   if (!p) return 0;
@@ -240,19 +226,28 @@ function SignUpView() {
   return (
     <div className="auth-stage">
       <div className="auth-card auth-card-wide">
-        <div className="auth-split auth-split-signup">
-          <div className="auth-split-copy">
+        <div className="auth-authflow">
+          <div className="auth-authflow-intro">
           <div className="auth-eyebrow">Sign Up · Welcome</div>
           <h1 className="auth-title auth-title-hero">
-            Start with <span className="souv-hero-italic text-metallic-rose-gold">1 free image</span> and <span className="souv-hero-italic text-metallic-gold">1 free song</span>.
+            <span className="souv-hero-italic text-metallic-gold">2 credits</span> are in your account!
           </h1>
-          <p className="auth-sub">2 free credits the moment you sign up to create a complete card.</p>
           </div>
 
-          <div className="auth-split-form">
-          <SocialButtons verb="Continue" onContinue={continueToWelcome} />
-          <OrDivider />
+          <div className="auth-method-grid">
+          <section className="auth-method-panel">
+            <div className="auth-method-kicker">Fastest</div>
+            <h2 className="auth-method-title">Sign up with social</h2>
+            <p className="auth-method-sub">Use an existing account and we&apos;ll open your welcome credits right away.</p>
+            <SocialButtons verb="Continue" onContinue={continueToWelcome} />
+          </section>
 
+          <section className="auth-method-panel auth-method-panel-email">
+            <div className="auth-method-kicker">Email</div>
+            <h2 className="auth-method-title">Sign up with email</h2>
+            <p className="auth-method-sub">Set your login details, birthday reminder, and country preferences.</p>
+
+          <div className="auth-email-fields auth-email-fields-signup">
           <div className="auth-field">
             <label className="auth-label">Email</label>
             <input className="auth-input" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} />
@@ -288,8 +283,8 @@ function SignUpView() {
             <div className="auth-field">
               <label className="auth-label">Country</label>
               <select className="auth-select" value={country} onChange={(e) => setCountry(e.target.value)}>
-                <option value="CA">🇨🇦 Canada (CAD)</option>
-                <option value="US">🇺🇸 United States (USD)</option>
+                <option value="CA">Canada (CAD)</option>
+                <option value="US">United States (USD)</option>
               </select>
               <p className="auth-hint">Sets your currency, attestation, and tax.</p>
             </div>
@@ -312,6 +307,8 @@ function SignUpView() {
             <Link href="/login">Log in →</Link>
           </div>
           </div>
+          </section>
+          </div>
         </div>
       </div>
     </div>
@@ -322,16 +319,17 @@ function SignUpView() {
 // LOG IN (00b)
 // ============================================================
 function LoginView() {
+  const router = useRouter();
   const [email, setEmail] = React.useState('cameron@souvenote.com');
   const [pw, setPw] = React.useState('');
   const [show, setShow] = React.useState(false);
   const [remember, setRemember] = React.useState(true);
 
   return (
-    <div className="auth-stage" style={{ paddingTop: 48 }}>
+    <div className="auth-stage">
       <div className="auth-card auth-card-login">
-        <div className="auth-split auth-split-login">
-          <div className="auth-split-copy">
+        <div className="auth-authflow">
+          <div className="auth-authflow-intro">
         <div className="auth-eyebrow">Welcome back</div>
         <h1 className="auth-title">
           Pick up where you{' '}
@@ -340,10 +338,20 @@ function LoginView() {
         <p className="auth-sub">Sessions roll for thirty days when you tick remember-me.</p>
           </div>
 
-          <div className="auth-split-form">
-        <SocialButtons verb="Continue" />
-        <OrDivider label="or with email" />
+          <div className="auth-method-grid">
+        <section className="auth-method-panel">
+          <div className="auth-method-kicker">Social</div>
+          <h2 className="auth-method-title">Log in with social</h2>
+          <p className="auth-method-sub">Continue with the same provider you used to create your Souvenote account.</p>
+          <SocialButtons verb="Continue" onContinue={() => router.push('/create')} />
+        </section>
 
+        <section className="auth-method-panel auth-method-panel-email">
+          <div className="auth-method-kicker">Email</div>
+          <h2 className="auth-method-title">Log in with email</h2>
+          <p className="auth-method-sub">Use your email and password to get back to your saved cards and songs.</p>
+
+        <div className="auth-email-fields">
         <div className="auth-field">
           <label className="auth-label">Email</label>
           <input className="auth-input" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} />
@@ -374,6 +382,8 @@ function LoginView() {
           Don't have an account?{' '}
           <Link href="/signup">Sign up →</Link>
         </div>
+        </div>
+        </section>
           </div>
         </div>
       </div>

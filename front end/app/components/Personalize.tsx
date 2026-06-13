@@ -1237,7 +1237,7 @@ function PtPersonalizeModal({ tmpl, open, onClose, onCreate, initialStep = 'phot
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap: 40, marginTop: 28, paddingTop: 28, borderTop: '1px solid rgba(232,234,238,0.10)' }}>
                 <div className="pt-field" style={{ margin: 0 }}>
                   <label className="pt-label text-metallic-rose-gold" style={{ fontSize: 15, letterSpacing: '.05em', marginBottom: 16 }}>You're all set, let's generate.</label>
-                  <div style={{ display:'flex', flexDirection:'column', gap: 12, fontFamily:'var(--font-serif)', fontSize:14.5, color:'var(--text-secondary)' }}>
+                  <div style={{ display:'flex', flexDirection:'column', gap: 12, fontFamily:'var(--font-sans)', fontSize:14.5, color:'var(--text-secondary)' }}>
                     <span style={{ display:'flex', alignItems:'center', gap: 10 }}>
                       <PtIcon name="check" w={14} /> Front card image
                     </span>
@@ -1251,7 +1251,7 @@ function PtPersonalizeModal({ tmpl, open, onClose, onCreate, initialStep = 'phot
                 </div>
                 <div className="pt-field" style={{ margin: 0 }}>
                   <label className="pt-label" style={{ marginBottom: 16 }}>Credits</label>
-                  <div style={{ display:'flex', flexDirection:'column', gap: 12, fontFamily:'var(--font-serif)', fontSize:14.5, color:'var(--text-secondary)' }}>
+                  <div style={{ display:'flex', flexDirection:'column', gap: 12, fontFamily:'var(--font-sans)', fontSize:14.5, color:'var(--text-secondary)' }}>
                     <span><b style={{ fontFamily:'var(--font-num)', color:'var(--gold-hi)' }}>1</b> · front card image</span>
                     <span><b style={{ fontFamily:'var(--font-num)', color:'var(--gold-hi)' }}>1</b> · song generation</span>
                     <span><b style={{ fontFamily:'var(--font-num)', color:'var(--gold-hi)' }}>0</b> · inside message (free)</span>
@@ -1439,6 +1439,7 @@ function PersonalizeApp({ openModal = false, accountBalance = PERSONALIZE_DEFAUL
           onStartOver={backToMarketplace}
           onApproveAll={() => router.push('/delivery')}
           onTopUp={openPricingForCredits}
+          requiresCardPurchase={cardBank <= 0}
         />
         <PricingReceiveModal open={pricingOpen} onClose={() => setPricingOpen(false)} currency="CAD" mode={pricingMode} />
       </div>

@@ -76,7 +76,7 @@ const PROFILE_ACTIVITY: ProfileActivity[] = [
 ];
 
 const PROFILE_LINKS: ProfileLink[] = [
-  { ico: AccIco.card, label: "My Cards & Songs", href: "/create/my-cards-and-songs" },
+  { ico: AccIco.card, label: "Saved Cards & Songs", href: "/create/my-cards-and-songs" },
   { ico: AccIco.send, label: "Gift a Souvenote", href: "/gift" },
   { ico: AccIco.gift, label: "Refer a Friend", href: "/refer" },
 ];
@@ -142,7 +142,7 @@ function ProfilePage({ user }: AccountPageProps) {
               {blankGiftCount} blank {blankGiftCount === 1 ? "Souvenote" : "Souvenotes"} ready to give
             </h2>
             <p>
-              This blank gift also appears in My Cards &amp; Songs. When you send a card, we&apos;ll remind you to choose
+              This blank gift also appears in Saved Cards &amp; Songs. When you send a card, we&apos;ll remind you to choose
               who should receive it or keep it saved for later.
             </p>
           </div>
@@ -153,10 +153,10 @@ function ProfilePage({ user }: AccountPageProps) {
             <div className="acc-gift-name">Blank Souvenote Gift</div>
             <div className="acc-gift-meta">
               <div className="acc-summary-row"><span className="k">Available</span><span className="v">{blankGiftCount} {blankGiftCount === 1 ? "gift" : "gifts"}</span></div>
-              <div className="acc-summary-row"><span className="k">Visible in</span><span className="v">My Cards &amp; Songs</span></div>
+              <div className="acc-summary-row"><span className="k">Visible in</span><span className="v">Saved Cards &amp; Songs</span></div>
               <div className="acc-summary-row"><span className="k">Reminder</span><span className="v">Delivery step</span></div>
             </div>
-            <Link className="bmc-cta acc-profile-gift-cta" href="/create/my-cards-and-songs">View in My Cards &amp; Songs</Link>
+            <Link className="bmc-cta acc-profile-gift-cta" href="/create/my-cards-and-songs">View in Saved Cards &amp; Songs</Link>
           </div>
         </div>
       )}
@@ -283,7 +283,7 @@ function ReferPage({ user }: AccountPageProps) {
         <div className="acc-panel" style={{ display: "flex", flexDirection: "column", justifyContent: "center", textAlign: "center" }}>
           <div className="acc-panel-title" style={{ borderBottom: 0, marginBottom: 6 }}>Credits earned</div>
           <div className="acc-stat-num is-gold" style={{ fontSize: "3.2rem" }}>0</div>
-          <p style={{ fontFamily: "var(--font-serif)", color: "var(--text-muted)", fontSize: "0.95rem", margin: "12px 0 0" }}>
+          <p style={{ fontFamily: "var(--font-sans)", color: "var(--text-muted)", fontSize: "0.95rem", margin: "12px 0 0" }}>
             You haven&apos;t earned referral credits yet. Credits are applied automatically to your next card.
           </p>
         </div>
