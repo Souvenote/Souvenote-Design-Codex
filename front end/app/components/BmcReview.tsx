@@ -42,6 +42,11 @@ type ModalProps = {
 
 type BmcConfirmModalProps = ModalProps & {
   onConfirm: () => void;
+  includeSong?: boolean;
+};
+
+type BmcInviteModalProps = ModalProps & {
+  includeSong?: boolean;
 };
 
 type BmcReviewProps = {
@@ -50,6 +55,7 @@ type BmcReviewProps = {
   onTopUp?: () => void;
   credits?: number;
   generating?: boolean;
+  includeSong?: boolean;
   requiresCardPurchase?: boolean;
 };
 
@@ -170,7 +176,7 @@ function BmcReviewSong({ approved, onApprove, editing, setEditing, generating }:
   return (
     <div className="bmc-panel">
       <div className="bmc-panel-head">
-        <div className="bmc-panel-title">Song</div>
+        <div className="bmc-panel-title">QR Song</div>
         <PanelStatus generating={generating} approved={approved} />
       </div>
 
@@ -181,7 +187,7 @@ function BmcReviewSong({ approved, onApprove, editing, setEditing, generating }:
           </button>
           <div>
             <div className="bmc-song-name">Slow R&amp;B Ballad · Male</div>
-            <div className="bmc-song-sub">00:00 / 00:45</div>
+            <div className="bmc-song-sub">00:00 / 00:45 · QR code inside card</div>
           </div>
         </div>
         <div className="bmc-song-wave">
@@ -201,14 +207,14 @@ function BmcReviewSong({ approved, onApprove, editing, setEditing, generating }:
           <label className="bmc-label">Lyrics</label>
           <textarea className="bmc-textarea" defaultValue={`[00:00-00:08 Verse]\nA pair of shoes by the door…\n\n[00:25-00:41 Chorus]\nTo the moon and back, to the moon and back…`} />
           <p className="bmc-help" style={{ marginTop: 8 }}>
-            Song edits cost <b style={{ color: 'var(--gold-hi)', fontStyle: 'normal', margin: '0 3px' }}>1 credit</b> if successful.
+            QR song edits cost <b style={{ color: 'var(--gold-hi)', fontStyle: 'normal', margin: '0 3px' }}>1 credit</b> if successful.
           </p>
         </div>
       )}
 
       <div className="bmc-panel-acts">
         <button type="button" className="bmc-cta" onClick={onApprove} disabled={approved || generating}>
-          <BmcIcon name="check" w={14} /> {generating ? 'Generating\u2026' : approved ? 'Approved' : 'Approve Song'}
+          <BmcIcon name="check" w={14} /> {generating ? 'Generating\u2026' : approved ? 'Approved' : 'Approve QR Song'}
         </button>
         <button type="button" className="bmc-cta-secondary" onClick={() => setEditing(!editing)}>
           <BmcIcon name="edit" w={14} /> {editing ? 'Close' : 'Edit'}
@@ -257,8 +263,9 @@ function BmcReviewMessage({ approved, onApprove, editing, setEditing, generating
   );
 }
 
-function BmcConfirmModal({ open, onClose, onConfirm }: BmcConfirmModalProps) {
+function BmcConfirmModal({ open, onClose, onConfirm, includeSong = true }: BmcConfirmModalProps) {
   if (!open) return null;
+  const generationCost = includeSong ? 2 : 1;
   const ui = (
     <div className="bmc-modal-wrap" role="dialog" aria-modal="true" data-screen-label="07 Modal · Start From Scratch">
       <div className="bmc-modal-scrim" onClick={onClose} />
@@ -268,8 +275,8 @@ function BmcConfirmModal({ open, onClose, onConfirm }: BmcConfirmModalProps) {
           <span className="souv-hero-italic text-metallic-rose-gold">you sure?</span>
         </h2>
         <p className="bmc-modal-sub">
-          Starting from scratch will cost another <b className="text-metallic-gold">2 credits</b> when you can edit
-          just the image or song for <b className="text-metallic-gold">1 credit</b>.
+          Starting from scratch will cost another <b className="text-metallic-gold">{generationCost} {generationCost === 1 ? 'credit' : 'credits'}</b> when you can edit
+          {includeSong ? ' just the image or QR song' : ' the image'} for <b className="text-metallic-gold">1 credit</b>.
         </p>
         <div className="bmc-modal-acts">
           <button type="button" className="bmc-cta-secondary" onClick={onClose}>Keep editing</button>
@@ -282,7 +289,7 @@ function BmcConfirmModal({ open, onClose, onConfirm }: BmcConfirmModalProps) {
   return createPortal(ui, document.body);
 }
 
-function BmcInviteModal({ open, onClose }: ModalProps) {
+function BmcInviteModal({ open, onClose, includeSong = true }: BmcInviteModalProps) {
   const [status, setStatus] = React.useState<InviteStatus>('form');
   const [email, setEmail] = React.useState('');
   const [sent, setSent] = React.useState<string[]>([]);
@@ -318,16 +325,34 @@ function BmcInviteModal({ open, onClose }: ModalProps) {
       <div className="bmc-modal bmc-invite is-gold">
         <button type="button" className="bmc-modal-close" onClick={onClose} aria-label="Close"><BmcIcon name="close" w={16} /></button>
 
-        <div className="bmc-invite-eyebrow">
-          <span className="bmc-invite-eyebrow-spin" aria-hidden="true" />
-          Your card is generating
+        <div className="bmc-invite-progress" aria-live="polite">
+          <span className="bmc-invite-loader" aria-hidden="true" />
+          <div className="bmc-invite-progress-copy">
+            <div className="bmc-invite-eyebrow">Generating your assets</div>
+          </div>
         </div>
         <h2 className="bmc-modal-title">
-          Refer and <span className="souv-hero-italic text-metallic-rose-gold">earn</span>
+          {includeSong ? (
+            <>Your card and <span className="souv-hero-italic text-metallic-rose-gold">song</span> are being made.</>
+          ) : (
+            <>Your <span className="souv-hero-italic text-metallic-rose-gold">card</span> is being made.</>
+          )}
         </h2>
         <p className="bmc-modal-sub">
-          Invite a friend to Souvenote. When they join, credits land in your account
-          automatically — ready for your next card or song.
+          {includeSong
+            ? 'We are creating your card image, inside message, and custom QR song now.'
+            : 'We are creating your card image and inside message now.'}
+          This can take a moment.
+        </p>
+
+        <div className="bmc-invite-assets" aria-label="Assets being generated">
+          <span>Card image</span>
+          <span>Message</span>
+          {includeSong && <span>QR song</span>}
+        </div>
+
+        <p className="bmc-invite-while">
+          While we finish generating, invite a friend to Souvenote and earn credits for your next card.
         </p>
 
         <div className="bmc-invite-reward">
@@ -420,7 +445,7 @@ function BmcSendCardModal({ open, onClose, onSendOne, onBuyMore, onHome }: Modal
   return createPortal(ui, document.body);
 }
 
-function BmcReview({ onStartOver, onApproveAll, onTopUp, credits = 6, generating = false, requiresCardPurchase = false }: BmcReviewProps) {
+function BmcReview({ onStartOver, onApproveAll, onTopUp, credits = 6, generating = false, includeSong = true, requiresCardPurchase = false }: BmcReviewProps) {
   const router = useRouter();
   const [imgApproved, setImgApproved] = React.useState(false);
   const [songApproved, setSongApproved] = React.useState(false);
@@ -435,7 +460,9 @@ function BmcReview({ onStartOver, onApproveAll, onTopUp, credits = 6, generating
   // Let the dev switcher preview the invite modal on demand.
   React.useEffect(() => { window.__bmcShowInvite = () => setInviteOpen(true); }, []);
 
-  const allApproved = imgApproved && songApproved && msgApproved;
+  const approvedCount = [imgApproved, msgApproved, includeSong && songApproved].filter(Boolean).length;
+  const requiredApprovalCount = includeSong ? 3 : 2;
+  const allApproved = imgApproved && msgApproved && (!includeSong || songApproved);
   const startOver = onStartOver || (() => router.push('/create/build-my-card'));
   const approveAll = onApproveAll || (() => router.push('/delivery'));
   const topUp = onTopUp || (() => router.push('/pricing'));
@@ -443,7 +470,7 @@ function BmcReview({ onStartOver, onApproveAll, onTopUp, credits = 6, generating
   const handleApproveAll = () => {
     if (generating) return;
     setImgApproved(true);
-    setSongApproved(true);
+    if (includeSong) setSongApproved(true);
     setMsgApproved(true);
     if (requiresCardPurchase) {
       setSendCardOpen(true);
@@ -471,12 +498,13 @@ function BmcReview({ onStartOver, onApproveAll, onTopUp, credits = 6, generating
           <span>Approval</span>
         </div>
         <h1 className="bmc-title">
-          Three pieces, one{' '}
+          {includeSong ? 'Three pieces' : 'Two pieces'}, one{' '}
           <span className="souv-hero-italic text-metallic-rose-gold">keepsake</span>
         </h1>
         <p className="bmc-lede" style={{ margin: '0 auto' }}>
-          Front, song, and inside message, each independently editable. Approve each piece,
-          then send the bundle to Delivery.
+          {includeSong
+            ? 'Front, QR song, and inside message, each independently editable. Approve each piece, then send the bundle to Delivery.'
+            : 'Front and inside message, each independently editable. Approve both pieces, then send the card to Delivery.'}
         </p>
       </div>
 
@@ -489,13 +517,15 @@ function BmcReview({ onStartOver, onApproveAll, onTopUp, credits = 6, generating
           setEditing={(v) => setEditing(s => ({ ...s, image: v }))}
         />
         <div className="bmc-review-stack">
-          <BmcReviewSong
-            approved={songApproved}
-            generating={generating}
-            onApprove={() => setSongApproved(true)}
-            editing={editing.song}
-            setEditing={(v) => setEditing(s => ({ ...s, song: v }))}
-          />
+          {includeSong && (
+            <BmcReviewSong
+              approved={songApproved}
+              generating={generating}
+              onApprove={() => setSongApproved(true)}
+              editing={editing.song}
+              setEditing={(v) => setEditing(s => ({ ...s, song: v }))}
+            />
+          )}
           <BmcReviewMessage
             approved={msgApproved}
             generating={generating}
@@ -519,7 +549,7 @@ function BmcReview({ onStartOver, onApproveAll, onTopUp, credits = 6, generating
           <span className="bmc-foot-cost" style={{ marginRight: 4 }}>
             {allApproved
               ? <span style={{ color: 'var(--gold-hi)' }}>All set · ready to deliver</span>
-              : <>{[imgApproved, songApproved, msgApproved].filter(Boolean).length} / 3 approved</>}
+              : <>{approvedCount} / {requiredApprovalCount} approved</>}
           </span>
           <button type="button" className="bmc-cta" onClick={handleApproveAll} disabled={generating}>
             Approve All <BmcIcon name="arrow" w={16} />
@@ -531,9 +561,10 @@ function BmcReview({ onStartOver, onApproveAll, onTopUp, credits = 6, generating
         open={confirm}
         onClose={() => setConfirm(false)}
         onConfirm={() => { setConfirm(false); startOver(); }}
+        includeSong={includeSong}
       />
 
-      <BmcInviteModal open={inviteOpen} onClose={() => setInviteOpen(false)} />
+      <BmcInviteModal open={inviteOpen} onClose={() => setInviteOpen(false)} includeSong={includeSong} />
       <BmcSendCardModal
         open={sendCardOpen}
         onClose={() => setSendCardOpen(false)}

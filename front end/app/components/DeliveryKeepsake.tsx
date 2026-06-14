@@ -2,10 +2,11 @@ import { BmcIcon } from "./BmcShared";
 
 type DlvKeepsakeProps = {
   song?: boolean;
+  songIncluded?: boolean;
   onPlaySong?: () => void;
 };
 
-function DlvKeepsake({ song = false, onPlaySong }: DlvKeepsakeProps) {
+function DlvKeepsake({ song = false, songIncluded = true, onPlaySong }: DlvKeepsakeProps) {
   return (
     <div className="bmc-card dlv-keepsake">
       <div className="dlv-keepsake-eyebrow">
@@ -30,16 +31,18 @@ function DlvKeepsake({ song = false, onPlaySong }: DlvKeepsakeProps) {
           <span className="dlv-piece-check"><BmcIcon name="check" w={18} /></span>
         </div>
 
+        {songIncluded && (
         <div className="dlv-piece">
           <span className="dlv-piece-ico"><BmcIcon name="note" w={17} /></span>
           <div>
-            <div className="dlv-piece-name">Custom song</div>
+            <div className="dlv-piece-name">QR-code song</div>
             <div className="dlv-piece-meta">Slow R&amp;B Ballad · QR on card</div>
           </div>
           <button type="button" className="dlv-piece-fab" onClick={onPlaySong} aria-label="Preview song">
             <BmcIcon name={song ? "pause" : "play"} w={15} />
           </button>
         </div>
+        )}
 
         <div className="dlv-piece">
           <span className="dlv-piece-ico"><BmcIcon name="message" w={17} /></span>
@@ -63,7 +66,7 @@ I love you to the moon and back.
         <span className="dlv-ship-tag"><CheckMini /> Folded 5x7 card</span>
         <span className="dlv-ship-tag"><CheckMini /> Envelope included</span>
         <span className="dlv-ship-tag"><CheckMini /> Realistic handwriting</span>
-        <span className="dlv-ship-tag"><CheckMini /> Song QR printed inside</span>
+        {songIncluded && <span className="dlv-ship-tag"><CheckMini /> Song QR printed inside</span>}
       </div>
     </div>
   );

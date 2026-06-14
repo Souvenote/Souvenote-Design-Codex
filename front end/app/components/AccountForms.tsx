@@ -73,7 +73,7 @@ function GiftSouvenotePage({ user }: AccountUserProps) {
       <div className="bmc-head" style={{ marginBottom: 28 }}>
         <div className="bmc-eyebrow"><span>Account</span><span className="dot" />Gift a Souvenote</div>
         <h1 className="bmc-title">Gift a <span className="souv-hero-italic text-metallic-gold">Souvenote</span></h1>
-        <p className="bmc-lede">Give someone the whole experience. They'll receive a full card pack of ten creation credits and a physical card send, enough to make a card and custom song for someone <em>they</em> love. Your treat.</p>
+        <p className="bmc-lede">Give someone the whole experience. They'll receive a full card pack of ten creation credits and a physical card send, enough to make a card and add an optional QR-code song for someone <em>they</em> love. Your treat.</p>
       </div>
 
       <form className="acc-gift-grid" onSubmit={(event: React.FormEvent<HTMLFormElement>) => { event.preventDefault(); setSent(true); }}>
@@ -84,7 +84,7 @@ function GiftSouvenotePage({ user }: AccountUserProps) {
             <div className="acc-gift-includes">
               <div className="acc-gift-inc">
                 <span className="acc-gift-inc-ico">{GiftIco.spark}</span>
-                <div><div className="acc-gift-inc-h">10 creation credits</div><div className="acc-gift-inc-p">Enough to design a card and generate its custom song.</div></div>
+                <div><div className="acc-gift-inc-h">10 creation credits</div><div className="acc-gift-inc-p">Enough to design a card and add an optional QR-code song.</div></div>
               </div>
               <div className="acc-gift-inc">
                 <span className="acc-gift-inc-ico">{GiftIco.mail}</span>
@@ -149,7 +149,7 @@ function RedeemGiftPage({ sender = 'A friend' }: RedeemGiftPageProps) {
   const senderFirst = sender.trim().split(' ')[0];
   const STEPS = [
     { n: 1, h: 'Create your account', p: 'Sign up free, and your gift applies the moment you join.' },
-    { n: 2, h: 'Design your card & song', p: 'Use your 10 credits to craft a card and its custom song.' },
+    { n: 2, h: 'Design your card', p: 'Use your 10 credits to craft a card and add an optional QR-code song.' },
     { n: 3, h: 'We print & mail it', p: 'Send the finished keepsake to someone you love, on us.' },
   ];
   return (
@@ -158,7 +158,7 @@ function RedeemGiftPage({ sender = 'A friend' }: RedeemGiftPageProps) {
         <div className="bmc-eyebrow" style={{ justifyContent: 'center' }}><span>A gift for you</span></div>
         <div className="acc-redeem-token" aria-hidden="true">{GiftIco.gift}</div>
         <h1 className="bmc-title acc-redeem-title">{senderFirst} gifted you a <span className="souv-hero-italic text-metallic-rose-gold">Souvenote</span></h1>
-        <p className="bmc-lede acc-redeem-lede">There's a full card pack waiting in your name: ten creation credits and a physical card send. Make a card and a custom song for someone you love, and we'll mail it for you.</p>
+        <p className="bmc-lede acc-redeem-lede">There's a full card pack waiting in your name: ten creation credits and a physical card send. Make a card, add an optional QR-code song for someone you love, and we'll mail it for you.</p>
       </div>
 
       <div className="acc-steps acc-redeem-steps">

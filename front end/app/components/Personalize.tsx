@@ -7,8 +7,7 @@ import { OrnamentDivider } from "./Ornaments";
 import { AttestationGate } from "./AttestationGate";
 import { getTotalDemoCredits, spendDemoCredits } from "./DemoBalance";
 import type { DemoBalance } from "./DemoBalance";
-import { PricingReceiveModal } from "./Options";
-import { MIN_GENERATION_CREDITS, type PricingModalMode } from "./createFlowRules";
+import { CARD_WITH_QR_SONG_CREDITS, MIN_GENERATION_CREDITS } from "./createFlowRules";
 import { goToPricingAfterPurchase } from "./PricingReturn";
 import { addGeneratedSouvenote } from "./DemoLibrary";
 
@@ -93,7 +92,7 @@ type PtPersonalizeModalProps = {
   tmpl: Template | null;
   open: boolean;
   onClose: () => void;
-  onCreate?: () => void;
+  onCreate?: (includeSong: boolean) => void;
   initialStep?: ModalStepId;
 };
 
@@ -921,7 +920,7 @@ function PtMarketplace({ onPersonalize }: PtMarketplaceProps) {
 // ============================================================
 const MODAL_STEPS: ModalStep[] = [
   { id: 'photo',     label: 'Photo · Upload' },
-  { id: 'birthday',  label: 'Birthday' },
+  { id: 'birthday',  label: 'Birthday · Optional' },
   { id: 'caption',   label: 'Caption & Message' },
 ];
 
@@ -938,11 +937,16 @@ function PtPersonalizeModal({ tmpl, open, onClose, onCreate, initialStep = 'phot
   const [msgAttempts, setMsgAttempts] = React.useState(1);
   const [msgError, setMsgError] = React.useState(false);
   const [describeError, setDescribeError] = React.useState(false);
+  const [includeSong, setIncludeSong] = React.useState(true);
   const idx = MODAL_STEPS.findIndex(s => s.id === step);
   const last = idx === MODAL_STEPS.length - 1;
+  const generationCost = includeSong ? CARD_WITH_QR_SONG_CREDITS : MIN_GENERATION_CREDITS;
   const hasPhoto = photoPreviews.length > 0;
 
-  React.useEffect(() => { setStep(initialStep); }, [open, initialStep]);
+  React.useEffect(() => {
+    setStep(initialStep);
+    setIncludeSong(true);
+  }, [open, initialStep]);
   React.useEffect(() => {
     return () => {
       photoPreviews.forEach((photo) => URL.revokeObjectURL(photo.url));
@@ -1148,20 +1152,20 @@ function PtPersonalizeModal({ tmpl, open, onClose, onCreate, initialStep = 'phot
             <>
               <div className="pt-modal-step-head">
                 <h2 className="pt-modal-step-title">
-                  When is their{' '}
-                  <span className="souv-hero-italic text-metallic-rose-gold">birthday?</span>
+                  Add their birthday{' '}
+                  <span className="souv-hero-italic text-metallic-rose-gold">if you know it</span>
                 </h2>
                 <p className="pt-modal-step-sub">
-                  {tmpl.name === 'Horoscope' ? 'We need the exact date to pin their sun sign.' :
-                   tmpl.name === 'On This Day' ? 'We pull headlines, weather, and small wonders from the day they were born.' :
-                   'Helps us anchor the card to the right moment in time.'}
+                  {tmpl.name === 'Horoscope' ? 'Recommended for this template so we can estimate their sign. You can skip it if you do not know it.' :
+                   tmpl.name === 'On This Day' ? 'Recommended for this template so we can pull details from that day. You can skip it if you do not know it.' :
+                   'Optional context that helps us anchor the card to the right moment in time.'}
                 </p>
               </div>
 
               <div className="pt-field">
-                <label className="pt-label">Their birthday</label>
-                <input className="pt-input" type="date" defaultValue="1992-03-04" />
-                <p className="pt-help">We never share the date. It stays on this card.</p>
+                <label className="pt-label">Their birthday <em style={{fontStyle:'italic',color:'var(--text-muted)'}}>· optional</em></label>
+                <input className="pt-input" type="date" />
+                <p className="pt-help">Optional. We never share the date; it stays on this card.</p>
               </div>
             </>
           )}
@@ -1245,15 +1249,27 @@ function PtPersonalizeModal({ tmpl, open, onClose, onCreate, initialStep = 'phot
                       <PtIcon name="check" w={14} /> A personalized inside message
                     </span>
                     <span style={{ display:'flex', alignItems:'center', gap: 10 }}>
-                      <PtIcon name="check" w={14} /> A 45-second song
+                      <PtIcon name="check" w={14} /> {includeSong ? 'A 45-second QR-code song' : 'No QR song selected'}
                     </span>
                   </div>
+                  <label className={`pt-song-toggle ${includeSong ? 'is-checked' : ''}`}>
+                    <input
+                      type="checkbox"
+                      checked={includeSong}
+                      onChange={(event) => setIncludeSong(event.target.checked)}
+                    />
+                    <span className="pt-song-toggle-box"><PtIcon name="check" w={12} /></span>
+                    <span>
+                      <b>Include song by QR code</b>
+                      <em>Add a custom QR-code song behind a scannable code inside the printed card.</em>
+                    </span>
+                  </label>
                 </div>
                 <div className="pt-field" style={{ margin: 0 }}>
                   <label className="pt-label" style={{ marginBottom: 16 }}>Credits</label>
                   <div style={{ display:'flex', flexDirection:'column', gap: 12, fontFamily:'var(--font-sans)', fontSize:14.5, color:'var(--text-secondary)' }}>
                     <span><b style={{ fontFamily:'var(--font-num)', color:'var(--gold-hi)' }}>1</b> · front card image</span>
-                    <span><b style={{ fontFamily:'var(--font-num)', color:'var(--gold-hi)' }}>1</b> · song generation</span>
+                    {includeSong && <span><b style={{ fontFamily:'var(--font-num)', color:'var(--gold-hi)' }}>1</b> · QR song generation</span>}
                     <span><b style={{ fontFamily:'var(--font-num)', color:'var(--gold-hi)' }}>0</b> · inside message (free)</span>
                   </div>
                 </div>
@@ -1264,7 +1280,7 @@ function PtPersonalizeModal({ tmpl, open, onClose, onCreate, initialStep = 'phot
 
         <div className="pt-modal-foot">
           <div className="pt-modal-cost">
-            {last ? <>Will deduct <b>2</b> credits on generate</> : <>Free step <span>·</span> 0 credits</>}
+            {last ? <>Will deduct <b>{generationCost}</b> {generationCost === 1 ? 'credit' : 'credits'} on generate</> : <>Free step <span>·</span> 0 credits</>}
           </div>
           <div className="pt-modal-foot-acts">
             {idx > 0 ? (
@@ -1279,7 +1295,7 @@ function PtPersonalizeModal({ tmpl, open, onClose, onCreate, initialStep = 'phot
                 Continue <PtIcon name="arrow" w={14} />
               </button>
             ) : (
-              <button type="button" className="pt-cta" onClick={() => onCreate && onCreate()}>
+              <button type="button" className="pt-cta" onClick={() => onCreate && onCreate(includeSong)}>
                 Create my Card <PtIcon name="arrow" w={14} />
               </button>
             )}
@@ -1384,8 +1400,7 @@ function PersonalizeApp({ openModal = false, accountBalance = PERSONALIZE_DEFAUL
   const [chatOpen, setChatOpen] = React.useState(true);
   const [view, setView] = React.useState<PersonalizeView>('marketplace');
   const [reviewGen, setReviewGen] = React.useState(false);
-  const [pricingOpen, setPricingOpen] = React.useState(false);
-  const [pricingMode, setPricingMode] = React.useState<PricingModalMode>('credits');
+  const [reviewIncludeSong, setReviewIncludeSong] = React.useState(true);
   const totalCredits = getTotalDemoCredits(accountBalance);
   const cardBank = Number(accountBalance?.cardBank || 0);
 
@@ -1399,27 +1414,25 @@ function PersonalizeApp({ openModal = false, accountBalance = PERSONALIZE_DEFAUL
   const onPersonalize = (t: Template) => { setChosen(t); setModalOpen(true); };
   const onClose = () => { setModalOpen(false); };
   const openPricingForCredits = () => {
-    if (cardBank <= 0) {
-      router.push(goToPricingAfterPurchase('/create'));
-      return;
-    }
-
-    setPricingMode('credits');
-    setPricingOpen(true);
+    router.push(goToPricingAfterPurchase('/create'));
   };
   // Create my Card → close modal, jump to the Review page (which auto-opens the invite modal while generating).
-  const onCreate = () => {
-    if (totalCredits < MIN_GENERATION_CREDITS) {
+  const onCreate = (includeSong = true) => {
+    const generationCost = includeSong ? CARD_WITH_QR_SONG_CREDITS : MIN_GENERATION_CREDITS;
+
+    if (totalCredits < generationCost) {
       openPricingForCredits();
       return;
     }
 
-    spendDemoCredits(2);
+    spendDemoCredits(generationCost);
+    setReviewIncludeSong(includeSong);
     addGeneratedSouvenote({
       title: chosen ? `${chosen.name} Souvenote` : "Personalized Souvenote",
       palette: "gold",
       glyph: chosen?.name?.slice(0, 1) || "S",
-      songName: chosen ? `${chosen.name} Song` : "Personalized Souvenote Song",
+      includeSong,
+      songName: includeSong ? (chosen ? `${chosen.name} QR Song` : "Personalized Souvenote QR Song") : undefined,
     });
     setModalOpen(false);
     setView('review');
@@ -1435,13 +1448,13 @@ function PersonalizeApp({ openModal = false, accountBalance = PERSONALIZE_DEFAUL
       <div className="bmc-page" style={{ minHeight: '100vh' }}>
         <BmcReview
           generating={reviewGen}
+          includeSong={reviewIncludeSong}
           credits={totalCredits}
           onStartOver={backToMarketplace}
           onApproveAll={() => router.push('/delivery')}
           onTopUp={openPricingForCredits}
           requiresCardPurchase={cardBank <= 0}
         />
-        <PricingReceiveModal open={pricingOpen} onClose={() => setPricingOpen(false)} currency="CAD" mode={pricingMode} />
       </div>
     );
   }
@@ -1450,7 +1463,6 @@ function PersonalizeApp({ openModal = false, accountBalance = PERSONALIZE_DEFAUL
     <div className="pt-page">
       <PtMarketplace onPersonalize={onPersonalize} />
       <PtPersonalizeModal tmpl={chosen} open={modalOpen} onClose={onClose} onCreate={onCreate} initialStep={openModal ? 'caption' : 'photo'} />
-      <PricingReceiveModal open={pricingOpen} onClose={() => setPricingOpen(false)} currency="CAD" mode={pricingMode} />
     </div>
   );
 }

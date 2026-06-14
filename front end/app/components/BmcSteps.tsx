@@ -34,6 +34,8 @@ type BmcMessageStepProps = StepNavProps & {
 };
 
 type BmcSongStepProps = {
+  includeSong: boolean;
+  setIncludeSong: (includeSong: boolean) => void;
   onBack?: () => void;
   onGenerate: () => void;
 };
@@ -308,7 +310,7 @@ const OCCASION_ACCENTS: Record<string, string> = {
 
 function BmcBasicsStep({ onContinue, onBack }: StepNavProps) {
   const [orientation, setOrientation] = React.useState('portrait');
-  const [occasion, setOccasion] = React.useState('Birthday');
+  const [occasion, setOccasion] = React.useState('');
   const [custom, setCustom] = React.useState('');
   const [recipient, setRecipient] = React.useState('');
   const [phonetic, setPhonetic] = React.useState('');
@@ -324,7 +326,7 @@ function BmcBasicsStep({ onContinue, onBack }: StepNavProps) {
         eyebrow="The basics"
         title="Tell us who it's for, and why"
         italicWord="and why"
-        lede="Light context lets us craft a card and song that fits the moment. Names appear inside the card and in song lyrics, where natural."
+        lede="Light context lets us craft the card and, if you choose one, a QR-code song that fits the moment. Names appear inside the card and optional song lyrics, where natural."
       />
 
       <div className="bmc-stack-lg bmc-basics" style={{ '--occasion-accent': OCCASION_ACCENTS[occasion] || 'var(--gold)' } as CSSVarStyle}>
@@ -343,7 +345,10 @@ function BmcBasicsStep({ onContinue, onBack }: StepNavProps) {
         </div>
 
         <div className="bmc-fieldcard">
-          <label className="bmc-label">Occasion</label>
+          <label className="bmc-label">Occasion <em className="bmc-opt">· optional</em></label>
+          <p className="bmc-help" style={{ margin: '-4px 0 12px' }}>
+            Select Birthday only when it fits the card. Otherwise, skip this or choose the moment that feels closest.
+          </p>
           <div className="bmc-chip-row">
             {OCCASIONS.map(o => (
               <button key={o} type="button" className={`bmc-chip bmc-chip-occasion ${o === occasion ? 'is-active' : ''}`} style={{ '--chip-accent': OCCASION_ACCENTS[o] || 'var(--gold)' } as CSSVarStyle} onClick={() => setOccasion(o)}>{o}</button>
@@ -360,11 +365,11 @@ function BmcBasicsStep({ onContinue, onBack }: StepNavProps) {
           <div className={`bmc-grid-2 bmc-basics-names ${skipped ? 'is-dim' : ''}`}>
           <div>
             <label className="bmc-label">Recipient name <em className="bmc-opt">· what do you call them?</em></label>
-            <input className="bmc-input" placeholder="We include this in your inside message and song lyrics" value={recipient} onChange={(e) => setRecipient(e.target.value)} />
+            <input className="bmc-input" placeholder="We include this in your inside message and optional song lyrics" value={recipient} onChange={(e) => setRecipient(e.target.value)} />
           </div>
           <div>
             <label className="bmc-label">Phonetic spelling <em className="bmc-opt">· optional</em></label>
-            <input className="bmc-input" placeholder="Used only as a pronunciation aid for the song" value={phonetic} onChange={(e) => setPhonetic(e.target.value)} />
+            <input className="bmc-input" placeholder="Used only as a pronunciation aid if you add a song" value={phonetic} onChange={(e) => setPhonetic(e.target.value)} />
           </div>
           <div>
             <label className="bmc-label">Who are they to you?</label>
@@ -538,7 +543,7 @@ function BmcImageStep({ onContinue, onBack, hasPhoto }: BmcImageStepProps) {
           <div className="bmc-fieldcard">
             <label className="bmc-label">Describe your vision for the card</label>
             <textarea className="bmc-textarea is-tall" placeholder="Describe a memory, inside joke, or imaginary story. The more vivid, the better." />
-            <p className="bmc-help">Transform Scene and Style option draws its primary song lyric inspiration from this description.</p>
+            <p className="bmc-help">Transform Scene and Style can also inspire optional QR-song lyrics when you include a song.</p>
           </div>
         )}
 
@@ -706,7 +711,7 @@ you are the song I will never put aside.
 [00:41-00:45 Final]
 To the moon and back — and back, and back.`;
 
-function BmcSongStep({ onBack, onGenerate }: BmcSongStepProps) {
+function BmcSongStep({ includeSong, setIncludeSong, onBack, onGenerate }: BmcSongStepProps) {
   const [genre, setGenre] = React.useState('Slow R&B Ballad');
   const [lyrics, setLyrics] = React.useState(LYRIC_SEED);
   const [editing, setEditing] = React.useState(false);
@@ -721,10 +726,25 @@ function BmcSongStep({ onBack, onGenerate }: BmcSongStepProps) {
         italicWord="we'll make the tune"
         accent="rose"
         titleStyle={{ whiteSpace: 'nowrap', fontSize: 'clamp(2rem, 4.4vw, 3rem)', lineHeight: 1.05 }}
-        lede="The lyrics builder uses your earlier answers to write the song which you can edit or regenerate anytime."
+        lede="A song is optional. If you include one, we'll place it inside the printed card as a scannable QR code."
       />
 
       <div className="bmc-stack-lg">
+        <div className="bmc-card bmc-song-choice">
+          <div className="bmc-card-head">
+            <div className="bmc-card-title">QR-code song</div>
+            <div className="bmc-card-meta">{includeSong ? 'Included · 1 credit' : 'Not included'}</div>
+          </div>
+          <BmcCheck checked={includeSong} onChange={setIncludeSong}>
+            Include a custom QR-code song in this card.
+          </BmcCheck>
+          <p className="bmc-help" style={{ marginTop: 10 }}>
+            Turn this off to generate only the card image and printed message. You can still add a song later from Saved Cards &amp; Songs.
+          </p>
+        </div>
+
+        {includeSong ? (
+          <>
         <div className="bmc-card">
           <div className="bmc-card-head">
             <div className="bmc-card-title">Choose your genre</div>
@@ -767,13 +787,28 @@ function BmcSongStep({ onBack, onGenerate }: BmcSongStepProps) {
             {!editing && <span className="bmc-help" style={{ margin: 0 }}>Lyrics are read-only until you click Edit.</span>}
           </div>
         </div>
+          </>
+        ) : (
+          <div className="bmc-card bmc-song-skip-card">
+            <div className="bmc-card-title">No QR song will be generated</div>
+            <p className="bmc-help" style={{ marginTop: 8 }}>
+              Your Souvenote will still include the generated image and inside message. The printed card simply ships without a song QR code.
+            </p>
+          </div>
+        )}
 
       </div>
 
       <div className="bmc-foot bmc-generate-foot">
         <div className="bmc-generate-copy">
           <div className="bmc-generate-title">Ready to generate your card</div>
-          <div className="bmc-generate-sub">Image + song together cost <b>2 credits</b>. The inside message is free.</div>
+          <div className="bmc-generate-sub">
+            {includeSong ? (
+              <>Image + QR song together cost <b>2 credits</b>. The inside message is free.</>
+            ) : (
+              <>Card image costs <b>1 credit</b>. The inside message is free and no song QR code will be added.</>
+            )}
+          </div>
         </div>
         <div className="bmc-generate-foot-acts">
           {onBack && (

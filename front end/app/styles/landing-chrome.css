@@ -1,53 +1,25 @@
-/* Silver navbar border — uniform-width gradient ring via a masked
-       pseudo-element. No transparent base border (it offset the ring and made
-       the rounded caps read thicker than the straight edges); the ::after fills
-       the full box edge-to-edge so the ring is even all the way around. */
-    .souv-nav {
-      position: absolute;
-      border: 0;
-      background: #0B0B0F;
-      box-shadow: var(--shadow-nav-scroll), 0 0 8px rgba(232,234,238,0.12);
-    }
-    .souv-nav::after {
-      content: "";
-      position: absolute;
-      inset: 0;
-      border-radius: inherit;
-      padding: 0.5px;
-      background: linear-gradient(90deg,
-        rgba(220,224,232,0.92) 0%,
-        rgba(244,246,250,0.98) 30%,
-        rgba(255,255,255,1) 50%,
-        rgba(244,246,250,0.98) 70%,
-        rgba(220,224,232,0.92) 100%);
-      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-      -webkit-mask-composite: xor;
-              mask-composite: exclude;
-      pointer-events: none;
-    }
-    /* Page-scoped: gold/rose-gold metallic shimmer on the hero "Start for Free"
-       and the nav "Get Started" CTAs (rest of the app keeps the glass style). */
-    .souv-btn-colorful, .souv-cta-flow {
-      color: #1a1208;
-      background: linear-gradient(120deg, #F1D074 0%, #D4AF37 25%, #E5B8B1 50%, #C88B86 75%, #F1D074 100%);
-      background-size: 240% 240%;
-      animation: souvenote-surface-pan 12s ease-in-out infinite;
-      border-color: transparent;
-      box-shadow: 0 10px 30px rgba(212,175,55,.28), inset 0 1px 0 rgba(255,245,210,.6);
-    }
-    .souv-btn-colorful:hover, .souv-cta-flow:hover {
-      background: linear-gradient(120deg, #F1D074 0%, #D4AF37 25%, #E5B8B1 50%, #C88B86 75%, #F1D074 100%);
-      background-size: 240% 240%;
-      border-color: transparent;
-      box-shadow: 0 14px 40px rgba(212,175,55,.4), inset 0 1px 0 rgba(255,245,210,.7);
-    }
-    /* Filled CTA: keep the label solid black (overrides the global clip-text
-       shimmer that the glass logged-in button uses). */
-    .souv-btn-colorful > span {
-      background: none;
-      -webkit-background-clip: border-box;
-      background-clip: border-box;
-      -webkit-text-fill-color: #1a1208;
-      color: #1a1208;
-      animation: none;
-    }
+/* Page-scoped: gold/rose-gold metallic shimmer on the hero "Start for Free"
+   and the nav "Get Started" CTAs. The shared navbar shape lives in site.css. */
+.souv-btn-colorful, .souv-cta-flow {
+  color: #1a1208;
+  background: linear-gradient(120deg, #F1D074 0%, #D4AF37 25%, #E5B8B1 50%, #C88B86 75%, #F1D074 100%);
+  background-size: 240% 240%;
+  animation: souvenote-surface-pan 12s ease-in-out infinite;
+  border-color: transparent;
+  box-shadow: 0 10px 30px rgba(212,175,55,.28), inset 0 1px 0 rgba(255,245,210,.6);
+}
+.souv-btn-colorful:hover, .souv-cta-flow:hover {
+  background: linear-gradient(120deg, #F1D074 0%, #D4AF37 25%, #E5B8B1 50%, #C88B86 75%, #F1D074 100%);
+  background-size: 240% 240%;
+  border-color: transparent;
+  box-shadow: 0 14px 40px rgba(212,175,55,.4), inset 0 1px 0 rgba(255,245,210,.7);
+}
+/* Filled CTA: keep the label solid black. */
+.souv-btn-colorful > span {
+  background: none;
+  -webkit-background-clip: border-box;
+  background-clip: border-box;
+  -webkit-text-fill-color: #1a1208;
+  color: #1a1208;
+  animation: none;
+}

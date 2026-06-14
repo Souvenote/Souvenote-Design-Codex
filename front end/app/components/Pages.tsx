@@ -12,10 +12,6 @@ type PageHeroProps = {
   lede?: string | null;
 };
 
-type PlaceholderNoteProps = {
-  children: React.ReactNode;
-};
-
 type ContactCard = {
   ico: React.ReactNode;
   title: string;
@@ -37,15 +33,6 @@ function PageHero({ crumbs = [], title, meta = null, lede = null }: PageHeroProp
       {meta && <div className="pg-meta">{meta}</div>}
       {lede && <p className="pg-lede">{lede}</p>}
     </header>
-  );
-}
-
-function PlaceholderNote({ children }: PlaceholderNoteProps) {
-  return (
-    <div className="pg-placeholder-note">
-      <span className="dot" />
-      <span>{children}</span>
-    </div>
   );
 }
 
@@ -230,5 +217,5 @@ function ContactPage() {
   );
 }
 
-export { PageHero, PlaceholderNote, LegalDoc, ContactPage };
-export type { PageHeroProps, PlaceholderNoteProps };
+export { PageHero, LegalDoc, ContactPage };
+export type { PageHeroProps };

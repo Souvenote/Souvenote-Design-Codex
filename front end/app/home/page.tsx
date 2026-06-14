@@ -11,7 +11,7 @@ export default function LandingLoggedInPage() {
   return (
     <div className="souv-route-page">
       <PageChrome variant="landing" />
-      <DemoNavbar cartCount={1} />
+      <DemoNavbar cartCount={1} followUserOnScroll />
       <main>
         <Hero accentMetal="silver" loggedIn />
         <OrnamentDivider />

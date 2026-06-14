@@ -5,8 +5,7 @@ import { useRouter } from "next/navigation";
 import { STEPS, BmcNavContext, BmcErrorModal } from "./BmcShared";
 import { BmcPhotoStep, BmcBasicsStep, BmcImageStep, BmcMessageStep, BmcSongStep } from "./BmcSteps";
 import { BmcReview } from "./BmcReview";
-import { PricingReceiveModal } from "./Options";
-import { MIN_GENERATION_CREDITS } from "./createFlowRules";
+import { CARD_WITH_QR_SONG_CREDITS, MIN_GENERATION_CREDITS } from "./createFlowRules";
 import { goToPricingAfterPurchase } from "./PricingReturn";
 import { getTotalDemoCredits, spendDemoCredits } from "./DemoBalance";
 import { addGeneratedSouvenote } from "./DemoLibrary";
@@ -41,9 +40,8 @@ function BmcWizard({
   const [step, setStep] = React.useState<BmcWizardStep>(initialStep);
   const [photoCount, setPhotoCount] = React.useState(0);
   const [describe, setDescribe] = React.useState(false);
+  const [includeSong, setIncludeSong] = React.useState(true);
   const [generating, setGenerating] = React.useState(false);
-  const [pricing, setPricing] = React.useState(false);
-  const [pricingMode, setPricingMode] = React.useState<"credits" | "full">("credits");
 
   const hasPhoto = photoCount > 0 && !describe;
   const idx = STEPS.findIndex((candidate) => candidate.id === step);
@@ -69,28 +67,25 @@ function BmcWizard({
   };
 
   const openPricingForCredits = () => {
-    if (cardBank <= 0) {
-      router.push(goToPricingAfterPurchase("/create"));
-      return;
-    }
-
-    setPricingMode("credits");
-    setPricing(true);
+    router.push(goToPricingAfterPurchase("/create"));
   };
 
   const onGenerate = () => {
-    if (credits < MIN_GENERATION_CREDITS) {
+    const generationCost = includeSong ? CARD_WITH_QR_SONG_CREDITS : MIN_GENERATION_CREDITS;
+
+    if (credits < generationCost) {
       openPricingForCredits();
       return;
     }
 
-    const nextBalance = spendDemoCredits(2);
+    const nextBalance = spendDemoCredits(generationCost);
     setCredits(getTotalDemoCredits(nextBalance));
     addGeneratedSouvenote({
       title: "Build My Card Souvenote",
       palette: "rose",
       glyph: "S",
-      songName: "Build My Card Song",
+      includeSong,
+      songName: includeSong ? "Build My Card QR Song" : undefined,
     });
     setStep("review");
     setGenerating(true);
@@ -128,6 +123,7 @@ function BmcWizard({
       {isReview ? (
         <BmcReview
           generating={generating}
+          includeSong={includeSong}
           credits={credits}
           onStartOver={startOver}
           onTopUp={openPricingForCredits}
@@ -139,7 +135,7 @@ function BmcWizard({
           <div className="bmc-headcard" aria-hidden="true">
             <div className="bmc-headcard-spin">
               <div className="bmc-headcard-face bmc-headcard-front">
-                <img src="/assets/bmc-souvenote-card-face.png" alt="" />
+                <img src="/assets/hero-souvenote-card-face.png" alt="" />
               </div>
               <div className="bmc-headcard-face bmc-headcard-back">
                 <img src="/assets/bmc-fathers-day-card.jpg" alt="" />
@@ -160,13 +156,19 @@ function BmcWizard({
               {step === "basics" && <BmcBasicsStep onContinue={goNext} onBack={goBack} />}
               {step === "image" && <BmcImageStep onContinue={goNext} onBack={goBack} hasPhoto={hasPhoto} />}
               {step === "message" && <BmcMessageStep onContinue={goNext} onBack={goBack} />}
-              {step === "song" && <BmcSongStep onBack={goBack} onGenerate={onGenerate} />}
+              {step === "song" && (
+                <BmcSongStep
+                  includeSong={includeSong}
+                  setIncludeSong={setIncludeSong}
+                  onBack={goBack}
+                  onGenerate={onGenerate}
+                />
+              )}
             </>
           </BmcNavContext.Provider>
         </div>
       )}
 
-      <PricingReceiveModal open={pricing} onClose={() => setPricing(false)} currency="CAD" mode={pricingMode} />
       <BmcErrorModal />
     </>
   );

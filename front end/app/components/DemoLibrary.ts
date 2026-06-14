@@ -29,6 +29,7 @@ export type GeneratedSouvenoteInput = {
   title?: string;
   palette?: string;
   glyph?: string;
+  includeSong?: boolean;
   songName?: string;
   voice?: string;
 };
@@ -73,26 +74,28 @@ export function addGeneratedSouvenote(input: GeneratedSouvenoteInput = {}): Demo
   const now = Date.now();
   const title = input.title || "Custom Souvenote";
   const id = `generated-${now}`;
+  const includeSong = input.includeSong !== false;
   const card: DemoLibraryCard = {
     id,
     pal: input.palette || "rose",
     glyph: input.glyph || "S",
-    song: true,
+    song: includeSong,
     days: 30,
     title,
     saved: "just now",
   };
-  const song: DemoLibrarySong = {
-    id: `song-${now}`,
-    name: input.songName || `${title} Song`,
-    voice: input.voice || "Generated Souvenote song",
-    card: title,
-    days: 30,
-  };
 
   const next = {
     cards: [card, ...current.cards].slice(0, 24),
-    songs: [song, ...current.songs].slice(0, 24),
+    songs: includeSong
+      ? [{
+          id: `song-${now}`,
+          name: input.songName || `${title} Song`,
+          voice: input.voice || "Generated Souvenote QR song",
+          card: title,
+          days: 30,
+        }, ...current.songs].slice(0, 24)
+      : current.songs,
   };
   writeDemoLibrary(next);
   return next;

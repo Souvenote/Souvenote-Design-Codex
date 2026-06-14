@@ -52,12 +52,12 @@ type NavbarProps = {
   credits?: DemoCredits;
   cardBank?: number;
   cartCount?: number;
-  logo?: "mark" | "wordmark";
+  followUserOnScroll?: boolean;
 };
 
 const NAV_LINKS: NavLink[] = [
   { label: "Personalize a Template", stackedLabel: ["Personalize", "a Template"], sub: "Curated designs, ready to make yours.", href: "/create/personalize-a-template" },
-  { label: "Build My Card", stackedLabel: ["Build", "My Card"], sub: "Start from scratch: photo, moment, song.", href: "/create/build-my-card" },
+  { label: "Build My Card", stackedLabel: ["Build", "My Card"], sub: "Start from scratch: photo, moment, optional QR song.", href: "/create/build-my-card" },
   { label: "Saved Cards & Songs", stackedLabel: ["Saved", "Cards & Songs"], sub: "Saved cards, drafts, songs, and send-ready creations.", href: "/create/my-cards-and-songs" },
   { label: "Pricing", sub: "Card packs, credits, and what shipping covers.", href: "/pricing" },
 ];
@@ -292,18 +292,19 @@ function Navbar({
   credits = { images: 0, songs: 0 },
   cardBank = 1,
   cartCount = 0,
-  logo = "mark",
+  followUserOnScroll = false,
 }: NavbarProps) {
   const [hovered, setHovered] = React.useState<string | null>(null);
   const [menuOpen, setMenuOpen] = React.useState(false);
   const [profileOpen, setProfileOpen] = React.useState(false);
   const [currency, setCurrency] = React.useState<CurrencyCode>("CAD");
   const [currencyOpen, setCurrencyOpen] = React.useState(false);
+  const logoSrc = loggedIn ? "/assets/LogoMark.png" : "/assets/WordmarkLobster.png";
 
   return (
-    <header className={`souv-nav ${loggedIn ? "is-loggedin" : ""}`}>
-      <Link href="/" className={`souv-nav-logo ${logo === "wordmark" ? "souv-nav-logo-wordmark" : ""}`} aria-label="Souvenote home">
-        <img src={logo === "wordmark" ? "/assets/WordmarkLobster.png" : "/assets/LogoMark.png"} alt="Souvenote" />
+    <header className={`souv-nav ${followUserOnScroll ? "is-follow-user-on-scroll" : ""}`}>
+      <Link href="/" className={`souv-nav-logo ${loggedIn ? "is-mark" : "is-wordmark"}`} aria-label="Souvenote home">
+        <img src={logoSrc} alt="Souvenote" />
       </Link>
 
       <nav className="souv-nav-links">

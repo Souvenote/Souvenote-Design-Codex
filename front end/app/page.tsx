@@ -11,7 +11,7 @@ export default function LandingPage() {
   return (
     <div className="souv-route-page">
       <PageChrome variant="landing" />
-      <Navbar logo="wordmark" />
+      <Navbar followUserOnScroll />
       <main>
         <Hero accentMetal="silver" />
         <OrnamentDivider />

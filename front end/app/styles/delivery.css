@@ -73,6 +73,11 @@
 .dlv-blank-gift-modal {
   width: min(860px, 100%);
   text-align: left;
+  border-color: rgba(212,175,55,0.34);
+  box-shadow:
+    0 34px 90px rgba(0,0,0,0.68),
+    0 0 0 1px rgba(212,175,55,0.12),
+    inset 0 1px 0 rgba(255,235,180,0.08);
 }
 .dlv-blank-gift-grid {
   display: grid;
@@ -91,7 +96,12 @@
 .dlv-blank-gift-fields .acc-flabel { margin-top: 6px; }
 .dlv-blank-gift-summary {
   text-align: center;
-  background-color: rgba(7,7,10,0.58);
+  background:
+    radial-gradient(110% 80% at 50% 0%, rgba(212,175,55,0.16), transparent 58%),
+    radial-gradient(90% 70% at 100% 10%, rgba(200,139,134,0.08), transparent 58%),
+    linear-gradient(180deg, rgba(232,234,238,0.03), rgba(232,234,238,0.006));
+  border-color: rgba(212,175,55,0.28);
+  box-shadow: 0 18px 44px rgba(0,0,0,0.38), inset 0 1px 0 rgba(255,235,180,0.08);
 }
 .dlv-blank-gift-actions {
   justify-content: flex-end;
@@ -460,9 +470,16 @@
   position: sticky; bottom: 24px; z-index: 6;
   display: flex; align-items: center; justify-content: space-between; gap: 20px;
   margin-top: 28px; padding: 18px 24px;
-  background: var(--glass-strong); backdrop-filter: blur(20px);
-  border: 1px solid var(--glass-border); border-radius: var(--r-xl);
-  box-shadow: 0 24px 60px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.04);
+  background:
+    radial-gradient(95% 110% at 4% 50%, rgba(212,175,55,0.12), transparent 58%),
+    radial-gradient(95% 110% at 96% 50%, rgba(200,139,134,0.075), transparent 58%),
+    var(--glass-strong);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(212,175,55,0.30); border-radius: var(--r-xl);
+  box-shadow:
+    0 24px 60px rgba(0,0,0,0.55),
+    0 0 0 1px rgba(212,175,55,0.07),
+    inset 0 1px 0 rgba(255,235,180,0.08);
 }
 .dlv-cost { display: flex; flex-direction: column; gap: 4px; }
 .dlv-cost-main {
@@ -475,7 +492,11 @@
   font-family: var(--font-sans); font-weight: 600; font-size: 10.5px;
   letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted);
 }
-.dlv-cost-sub b { color: var(--gold-hi); font-family: var(--font-num); letter-spacing: 0; }
+.dlv-cost-sub b {
+  font-family: var(--font-num);
+  letter-spacing: 0;
+  color: var(--platinum-hi);
+}
 .dlv-cost-sub.is-low b { color: var(--rose-gold-hi); }
 .dlv-topup-link {
   background: none; padding: 0; cursor: pointer;
@@ -490,7 +511,17 @@
 /* ============================================================
    CHECKOUT (Page 7) — Stripe modal
    ============================================================ */
-.co-modal { width: min(940px, 100%); padding: 0; overflow: hidden; text-align: left; }
+.co-modal {
+  width: min(940px, 100%);
+  padding: 0;
+  overflow: hidden;
+  text-align: left;
+  border-color: rgba(212,175,55,0.34);
+  box-shadow:
+    0 34px 90px rgba(0,0,0,0.68),
+    0 0 0 1px rgba(212,175,55,0.12),
+    inset 0 1px 0 rgba(255,235,180,0.08);
+}
 .co-grid { display: grid; grid-template-columns: 1fr 0.86fr; }
 
 /* Left — pay panel */
@@ -580,9 +611,10 @@
 .co-summary {
   padding: 34px 30px 30px;
   background:
-    radial-gradient(70% 40% at 50% 0%, rgba(212,175,55,0.07), transparent 70%),
-    linear-gradient(180deg, rgba(232,234,238,0.03), rgba(232,234,238,0.005));
-  border-left: 1px solid var(--divider);
+    radial-gradient(120% 88% at 50% 0%, rgba(212,175,55,0.14), transparent 62%),
+    radial-gradient(100% 78% at 100% 8%, rgba(200,139,134,0.075), transparent 58%),
+    linear-gradient(180deg, rgba(232,234,238,0.035), rgba(232,234,238,0.006));
+  border-left: 1px solid rgba(212,175,55,0.18);
 }
 .co-summary-title {
   font-family: var(--font-sans); font-weight: 700; font-size: 10px;
@@ -590,8 +622,11 @@
 }
 .co-pack {
   padding: 20px; border-radius: var(--r-lg); margin-bottom: 18px;
-  background: linear-gradient(160deg, rgba(212,175,55,0.10), rgba(200,139,134,0.05));
-  border: 1px solid rgba(212,175,55,0.30);
+  background:
+    radial-gradient(120% 100% at 0% 0%, rgba(212,175,55,0.13), transparent 62%),
+    linear-gradient(160deg, rgba(212,175,55,0.08), rgba(200,139,134,0.045));
+  border: 1px solid rgba(212,175,55,0.34);
+  box-shadow: inset 0 1px 0 rgba(255,235,180,0.08);
 }
 .co-pack-name {
   font-family: var(--font-sans); font-style: italic; font-weight: 700;
@@ -629,25 +664,53 @@
 .co-bonus svg { width: 16px; height: 16px; flex-shrink: 0; }
 
 /* Pricing picker (pack chooser before checkout) */
-.co-picker { width: min(960px, 100%); padding: 34px 34px 30px; text-align: left; }
-.co-picker-tabs { display: inline-flex; padding: 4px; margin: 0 auto 24px; background: rgba(232,234,238,0.02); border: 1px solid var(--divider); border-radius: var(--r-pill); }
+.co-picker {
+  width: min(960px, 100%);
+  padding: 34px 34px 30px;
+  text-align: left;
+  border-color: rgba(212,175,55,0.34);
+  box-shadow:
+    0 34px 90px rgba(0,0,0,0.68),
+    0 0 0 1px rgba(212,175,55,0.12),
+    inset 0 1px 0 rgba(255,235,180,0.08);
+}
+.co-picker-tabs { display: inline-flex; padding: 4px; margin: 0 auto 24px; background: rgba(20,14,4,0.34); border: 1px solid rgba(212,175,55,0.26); border-radius: var(--r-pill); }
 .co-picker-head { text-align: center; }
 .co-pk-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
 .co-pk {
   position: relative; display: flex; flex-direction: column; text-align: left;
   padding: 22px 20px; cursor: pointer;
-  background: linear-gradient(180deg, rgba(232,234,238,0.03), rgba(232,234,238,0.008));
-  border: 1px solid var(--divider); border-radius: var(--r-lg);
-  transition: transform .3s var(--ease-brand), border-color .3s var(--ease-brand);
+  background:
+    radial-gradient(110% 84% at 10% 0%, rgba(212,175,55,0.075), transparent 62%),
+    linear-gradient(180deg, rgba(232,234,238,0.03), rgba(232,234,238,0.008));
+  border: 1px solid rgba(232,234,238,0.08); border-radius: var(--r-xl);
+  box-shadow: 0 16px 40px rgba(0,0,0,0.42), inset 0 1px 0 rgba(255,255,255,0.04);
+  transition: transform .3s var(--ease-brand), border-color .3s var(--ease-brand), box-shadow .3s var(--ease-brand);
 }
-.co-pk:hover { transform: translateY(-3px); border-color: rgba(200,139,134,0.4); }
-.co-pk.is-featured { border-color: rgba(200,139,134,0.55); box-shadow: 0 0 0 1px rgba(200,139,134,0.2), 0 18px 50px rgba(0,0,0,0.45); }
+.co-pk:hover {
+  transform: translateY(-3px);
+  border-color: rgba(212,175,55,0.30);
+  box-shadow: 0 22px 50px rgba(0,0,0,0.55), 0 0 0 1px rgba(212,175,55,0.10), inset 0 1px 0 rgba(255,235,180,0.08);
+}
+.co-pk.is-featured {
+  border-color: rgba(212,175,55,0.46);
+  background:
+    radial-gradient(110% 84% at 50% 0%, rgba(212,175,55,0.14), transparent 62%),
+    linear-gradient(180deg, rgba(212,175,55,0.06), rgba(212,175,55,0.014));
+  box-shadow:
+    0 28px 60px rgba(0,0,0,0.55),
+    0 0 0 1px rgba(212,175,55,0.34),
+    inset 0 1px 0 rgba(255,235,180,0.12);
+}
 .co-pk-badge {
   position: absolute; top: -10px; left: 50%; transform: translateX(-50%); white-space: nowrap;
   font-family: var(--font-sans); font-weight: 700; font-size: 8.5px;
-  letter-spacing: .2em; text-transform: uppercase; color: #2a1015;
+  letter-spacing: .2em; text-transform: uppercase; color: #1a1208;
   padding: 4px 12px; border-radius: var(--r-pill);
-  background: linear-gradient(120deg,#F4D6D0,#E5B8B1); box-shadow: 0 4px 14px rgba(200,139,134,0.3);
+  background: linear-gradient(120deg,#F1D074,#D4AF37,#E5B8B1,#C88B86,#F1D074);
+  background-size: 240% 240%;
+  animation: souvenote-surface-pan 12s ease-in-out infinite;
+  box-shadow: 0 4px 14px rgba(212,175,55,.35), inset 0 1px 0 rgba(255,245,210,.6);
 }
 .co-pk-name { font-family: var(--font-sans); font-style: italic; font-weight: 700; font-size: 18px; color: var(--platinum-hi); }
 .co-pk-count { font-family: var(--font-num); font-weight: 700; font-size: 34px; line-height: 1; letter-spacing: -0.02em; color: var(--rose-gold-hi); margin: 14px 0 2px; }

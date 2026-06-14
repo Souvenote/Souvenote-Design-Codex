@@ -18,7 +18,7 @@
 
 .bmc-shell {
   position: relative; z-index: 2;
-  max-width: 1240px; margin: 0 auto;
+  width: 100%; max-width: calc(1320px + 128px); margin: 0 auto;
   /* Clear the absolutely-positioned navbar (top:16px, ~86px tall) with an even
      gap so the section head doesn't tuck under the nav pill. */
   padding: 154px 64px 0;
@@ -105,7 +105,7 @@
    stepper below it (only where the card is actually shown). The head text is
    centered within that reserved height so it lines up with the card's middle. */
 @media (min-width: 861px) {
-  .bmc-page .bmc-head {
+  .bmc-page .bmc-shell:has(.bmc-headcard) .bmc-head {
     min-height: 284px;
     display: flex;
     flex-direction: column;
@@ -1131,13 +1131,16 @@
 }
 .bmc-prompt {
   position: relative;
-  width: min(420px, 100%);
+  width: min(520px, 100%);
   text-align: center;
-  padding: 34px 32px 30px;
-  background: linear-gradient(165deg, #16161c 0%, #0d0d11 100%);
-  border: 1px solid var(--bmc-gold-edge, rgba(212,175,55,0.55));
-  border-radius: var(--r-lg, 18px);
-  box-shadow: 0 30px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(212,175,55,0.08);
+  padding: 38px 38px 32px;
+  background-color: #16141a;
+  background-image:
+    radial-gradient(70% 52% at 50% 0%, rgba(212,175,55,0.12), transparent 72%),
+    linear-gradient(165deg, rgba(255,255,255,0.025), rgba(255,255,255,0));
+  border: 1px solid rgba(212,175,55,0.34);
+  border-radius: var(--r-2xl, 24px);
+  box-shadow: 0 40px 100px rgba(0,0,0,0.65), inset 0 1px 0 rgba(255,225,210,0.10);
   animation: bmcPromptIn .22s cubic-bezier(.2,.8,.2,1) both;
 }
 @keyframes bmcPromptFade { from { opacity: 0; } to { opacity: 1; } }
@@ -1156,20 +1159,25 @@
 .bmc-prompt-title {
   margin: 0 0 10px;
   font-family: var(--font-sans);
-  font-weight: 700;
-  font-size: 22px;
+  font-weight: 800;
+  font-size: clamp(1.45rem, 2.8vw, 1.9rem);
+  line-height: 1.08;
+  letter-spacing: -0.02em;
   color: var(--platinum-hi);
 }
 .bmc-prompt-body {
-  margin: 0 0 22px;
+  margin: 0 auto 24px;
   font-family: var(--font-sans);
-  font-size: 14px;
-  line-height: 1.55;
+  font-size: 15.5px;
+  line-height: 1.6;
   color: var(--text-secondary);
+  max-width: 38ch;
   text-wrap: pretty;
 }
 .bmc-prompt .bmc-cta {
   margin: 0 auto;
+  min-width: 220px;
+  min-height: 52px;
 }
 
 .bmc-describe-inline {
@@ -1208,19 +1216,20 @@
 }
 
 /* ---- Invite-a-friend modal ("while you wait") -------------------- */
-.bmc-modal.bmc-invite { width: min(440px, 100%); padding: 34px 30px 24px; }
+.bmc-modal.bmc-invite { width: min(540px, 100%); padding: 38px 34px 26px; }
 
 .bmc-modal.bmc-send-card-modal {
-  width: min(560px, 100%);
-  padding: 36px 34px 28px;
-  text-align: center;
+  width: min(860px, 100%);
+  padding: 40px 42px 34px;
+  text-align: left;
+  border-color: rgba(212,175,55,0.34);
 }
 .bmc-send-card-eyebrow {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 9px;
-  margin: 0 auto 14px;
+  margin: 0 0 14px;
   font-family: var(--font-sans);
   font-weight: 800;
   font-size: 11px;
@@ -1228,16 +1237,27 @@
   text-transform: uppercase;
   color: var(--gold-hi);
 }
-.bmc-send-card-sub { max-width: 42ch; }
+.bmc-send-card-modal .bmc-modal-title {
+  font-size: clamp(2rem, 4vw, 3rem);
+  line-height: 1.04;
+}
+.bmc-send-card-sub {
+  max-width: 62ch;
+  margin-left: 0;
+  margin-right: 0;
+}
 .bmc-send-card-summary {
-  display: grid;
-  gap: 7px;
-  margin: 4px auto 22px;
-  padding: 16px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin: 4px 0 0;
+  padding: 17px 20px;
   border: 1px solid rgba(212,175,55,0.26);
-  border-radius: var(--r-lg);
+  border-radius: var(--r-xl);
   background: rgba(212,175,55,0.055);
-  max-width: 360px;
+  max-width: none;
+  text-align: left;
 }
 .bmc-send-card-summary span,
 .bmc-send-card-summary em {
@@ -1265,30 +1285,83 @@
   color: var(--text-secondary);
 }
 .bmc-modal-acts.bmc-send-card-actions {
-  flex-direction: column;
-  align-items: stretch;
+  justify-content: flex-end;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 28px;
+  padding-top: 22px;
+  border-top: 1px solid var(--divider);
 }
 .bmc-send-card-actions .bmc-cta,
-.bmc-send-card-actions .bmc-cta-secondary,
+.bmc-send-card-actions .bmc-cta-secondary {
+  flex: 0 1 260px;
+  width: auto;
+}
 .bmc-send-card-actions .bmc-cta-quiet {
-  width: 100%;
+  flex: 0 0 auto;
+  width: auto;
+  min-height: 52px;
+  cursor: pointer;
 }
 
 .bmc-invite-eyebrow {
-  display: inline-flex; align-items: center; gap: 8px;
-  margin: 0 auto 14px;
-  font-family: var(--font-sans); font-weight: 700; font-size: 11px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  margin: 0 auto 10px;
+  font-family: var(--font-sans); font-weight: 800; font-size: 11px;
   letter-spacing: .22em; text-transform: uppercase;
   color: var(--gold-hi);
 }
-.bmc-invite-eyebrow-spin {
-  width: 12px; height: 12px; border-radius: 50%;
-  border: 1.5px solid rgba(212,175,55,0.30);
-  border-top-color: var(--gold-hi);
-  animation: bmc-spin .8s linear infinite;
+.bmc-invite-progress {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  margin: 2px auto 8px;
 }
-.bmc-modal.bmc-invite .bmc-modal-title { font-size: clamp(1.5rem, 4.6vw, 1.95rem); margin-bottom: 10px; }
-.bmc-modal.bmc-invite .bmc-modal-sub { max-width: 40ch; margin-bottom: 18px; }
+.bmc-invite-progress-copy { width: 100%; }
+.bmc-invite-loader,
+.bmc-invite-eyebrow-spin {
+  width: 72px; height: 72px; border-radius: 50%;
+  border: 4px solid rgba(212,175,55,0.20);
+  border-top-color: var(--gold-hi);
+  border-right-color: rgba(229,184,177,0.62);
+  animation: bmc-spin 1.05s linear infinite;
+  box-shadow:
+    0 0 0 9px rgba(212,175,55,0.055),
+    0 14px 36px rgba(212,175,55,0.20);
+}
+.bmc-modal.bmc-invite .bmc-modal-title { font-size: clamp(1.65rem, 4.6vw, 2.2rem); margin-bottom: 12px; }
+.bmc-modal.bmc-invite .bmc-modal-sub { max-width: 42ch; margin-bottom: 14px; }
+.bmc-invite-assets {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin: 0 auto 14px;
+}
+.bmc-invite-assets span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 7px 12px;
+  border: 1px solid rgba(212,175,55,0.30);
+  border-radius: var(--r-pill);
+  background: rgba(212,175,55,0.07);
+  color: var(--platinum-hi);
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+.bmc-invite-while {
+  margin: 0 auto 14px;
+  max-width: 42ch;
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
 
 .bmc-msggen-inline-count {
   display: inline-flex;
@@ -1390,6 +1463,20 @@
 
 @media (max-width: 480px) {
   .bmc-modal.bmc-invite { padding: 30px 22px 22px; }
+  .bmc-modal.bmc-send-card-modal {
+    padding: 34px 24px 26px;
+  }
+  .bmc-send-card-summary,
+  .bmc-modal-acts.bmc-send-card-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .bmc-send-card-actions .bmc-cta,
+  .bmc-send-card-actions .bmc-cta-secondary,
+  .bmc-send-card-actions .bmc-cta-quiet {
+    width: 100%;
+    flex-basis: auto;
+  }
   .bmc-invite-reward { font-size: 13px; }
 }
 

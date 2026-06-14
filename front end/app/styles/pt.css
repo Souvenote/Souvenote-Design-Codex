@@ -17,7 +17,7 @@
 
 .pt-shell {
   position: relative; z-index: 2;
-  max-width: 1320px; margin: 0 auto;
+  width: 100%; max-width: calc(1320px + 128px); margin: 0 auto;
   padding: 124px 64px 0;
 }
 
@@ -1125,6 +1125,58 @@
   height: 1px;
   background: linear-gradient(90deg, transparent, var(--divider) 12%, var(--divider) 88%, transparent);
   margin: 28px 0 22px;
+}
+.pt-song-toggle {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  gap: 12px;
+  align-items: start;
+  margin-top: 18px;
+  padding: 14px 15px;
+  border: 1px solid rgba(212,175,55,0.28);
+  border-radius: var(--r-md);
+  background: rgba(212,175,55,0.045);
+  cursor: pointer;
+}
+.pt-song-toggle input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.pt-song-toggle-box {
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  border: 1px solid rgba(212,175,55,0.42);
+  color: transparent;
+  background: rgba(10,10,14,0.28);
+}
+.pt-song-toggle.is-checked .pt-song-toggle-box {
+  color: #1a1208;
+  background: linear-gradient(135deg,#F1D074,#D4AF37);
+  box-shadow: 0 6px 16px rgba(212,175,55,0.22);
+}
+.pt-song-toggle b,
+.pt-song-toggle em {
+  display: block;
+  font-family: var(--font-sans);
+}
+.pt-song-toggle b {
+  margin-bottom: 4px;
+  color: var(--platinum-hi);
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.pt-song-toggle em {
+  color: var(--text-secondary);
+  font-size: 13.5px;
+  font-style: normal;
+  line-height: 1.45;
 }
 .pt-msg-counter {
   display: inline-flex; gap: 14px;

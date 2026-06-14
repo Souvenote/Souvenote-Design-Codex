@@ -51,21 +51,6 @@
 }
 
 /* ── Placeholder banner ──────────────────────────────────── */
-.pg-placeholder-note {
-  display: flex; align-items: center; gap: 12px;
-  max-width: 1040px; margin: 36px auto 0;
-  padding: 13px 20px;
-  border: 1px dashed rgba(212,175,55,0.32);
-  border-radius: var(--r-lg);
-  background: rgba(212,175,55,0.035);
-}
-.pg-placeholder-note .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--gold); flex-shrink: 0; box-shadow: 0 0 10px rgba(212,175,55,.6); }
-.pg-placeholder-note span {
-  font-family: var(--font-sans); font-size: 12.5px; letter-spacing: 0.04em;
-  color: var(--text-muted);
-}
-.pg-placeholder-note b { color: var(--gold-hi); font-weight: 600; }
-
 /* ============================================================
    LEGAL DOCUMENT LAYOUT
    ============================================================ */

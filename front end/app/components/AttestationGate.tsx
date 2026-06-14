@@ -41,7 +41,7 @@ type AttgIconProps = {
 // ------------------------------------------------------------------
 const ATTG_TERMS: LegalSection[] = [
   ['1. Acceptance of these Terms',
-   'These Terms of Service ("Terms") govern your use of Souvenote to create, personalize, generate, and order physical and digital greeting cards and their paired songs. By uploading a photo or generating a card, you agree to these Terms in full. If you do not agree, do not upload content or generate a card.'],
+   'These Terms of Service ("Terms") govern your use of Souvenote to create, personalize, generate, and order physical and digital greeting cards and any optional paired songs. By uploading a photo or generating a card, you agree to these Terms in full. If you do not agree, do not upload content or generate a card.'],
   ['2. Who may use Souvenote',
    'You must be the age of majority in your province or state to create an account and place an order. You are responsible for all activity that occurs under your account, and for keeping your credentials secure.'],
   ['3. Your content and the rights you must hold',
@@ -51,13 +51,13 @@ const ATTG_TERMS: LegalSection[] = [
   ['5. Intimate Images Protection Act',
    'You acknowledge that distributing or processing an intimate image of a person without their consent may be unlawful under the Intimate Images Protection Act and equivalent legislation. You confirm that no photo you upload is an intimate image processed without the depicted person\u2019s consent, and you accept full legal responsibility for any image you provide. Souvenote cooperates with lawful requests and will act on credible reports of non-consensual intimate imagery, including removing content and suspending accounts.'],
   ['6. AI generation and likeness processing',
-   'Souvenote uses automated and AI systems to re-render, stylize, and transform the photos and descriptions you provide, and to compose lyrics and music. Generated output may not perfectly reproduce a likeness and is provided for personal, gifting, and keepsake purposes. You remain responsible for how you use and share generated cards and songs.'],
+   'Souvenote uses automated and AI systems to re-render, stylize, and transform the photos and descriptions you provide, and, when selected, to compose lyrics and music. Generated output may not perfectly reproduce a likeness and is provided for personal, gifting, and keepsake purposes. You remain responsible for how you use and share generated cards and optional songs.'],
   ['7. Credits, orders, and printing',
    'Generation actions consume credits as shown at the point of use. Physical card orders are produced by print and fulfillment partners. Once a card has entered production it generally cannot be changed or cancelled. Pricing, credit values, and availability may change.'],
   ['8. Data retention',
    'We retain uploaded photos, generated assets, and order records for as long as needed to provide the service, fulfill your orders, and meet legal, tax, and safety obligations, after which they are deleted or de-identified on a rolling schedule. You may request deletion of your content and account as described in the Privacy Policy, subject to records we are required to keep.'],
   ['9. Intellectual property',
-   'You keep the rights you hold in the photos you upload. Subject to these Terms, Souvenote grants you a personal license to use the cards and songs you generate. The Souvenote name, interface, and underlying technology remain our property.'],
+   'You keep the rights you hold in the photos you upload. Subject to these Terms, Souvenote grants you a personal license to use the cards and optional songs you generate. The Souvenote name, interface, and underlying technology remain our property.'],
   ['10. Disclaimers and limitation of liability',
    'The service is provided "as is" without warranties of any kind. To the maximum extent permitted by law, Souvenote is not liable for indirect, incidental, or consequential damages, and our total liability is limited to the amount you paid in the three months before the event giving rise to the claim.'],
   ['11. Changes and contact',
@@ -66,11 +66,11 @@ const ATTG_TERMS: LegalSection[] = [
 
 const ATTG_PRIVACY: LegalSection[] = [
   ['1. Overview',
-   'This Privacy Policy explains what personal information Souvenote collects, how we use it, how long we keep it, and the choices you have. It applies when you create an account, upload photos, generate cards and songs, and place orders.'],
+   'This Privacy Policy explains what personal information Souvenote collects, how we use it, how long we keep it, and the choices you have. It applies when you create an account, upload photos, generate cards, optionally generate songs, and place orders.'],
   ['2. Information we collect',
    'We collect: account information (name, email, country); content you provide (uploaded photos, descriptions, names, dates, captions, and messages); generated assets (card images, lyrics, songs); order and payment metadata; and technical data such as device, log, and approximate location inferred from your network. Approximate country is used, among other things, to determine which attestation applies to your upload.'],
   ['3. How we use your information',
-   'We use your information to operate the service: to process and transform your photos, generate cards and songs, fulfill and ship orders, provide support, prevent abuse and fraud, comply with the law, and improve the product. We process uploaded likenesses only to produce the output you request.'],
+   'We use your information to operate the service: to process and transform your photos, generate cards and optional songs, fulfill and ship orders, provide support, prevent abuse and fraud, comply with the law, and improve the product. We process uploaded likenesses only to produce the output you request.'],
   ['4. Biometric and likeness data',
    'Photos you upload may contain facial and likeness information. We process this solely to generate your requested card and do not use your uploaded faces to build facial-recognition profiles or to identify individuals across the service. You must have consent from each person depicted before uploading, as required by the Terms of Service.'],
   ['5. Data retention',

@@ -53,7 +53,7 @@ const LEGAL_DATA: Record<LegalDataKey, LegalDocData> = {
     intro: 'We want you to love what you create. This Refund Policy describes when and how refunds are issued.',
     sections: [
       { id: 'overview', title: 'Overview', paras: [
-        'Because each Souvenote card and song is generated for you, refunds depend on whether an order has entered production. This section explains the general approach; the rest of the policy covers the details.',
+        'Because each Souvenote card and any optional song is generated for you, refunds depend on whether an order has entered production. This section explains the general approach; the rest of the policy covers the details.',
         'If something isn\u2019t right with your order, reach out and we\u2019ll work with you to make it right.',
       ] },
       { id: 'eligibility', title: 'Refund eligibility', paras: ['The following purchases generally qualify for a refund:'],
@@ -85,8 +85,8 @@ const LEGAL_DATA: Record<LegalDataKey, LegalDocData> = {
         'You\u2019re responsible for keeping your account credentials secure and for activity that happens under your account. Let us know promptly if you suspect any unauthorized use.',
       ] },
       { id: 'content', title: 'Content and ownership', paras: [
-        'You retain rights to the photos and text you upload. By using them on Souvenote, you grant us the limited permissions we need to generate, print, and deliver your cards and songs.',
-        'The cards and songs you create are yours to share. Our platform, templates, and software remain our property.',
+        'You retain rights to the photos and text you upload. By using them on Souvenote, you grant us the limited permissions we need to generate, print, and deliver your cards and optional songs.',
+        'The cards and optional songs you create are yours to share. Our platform, templates, and software remain our property.',
       ] },
       { id: 'acceptable-use', title: 'Acceptable use', paras: ['When using Souvenote, you agree to the following:'],
         bullets: ['Don\u2019t upload content you don\u2019t have rights to.', 'Don\u2019t use the service for unlawful purposes.', 'Don\u2019t attempt to disrupt or reverse-engineer the platform.'] },
@@ -111,7 +111,7 @@ const LEGAL_DATA: Record<LegalDataKey, LegalDocData> = {
       { id: 'information-we-collect', title: 'Information we collect', paras: ['We collect the following kinds of information:'],
         bullets: ['Account details you provide, like name and email.', 'Content you upload, such as photos and messages.', 'Usage and device information collected automatically.'] },
       { id: 'how-we-use', title: 'How we use your information', paras: [
-        'We use your information to generate and deliver your cards and songs, process payments, provide support, and improve the service.',
+        'We use your information to generate and deliver your cards and optional songs, process payments, provide support, and improve the service.',
         'We do not sell your personal information. Where we rely on partners to operate the service, we share only what\u2019s needed for them to perform their role.',
       ] },
       { id: 'sharing', title: 'How we share information', paras: [

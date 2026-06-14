@@ -88,9 +88,9 @@ function Hero({ accentMetal = "gold", loggedIn = false }: HeroProps) {
             {!loggedIn && <Link className="souv-btn-log" href="/login">Log In</Link>}
           </div>
           <p className="souv-hero-lede">
-            Generate personalized cards and custom songs. Because the card you send should be as unique as they are.
+            Generate personalized cards with optional QR-code songs. Because the card you send should be as unique as they are.
           </p>
-          <p className="souv-hero-trial">Includes 1 free image generation and 1 free song</p>
+          <p className="souv-hero-trial">Includes 2 free credits to create a complete card</p>
         </div>
 
         <div className="souv-hero-stack">

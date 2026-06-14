@@ -3,8 +3,9 @@
 import { Navbar } from "./Navbar";
 import { demoUser } from "./DemoUser";
 import { useDemoBalance } from "./DemoBalance";
+import type { NavbarProps } from "./Navbar";
 
-type DemoNavbarProps = {
+type DemoNavbarProps = Pick<NavbarProps, "followUserOnScroll"> & {
   cartCount?: number;
   onLoginClick?: () => void;
   onSignupClick?: () => void;

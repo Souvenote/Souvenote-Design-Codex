@@ -7,6 +7,7 @@ import { Navbar } from "./Navbar";
 import { Footer } from "./Footer";
 import { BmcIcon, BmcErrorModal, bmcError } from "./BmcShared";
 import { DlvKeepsake } from "./DeliveryKeepsake";
+import { useDemoLibrary } from "./DemoLibrary";
 import { consumeBlankSouvenoteGift, useBlankSouvenoteGiftCount } from "./GiftAddon";
 import {
   DLV_EMPTY_RECIP,
@@ -252,6 +253,8 @@ function DeliveryApp({ user, initialCards = 3, initialCredits = DELIVERY_DEFAULT
   const [cardBank, setCardBank] = React.useState(demoBalance.cardBank);
   const credits = demoBalance.credits;
   const [song, setSong] = React.useState(false);
+  const demoLibrary = useDemoLibrary();
+  const songIncluded = demoLibrary.cards[0]?.song !== false;
   const [sent, setSent] = React.useState<DeliveryOrder | null>(null);
   const blankGiftCount = useBlankSouvenoteGiftCount();
   const [giftReminderDismissed, setGiftReminderDismissed] = React.useState(false);
@@ -352,8 +355,8 @@ function DeliveryApp({ user, initialCards = 3, initialCredits = DELIVERY_DEFAULT
             <span className="souv-hero-italic text-metallic-rose-gold">worth sending</span>
           </h1>
           <p className="bmc-lede" style={{ margin: "0 auto" }}>
-            Your card is printed and folded, your message hand-written in real ink, and the song tucked behind a QR
-            inside. Tell us where it&apos;s going. Sending costs one card from your bank.
+            Your card is printed and folded, your message is hand-written in real ink, and any optional song is tucked
+            behind a QR code inside. Tell us where it&apos;s going. Sending costs one card from your bank.
           </p>
         </div>
 
@@ -376,7 +379,7 @@ function DeliveryApp({ user, initialCards = 3, initialCredits = DELIVERY_DEFAULT
 
         <div className="dlv-grid">
           <div className="dlv-keepsake-col">
-            <DlvKeepsake song={song} onPlaySong={() => setSong((current) => !current)} />
+            <DlvKeepsake song={song} songIncluded={songIncluded} onPlaySong={() => setSong((current) => !current)} />
           </div>
 
           <div className="dlv-form">

@@ -269,7 +269,7 @@ function CheckoutModal({ open, pack, country = "CA", onClose, onPaid, onBack }: 
                   ? <><b>{pack.lineCount} {pack.lineCount === 1 ? "item" : "items"}</b> · cards, packs &amp; credits</>
                   : isCards
                     ? <><b>{pack.cards} {pack.cards === 1 ? "card" : "cards"}</b> · {pack.cards === 1 ? "one physical send" : "physical sends"} · shipping included</>
-                    : <><b>{pack.tokens} credits</b> · AI image &amp; song generations</>}
+                    : <><b>{pack.tokens} credits</b> · AI image, edit, or optional QR-song generations</>}
               </div>
             </div>
 

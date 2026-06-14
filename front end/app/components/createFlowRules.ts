@@ -1,5 +1,3 @@
-export type PricingModalMode = "full" | "credits" | "cards";
-
 export type CreateGateRequirement = "generation" | "send";
 
 export type AccountBalance = {
@@ -15,13 +13,13 @@ export const demoAccountBalance: AccountBalance = {
   cardBank: 1,
 };
 
-export const MIN_GENERATION_CREDITS = 2;
+export const MIN_GENERATION_CREDITS = 1;
+export const CARD_WITH_QR_SONG_CREDITS = 2;
 
 export type CreateFlowGate =
   | { allowed: true }
   | {
       allowed: false;
-      modalMode: PricingModalMode;
       reason: "credits" | "cards" | "credits-and-cards";
     };
 
@@ -41,7 +39,6 @@ export function getCreateFlowGate(
   if (requirement === "generation" && !hasGenerationCredits) {
     return {
       allowed: false,
-      modalMode: hasCards ? "credits" : "full",
       reason: hasCards ? "credits" : "credits-and-cards",
     };
   }
@@ -49,7 +46,6 @@ export function getCreateFlowGate(
   if (requirement === "send" && !hasCards) {
     return {
       allowed: false,
-      modalMode: hasCredits ? "cards" : "full",
       reason: hasCredits ? "cards" : "credits-and-cards",
     };
   }

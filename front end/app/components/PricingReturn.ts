@@ -16,6 +16,12 @@ export function consumePricingReturn(): string | null {
   return path ? cleanReturnPath(path) : null;
 }
 
+export function peekPricingReturn(): string | null {
+  if (typeof window === "undefined") return null;
+  const path = window.localStorage.getItem(PRICING_RETURN_KEY);
+  return path ? cleanReturnPath(path) : null;
+}
+
 export function goToPricingAfterPurchase(path = "/create"): string {
   if (typeof window === "undefined") return "/pricing";
   rememberPricingReturn(path);

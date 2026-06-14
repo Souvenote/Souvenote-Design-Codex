@@ -3,6 +3,29 @@ html { scroll-behavior: smooth; }
 
 body { min-height: 100vh; }
 
+:root {
+  /* Design rule: interior page headers line up with the landing hero's
+     first visible content, not just the raw hero padding. */
+  --souv-page-top-space: 160px;
+  --souv-page-visual-start: var(--souv-page-top-space);
+  --souv-auth-topbar-height: 86px;
+}
+
+@media (max-width: 1220px) {
+  :root {
+    --souv-page-top-space: 120px;
+    --souv-page-visual-start: var(--souv-page-top-space);
+  }
+}
+
+@media (max-width: 540px) {
+  :root {
+    --souv-page-top-space: 104px;
+    --souv-page-visual-start: var(--souv-page-top-space);
+    --souv-auth-topbar-height: 70px;
+  }
+}
+
 .souv-route-shell {
   min-height: 100vh;
   position: relative;
@@ -25,4 +48,50 @@ a.opt-back {
   text-decoration: none;
 }
 
-.opt-pricing-page .opt-pricing:first-of-type { padding-top: 132px; }
+/* Landing source of truth. */
+.souv-hero {
+  padding-top: var(--souv-page-top-space);
+}
+
+/* Design rule: first visible interior content starts at the same visual depth
+   as the landing hero content. Landing keeps the follow-on-scroll nav;
+   interior pages keep their static nav placement. */
+.opt-head,
+.pt-shell,
+.bmc-shell,
+.bmc-shell-review,
+.pg-hero,
+.opt-pricing-page .opt-pricing:first-of-type {
+  padding-top: var(--souv-page-visual-start);
+}
+
+.opt-page,
+.pt-page,
+.pg-page,
+.bmc-page {
+  padding-top: 0;
+}
+
+.bmc-headcard {
+  top: var(--souv-page-visual-start);
+}
+
+.bmc-shell .pg-hero {
+  padding-top: 0;
+}
+
+.pg-faq-wrap {
+  padding-top: var(--souv-page-visual-start);
+}
+
+.pg-faq-wrap .pg-hero {
+  padding-top: 0;
+}
+
+.pg-faq-wrap .souv-faq {
+  padding-top: 8px;
+}
+
+.auth-stage-secondary {
+  padding-top: max(20px, calc(var(--souv-page-top-space) - var(--souv-auth-topbar-height)));
+}

@@ -136,7 +136,7 @@ const STEPS: BmcStep[] = [
   { id: "basics", label: "Basics" },
   { id: "image", label: "Image Flow" },
   { id: "message", label: "Inside Message" },
-  { id: "song", label: "Build Song" },
+  { id: "song", label: "QR Song" },
   { id: "review", label: "Review" },
 ];
 
@@ -271,7 +271,7 @@ function BmcPricingModal({ open, onClose }: BmcPricingModalProps) {
           Add credits to <span className="souv-hero-italic text-metallic-rose-gold">generate</span>
         </h2>
         <p className="bmc-modal-sub" style={{ maxWidth: "46ch" }}>
-          1 credit = 1 generation action. Image + song costs 2, image or song alone costs 1, and the inside
+          1 credit = 1 generation action. Image + optional QR song costs 2, image or song alone costs 1, and the inside
           message is always free.
         </p>
         <div className="bmc-packs">

@@ -8,7 +8,7 @@ import type { CheckoutPack } from "./Checkout";
 import { CardArt } from "./CardArt";
 import { makeBigSenderCartItem, makeTryRiskFreeCartItem } from "./pricingCatalog";
 import { applyDemoTopUpFromCart } from "./DemoBalance";
-import { consumePricingReturn } from "./PricingReturn";
+import { consumePricingReturn, peekPricingReturn } from "./PricingReturn";
 import {
   BLANK_SOUVENOTE_GIFT_CART_ID,
   BLANK_SOUVENOTE_GIFT_PRICE,
@@ -39,7 +39,15 @@ type CartThumbProps = {
   item: CartItem;
 };
 
-type CartIconName = "minus" | "plus" | "close" | "trash" | "lock" | "arrow" | "cart" | "tag" | "truck" | "gift" | "spark";
+type CartItemKind = "card" | "pack" | "credits" | "gift" | "item";
+
+type CartItemPresentation = {
+  kind: CartItemKind;
+  label: string;
+  icon: CartIconName;
+};
+
+type CartIconName = "minus" | "plus" | "close" | "trash" | "lock" | "arrow" | "cart" | "tag" | "truck" | "gift" | "spark" | "card" | "cards" | "coin";
 
 type CartIcoProps = {
   name: CartIconName;
@@ -54,6 +62,7 @@ type CartLineProps = {
 
 const CART_SEED: CartItem[] = [];
 const CART_KEY = "souv_cart";
+const TOP_UP_GIFT_OFFER_SEEN_KEY = "souv_topup_blank_gift_offer_seen";
 
 function makeBlankSouvenoteGiftCartItem(): CartItem {
   return {
@@ -128,42 +137,96 @@ function cartMoney(n: number) {
   return "$" + n.toFixed(2);
 }
 
+function hasSeenTopUpGiftOffer(): boolean {
+  if (typeof window === "undefined") return false;
+
+  try {
+    return window.localStorage.getItem(TOP_UP_GIFT_OFFER_SEEN_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function markTopUpGiftOfferSeen(): void {
+  if (typeof window === "undefined") return;
+
+  try {
+    window.localStorage.setItem(TOP_UP_GIFT_OFFER_SEEN_KEY, "1");
+  } catch {}
+}
+
+function getCartItemPresentation(item: CartItem): CartItemPresentation {
+  const type = String(item.type || "").toLowerCase();
+  const id = String(item.id || "").toLowerCase();
+  const name = String(item.name || "").toLowerCase();
+
+  if (isBlankSouvenoteGiftId(item.id) || type === "gift" || id.includes("blank-souvenote")) {
+    return { kind: "gift", label: "Blank Souvenote", icon: "gift" };
+  }
+
+  if (type === "credits" || name.includes("credit") || item.tokens != null) {
+    return { kind: "credits", label: "Creation credits", icon: "coin" };
+  }
+
+  if (type === "card") {
+    return { kind: "card", label: "Saved card", icon: "card" };
+  }
+
+  if (type === "pack" || item.cardCount != null || item.cards != null) {
+    return { kind: "pack", label: "Card pack", icon: "cards" };
+  }
+
+  return { kind: "item", label: "Cart item", icon: "cart" };
+}
+
 function CartThumb({ item }: CartThumbProps) {
-  if (item.type === "card") {
+  const presentation = getCartItemPresentation(item);
+
+  if (presentation.kind === "card") {
     return (
-      <div className="cart-thumb cart-thumb-card">
+      <div className="cart-thumb cart-thumb-card cart-thumb-kind-card">
         <CardArt palette={item.palette} glyph={item.glyph} glowIdx={item.glowIdx} corners figure />
+        <span className="cart-thumb-badge" aria-label={presentation.label}>
+          <CartIco name={presentation.icon} w={14} />
+        </span>
       </div>
     );
   }
 
-  if (item.type === "pack") {
+  if (presentation.kind === "pack") {
     return (
-      <div className="cart-thumb cart-thumb-pack" aria-hidden="true">
+      <div className="cart-thumb cart-thumb-pack cart-thumb-kind-pack">
         <span className="cart-pack-card c3" />
         <span className="cart-pack-card c2" />
         <span className="cart-pack-card c1" />
+        <span className="cart-thumb-badge" aria-label={presentation.label}>
+          <CartIco name={presentation.icon} w={14} />
+        </span>
       </div>
     );
   }
 
-  if (item.type === "gift") {
+  if (presentation.kind === "gift") {
     return (
-      <div className="cart-thumb cart-thumb-gift" aria-hidden="true">
+      <div className="cart-thumb cart-thumb-gift cart-thumb-kind-gift">
         <div className="cart-token">
           <CartIco name="gift" w={26} />
         </div>
+        <span className="cart-thumb-badge" aria-label={presentation.label}>
+          <CartIco name={presentation.icon} w={14} />
+        </span>
       </div>
     );
   }
 
   return (
-    <div className="cart-thumb cart-thumb-token" aria-hidden="true">
+    <div className={`cart-thumb cart-thumb-token cart-thumb-kind-${presentation.kind}`}>
       <div className="cart-token">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M12 3l1.9 4.7L19 9l-4 3.4L16 18l-4-2.6L8 18l1-5.6L5 9l5.1-1.3z" />
-        </svg>
+        <CartIco name={presentation.icon} w={28} />
       </div>
+      <span className="cart-thumb-badge" aria-label={presentation.label}>
+        <CartIco name={presentation.icon} w={14} />
+      </span>
     </div>
   );
 }
@@ -181,6 +244,9 @@ function CartIco({ name, w = 16 }: CartIcoProps) {
     truck: <><path d="M3 6h11v9H3zM14 9h4l3 3v3h-7z" /><circle cx="7" cy="18" r="1.6" /><circle cx="17" cy="18" r="1.6" /></>,
     gift: <><rect x="3.5" y="9" width="17" height="11.5" rx="2" /><path d="M2.5 9h19M12 9v11.5" /><path d="M12 9S9.5 3.5 7 4.8 9 9 12 9zM12 9s2.5-5.5 5-4.2S15 9 12 9z" /></>,
     spark: <path d="M12 3l1.9 5.6L19.5 10l-5.6 1.4L12 17l-1.9-5.6L4.5 10l5.6-1.4z" />,
+    card: <><rect x="5" y="3.5" width="14" height="17" rx="2" /><path d="M8.5 7.5h7M8.5 11h7M8.5 14.5h4" /></>,
+    cards: <><rect x="7" y="4" width="12" height="16" rx="2" /><path d="M5 7.5h-.5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2H13" /><path d="M10 8h6M10 11.5h6M10 15h3.5" /></>,
+    coin: <><circle cx="12" cy="12" r="8.5" /><path d="M12 7.5v9M8.75 10.25c0-1.5 1.45-2.35 3.25-2.35s3.25.85 3.25 2.35c0 3-6.5 1.35-6.5 4.15 0 1.45 1.45 2.2 3.25 2.2s3.25-.75 3.25-2.2" /></>,
   }[name];
 
   return (
@@ -189,6 +255,7 @@ function CartIco({ name, w = 16 }: CartIcoProps) {
 }
 
 function CartLine({ item, onQty, onRemove }: CartLineProps) {
+  const presentation = getCartItemPresentation(item);
   const lockedQuantity = item.lockedQuantity;
   const lockedLabel = item.cardCount
     ? `${item.cardCount} ${item.cardCount === 1 ? "card" : "cards"}`
@@ -198,6 +265,10 @@ function CartLine({ item, onQty, onRemove }: CartLineProps) {
     <div className="cart-line">
       <CartThumb item={item} />
       <div className="cart-line-main">
+        <div className={`cart-line-kind cart-line-kind-${presentation.kind}`}>
+          <CartIco name={presentation.icon} w={13} />
+          <span>{presentation.label}</span>
+        </div>
         <div className="cart-line-name">{item.name}</div>
         <div className="cart-line-meta">{item.meta}</div>
         {item.sub && <div className="cart-line-sub">{item.sub}</div>}
@@ -391,6 +462,25 @@ function CartPage() {
     continueToCheckout();
   }
 
+  function handleCheckoutClick() {
+    if (items.some((item) => isBlankSouvenoteGiftId(item.id))) {
+      continueToCheckout();
+      return;
+    }
+
+    const isTopUpReturnFlow = Boolean(peekPricingReturn());
+    if (isTopUpReturnFlow) {
+      if (hasSeenTopUpGiftOffer()) {
+        continueToCheckout();
+        return;
+      }
+
+      markTopUpGiftOfferSeen();
+    }
+
+    setGiftOfferOpen(true);
+  }
+
   const count = items.reduce((sum, item) => sum + item.qty, 0);
   const cardCount = items.reduce((sum, item) => sum + (item.cardCount || 0), 0);
   const subtotal = items.reduce((sum, item) => sum + item.price * item.qty, 0);
@@ -481,13 +571,7 @@ function CartPage() {
                   <span className="cart-total-val"><span className="text-metallic-gold">{cartMoney(total)}</span><span className="cur">CAD</span></span>
                 </div>
 
-                <button type="button" className="bmc-cta cart-checkout" onClick={() => {
-                  if (items.some((item) => isBlankSouvenoteGiftId(item.id))) {
-                    continueToCheckout();
-                    return;
-                  }
-                  setGiftOfferOpen(true);
-                }}>
+                <button type="button" className="bmc-cta cart-checkout" onClick={handleCheckoutClick}>
                   Proceed to checkout <CartIco name="arrow" w={15} />
                 </button>
                 <div className="cart-secure"><CartIco name="lock" w={13} /> Secure checkout {"\u00b7"} payments by <b>Stripe</b></div>

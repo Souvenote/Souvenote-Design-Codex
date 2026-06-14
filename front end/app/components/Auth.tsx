@@ -230,7 +230,9 @@ function SignUpView() {
           <div className="auth-authflow-intro">
           <div className="auth-eyebrow">Sign Up · Welcome</div>
           <h1 className="auth-title auth-title-hero">
-            <span className="souv-hero-italic text-metallic-gold">2 credits</span> are in your account!
+            You&rsquo;ve got <span className="souv-hero-italic text-metallic-gold">2 free credits</span> waiting!
+            <br />
+            <span className="souv-hero-italic text-metallic-rose-gold">Sign up to claim them.</span>
           </h1>
           </div>
 
@@ -278,7 +280,7 @@ function SignUpView() {
             <div className="auth-field">
               <label className="auth-label">Birthday <em>· optional</em></label>
               <input className="auth-input" type="date" value={dob} onChange={(e) => setDob(e.target.value)} />
-              <p className="auth-hint">Add your birthday so friends who refer you get a heads-up before it. That's how Souvenote keeps the loop going.</p>
+              <p className="auth-hint">Add your birthday so your loved ones are reminded when it&apos;s your turn to get a gift.</p>
             </div>
             <div className="auth-field">
               <label className="auth-label">Country</label>
@@ -455,8 +457,7 @@ function WelcomeModal({ stepDob = false }: WelcomeModalProps) {
                 <span className="souv-hero-italic text-metallic-rose-gold">your birthday</span>
               </h2>
               <p className="auth-modal-sub" style={{ textAlign: 'center' }}>
-                Add your birthday so friends who refer you get a heads-up before it.
-                That's how Souvenote keeps the loop going.
+                Add your birthday so your loved ones are reminded when it&apos;s your turn to get a gift.
               </p>
               <div className="auth-field">
                 <label className="auth-label">
@@ -484,8 +485,8 @@ function ForgotView() {
   const [sent, setSent] = React.useState(false);
 
   return (
-    <div className="auth-stage" style={{ paddingTop: 48 }}>
-      <div className="auth-card auth-card-narrow">
+    <div className="auth-stage auth-stage-secondary">
+      <div className="auth-card auth-card-secondary">
         <div className="auth-eyebrow">Account · Reset</div>
         <h1 className="auth-title">
           Reset your{' '}
@@ -540,8 +541,8 @@ function ResetView() {
   const match = pw && pw2 && pw === pw2;
 
   return (
-    <div className="auth-stage" style={{ paddingTop: 48 }}>
-      <div className="auth-card auth-card-narrow">
+    <div className="auth-stage auth-stage-secondary">
+      <div className="auth-card auth-card-secondary">
         <div className="auth-eyebrow">Account · Reset</div>
         <h1 className="auth-title">
           Set a{' '}
@@ -597,8 +598,8 @@ function ResetView() {
 // ============================================================
 function VerifyView({ variant = 'success' }: VerifyViewProps) {
   return (
-    <div className="auth-stage" style={{ paddingTop: 48 }}>
-      <div className="auth-card auth-card-narrow auth-status-center">
+    <div className="auth-stage auth-stage-secondary">
+      <div className="auth-card auth-card-secondary auth-status-center">
         {variant === 'success' && (
           <>
             <span className="auth-status-icon">
@@ -648,8 +649,8 @@ function VerifyView({ variant = 'success' }: VerifyViewProps) {
 // ============================================================
 function RecoverView() {
   return (
-    <div className="auth-stage" style={{ paddingTop: 48 }}>
-      <div className="auth-card auth-card-narrow auth-status-center">
+    <div className="auth-stage auth-stage-secondary">
+      <div className="auth-card auth-card-secondary auth-status-center">
         <span className="auth-status-icon is-rose">
           <AuthIcon name="clock" w={36} />
         </span>

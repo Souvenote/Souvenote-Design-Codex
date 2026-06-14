@@ -10,9 +10,9 @@ type FaqItem = {
 
 const FAQ_ITEMS: FaqItem[] = [
   { q: 'How does the Try Risk-Free option work?',
-    a: 'We place a temporary 5-day hold of $9.99 on your card, which unlocks 10 AI design and song credits right away. If you love your card and send it, the $9.99 is finalized\u2014 printing and shipping included, with no extra fees. If you decide not to send, the hold is released after 5 days and you\u2019re only charged $2.00 for the credits you unlocked.' },
+    a: 'We place a temporary 5-day hold of $9.99 on your card, which unlocks 10 AI creation credits right away. If you love your card and send it, the $9.99 is finalized\u2014 printing and shipping included, with no extra fees. If you decide not to send, the hold is released after 5 days and you\u2019re only charged $2.00 for the credits you unlocked.' },
   { q: 'What does a personalized song sound like?',
-    a: 'Each song is uniquely generated based on details you provide. Previews are available in the carousel above. Hit play to hear examples.' },
+    a: 'Songs are optional. If you include one, it is uniquely generated from the details you provide and added to the printed card by QR code.' },
   { q: 'How long does shipping take?',
     a: 'Cards typically arrive within 5\u20137 business days across North America. International shipping times vary by destination.' },
   { q: 'Can I save my card and finish later?',

@@ -7,10 +7,9 @@ import { Navbar } from "./Navbar";
 import { Footer } from "./Footer";
 import { BmcIcon } from "./BmcShared";
 import { CardArt } from "./CardArt";
-import { PricingReceiveModal } from "./Options";
 import { useDemoBalance } from "./DemoBalance";
 import { getCreateFlowGate } from "./createFlowRules";
-import type { CreateGateRequirement, PricingModalMode } from "./createFlowRules";
+import type { CreateGateRequirement } from "./createFlowRules";
 import { goToPricingAfterPurchase } from "./PricingReturn";
 import { useDemoLibrary } from "./DemoLibrary";
 import { useBlankSouvenoteGiftCount } from "./GiftAddon";
@@ -179,7 +178,7 @@ function McsCardItem({ c, onMail }: McsCardItemProps) {
           {c.gift ? (
             <span className="mcs-card-songdot is-gift"><BmcIcon name="spark2" w={10} /> Gift</span>
           ) : c.song ? (
-            <span className="mcs-card-songdot"><BmcIcon name="note" w={10} /> Song</span>
+            <span className="mcs-card-songdot"><BmcIcon name="note" w={10} /> QR song</span>
           ) : <span />}
           <McsExpiry days={c.days} />
         </div>
@@ -228,8 +227,6 @@ const MY_CARDS_DEFAULT_BALANCE: DemoBalance = { credits: { images: 4, songs: 2 }
 function MyCardsApp({ user, full = true }: MyCardsAppProps) {
   const router = useRouter();
   const [mode, setMode] = React.useState(full);
-  const [pricingOpen, setPricingOpen] = React.useState(false);
-  const [pricingMode, setPricingMode] = React.useState<PricingModalMode>("full");
   const demoBalance = useDemoBalance(MY_CARDS_DEFAULT_BALANCE);
   const demoLibrary = useDemoLibrary();
   const blankGiftCount = useBlankSouvenoteGiftCount();
@@ -253,14 +250,8 @@ function MyCardsApp({ user, full = true }: MyCardsAppProps) {
 
   function canContinue(requirement: CreateGateRequirement) {
     const gate = getCreateFlowGate(demoBalance, requirement);
-    if ("modalMode" in gate) {
-      if (gate.modalMode === "full") {
-        router.push(goToPricingAfterPurchase("/create"));
-        return false;
-      }
-
-      setPricingMode(gate.modalMode);
-      setPricingOpen(true);
+    if (!gate.allowed) {
+      router.push(goToPricingAfterPurchase("/create"));
       return false;
     }
 
@@ -328,14 +319,13 @@ function MyCardsApp({ user, full = true }: MyCardsAppProps) {
             <McsEmpty
               icon={<BmcIcon name="note" w={30} />}
               title="No songs yet"
-              sub="Every Souvenote card can carry a custom song. Make one and it'll wait for you right here."
+              sub="Every Souvenote card can carry an optional QR-code song. Add one and it'll wait for you right here."
             />
           )}
         </div>
       </div>
 
       <Footer />
-      <PricingReceiveModal open={pricingOpen} onClose={() => setPricingOpen(false)} currency="CAD" mode={pricingMode} />
     </>
   );
 }
