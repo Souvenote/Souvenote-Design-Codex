@@ -22,6 +22,8 @@ import type { DeliveryErrors, DeliveryMode, DeliveryRecipient, DeliveryWhen } fr
 import { useDemoBalance } from "./DemoBalance";
 import type { DemoBalance } from "./DemoBalance";
 import type { DemoCredits, DemoUser } from "./DemoUser";
+import { rememberPricingReturn } from "./PricingReturn";
+import { addPricingCartItemToCart, makeSingleCardSendCartItem } from "./pricingCatalog";
 
 type DeliveryOrder = {
   number: string;
@@ -54,6 +56,14 @@ type DlvBlankGiftModalProps = {
   onClose: () => void;
   onKeepLater: () => void;
   onSaveGift: () => void;
+};
+
+type DlvSendCardPurchaseModalProps = {
+  open: boolean;
+  onClose: () => void;
+  onSendOne: () => void;
+  onBuyMore: () => void;
+  onHome: () => void;
 };
 
 type DeliveryAppProps = {
@@ -201,6 +211,51 @@ function DlvBlankGiftModal({
   );
 }
 
+function DlvSendCardPurchaseModal({
+  open,
+  onClose,
+  onSendOne,
+  onBuyMore,
+  onHome,
+}: DlvSendCardPurchaseModalProps) {
+  if (!open) return null;
+
+  return (
+    <div className="bmc-modal-wrap" role="dialog" aria-modal="true" aria-labelledby="dlv-send-card-title" data-screen-label="Delivery - Send Card Purchase Modal">
+      <div className="bmc-modal-scrim" onClick={onClose} />
+      <div className="bmc-modal bmc-send-card-modal is-gold">
+        <button type="button" className="bmc-modal-close" onClick={onClose} aria-label="Close"><BmcIcon name="close" w={16} /></button>
+        <div className="bmc-send-card-eyebrow">
+          <BmcIcon name="check" w={14} />
+          Delivery details ready
+        </div>
+        <h2 id="dlv-send-card-title" className="bmc-modal-title">
+          Send this card?
+        </h2>
+        <p className="bmc-modal-sub bmc-send-card-sub">
+          Your card is ready to mail. Send this card for $6.99, purchase more than one card, or head home and come back later.
+        </p>
+        <div className="bmc-send-card-summary">
+          <span>Physical 5x7 card</span>
+          <b>$6.99 CAD</b>
+          <em>Shipping is always included.</em>
+        </div>
+        <div className="bmc-modal-acts bmc-send-card-actions">
+          <button type="button" className="bmc-cta" onClick={onSendOne}>
+            Send the card for $6.99 <BmcIcon name="arrow" w={15} />
+          </button>
+          <button type="button" className="bmc-cta-secondary" onClick={onBuyMore}>
+            Purchase more than 1 card
+          </button>
+          <button type="button" className="bmc-cta-quiet" onClick={onHome}>
+            Take me home
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function dlvArrival(_shipping: string, when: DeliveryWhen, date: string) {
   const base = when === "schedule" && date ? new Date(date + "T12:00:00") : new Date();
   const add = 7;
@@ -259,6 +314,7 @@ function DeliveryApp({ user, initialCards = 3, initialCredits = DELIVERY_DEFAULT
   const blankGiftCount = useBlankSouvenoteGiftCount();
   const [giftReminderDismissed, setGiftReminderDismissed] = React.useState(false);
   const [giftModalOpen, setGiftModalOpen] = React.useState(false);
+  const [sendCardPurchaseOpen, setSendCardPurchaseOpen] = React.useState(false);
   const [giftRecipientName, setGiftRecipientName] = React.useState("");
   const [giftRecipientContact, setGiftRecipientContact] = React.useState("");
 
@@ -268,6 +324,7 @@ function DeliveryApp({ user, initialCards = 3, initialCredits = DELIVERY_DEFAULT
 
   const cardsNeeded = mode === "single" ? quantity : Math.max(recipients.length, 0);
   const enough = cardBank >= cardsNeeded && cardsNeeded > 0;
+  const needsSingleCardPurchase = cardsNeeded === 1 && !enough;
   const carrier = dlvCountry(draft.country).carrier;
   const goToPricing = React.useCallback(() => {
     router.push("/pricing");
@@ -315,6 +372,10 @@ function DeliveryApp({ user, initialCards = 3, initialCredits = DELIVERY_DEFAULT
     }
 
     if (!enough) {
+      if (needsSingleCardPurchase) {
+        setSendCardPurchaseOpen(true);
+        return;
+      }
       goToPricing();
       return;
     }
@@ -338,6 +399,17 @@ function DeliveryApp({ user, initialCards = 3, initialCredits = DELIVERY_DEFAULT
     setGiftModalOpen(false);
     setGiftReminderDismissed(true);
     finalizeSend();
+  }
+
+  function sendOneCardForPurchase() {
+    addPricingCartItemToCart(makeSingleCardSendCartItem());
+    rememberPricingReturn("/delivery");
+    router.push("/cart");
+  }
+
+  function buyMoreCards() {
+    rememberPricingReturn("/delivery");
+    router.push("/pricing#card-packs");
   }
 
   return (
@@ -412,13 +484,15 @@ function DeliveryApp({ user, initialCards = 3, initialCredits = DELIVERY_DEFAULT
             <span className={`dlv-cost-sub ${!enough ? "is-low" : ""}`}>
               {enough
                 ? <>Uses {cardsNeeded} of {cardBank} in your card bank {"\u00b7"} <button type="button" className="dlv-topup-link" onClick={goToPricing}>Top up</button></>
-                : <>You have {cardBank} in your card bank - top up to send {cardsNeeded > 1 ? `all ${cardsNeeded}` : ""}</>}
+                : needsSingleCardPurchase
+                  ? <>Send this card for $6.99 after delivery details are ready.</>
+                  : <>You have {cardBank} in your card bank - top up to send {cardsNeeded > 1 ? `all ${cardsNeeded}` : ""}</>}
             </span>
           </div>
           <div className="dlv-actionbar-right">
             <Link href="/create/build-my-card#review" className="bmc-cta-secondary"><BmcIcon name="back" w={14} /> Back to review</Link>
             <button type="button" className="bmc-cta bmc-cta-lg" onClick={handleSend}>
-              {enough
+              {enough || needsSingleCardPurchase
                 ? <>{cardsNeeded > 1 ? `Send ${cardsNeeded} cards` : "Send my card"} <BmcIcon name="arrow" w={16} /></>
                 : <>Top up cards <BmcIcon name="arrow" w={16} /></>}
             </button>
@@ -439,6 +513,13 @@ function DeliveryApp({ user, initialCards = 3, initialCredits = DELIVERY_DEFAULT
         onClose={() => setGiftModalOpen(false)}
         onKeepLater={keepGiftForLaterAndSend}
         onSaveGift={saveGiftRecipientAndSend}
+      />
+      <DlvSendCardPurchaseModal
+        open={sendCardPurchaseOpen}
+        onClose={() => setSendCardPurchaseOpen(false)}
+        onSendOne={sendOneCardForPurchase}
+        onBuyMore={buyMoreCards}
+        onHome={() => router.push("/home")}
       />
       <BmcErrorModal />
     </>

@@ -16,7 +16,6 @@ type BmcWizardProps = {
   initialStep?: BmcWizardStep;
   credits?: number;
   setCredits?: React.Dispatch<React.SetStateAction<number>>;
-  cardBank?: number;
 };
 
 declare global {
@@ -34,7 +33,6 @@ function BmcWizard({
   initialStep = "photo",
   credits = 6,
   setCredits = () => {},
-  cardBank = 0,
 }: BmcWizardProps) {
   const router = useRouter();
   const [step, setStep] = React.useState<BmcWizardStep>(initialStep);
@@ -128,7 +126,6 @@ function BmcWizard({
           onStartOver={startOver}
           onTopUp={openPricingForCredits}
           onApproveAll={() => router.push("/delivery")}
-          requiresCardPurchase={cardBank <= 0}
         />
       ) : (
         <div className="bmc-shell">

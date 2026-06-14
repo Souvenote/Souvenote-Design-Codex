@@ -1402,7 +1402,6 @@ function PersonalizeApp({ openModal = false, accountBalance = PERSONALIZE_DEFAUL
   const [reviewGen, setReviewGen] = React.useState(false);
   const [reviewIncludeSong, setReviewIncludeSong] = React.useState(true);
   const totalCredits = getTotalDemoCredits(accountBalance);
-  const cardBank = Number(accountBalance?.cardBank || 0);
 
   React.useEffect(() => {
     if (openModal) {
@@ -1453,7 +1452,6 @@ function PersonalizeApp({ openModal = false, accountBalance = PERSONALIZE_DEFAUL
           onStartOver={backToMarketplace}
           onApproveAll={() => router.push('/delivery')}
           onTopUp={openPricingForCredits}
-          requiresCardPurchase={cardBank <= 0}
         />
       </div>
     );

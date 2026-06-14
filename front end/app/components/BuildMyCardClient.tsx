@@ -43,7 +43,7 @@ export function BuildMyCardClient() {
       <PageChrome variant="bmc" />
       <div className="bmc-page">
         <Navbar loggedIn user={demoUser} credits={{ images: credits, songs: 0 }} cardBank={demoBalance.cardBank} cartCount={0} />
-        <main><BmcWizard initialStep={initialStep} credits={credits} setCredits={setCredits} cardBank={demoBalance.cardBank} /></main>
+        <main><BmcWizard initialStep={initialStep} credits={credits} setCredits={setCredits} /></main>
         <Footer />
       </div>
     </div>
