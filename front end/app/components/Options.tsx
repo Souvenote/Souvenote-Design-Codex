@@ -572,7 +572,7 @@ function CardPacks({ currency }: CardPacksProps) {
           <span className="souv-hero-italic text-metallic-rose-gold">printed and posted</span>
         </h2>
         <p className="opt-pricing-lede">
-          Shipping is always included with your card, along with 10 AI creation credits for image, edit, and optional QR-song actions.
+          Shipping is always included with your card, along with <span className="text-metallic-rose-gold">10 AI creation credits</span> for image, edit, and optional QR-song actions.
           Snag just one or grab a bulk pack to save.
         </p>
       </div>
@@ -805,7 +805,7 @@ function ScalePicker({ qty, setQty, min, max, total, helper }: ScalePickerProps)
 
 // ============================================================
 // BIG SENDER — sliding-scale volume pack
-//   2–10 : $8.99 · 11–20 : $7.99 · 21–30+ : $6.99
+//   1–10 : $8.99 · 11–20 : $7.99 · 21–30+ : $6.99
 // ============================================================
 function TieredPackCard({ pack }: TieredPackCardProps) {
   const buyAndGo = useSouvBuyAndGo();
@@ -823,7 +823,7 @@ function TieredPackCard({ pack }: TieredPackCardProps) {
     <article className="opt-pack opt-pack-unified opt-pack-gold" data-screen-label="04b Big Sender">
       <header className="opt-pk-head">
         <h3 className="opt-pk-name">Big Sender</h3>
-        <MetaBullets items={['Send multiple different cards', 'Includes shipping', '10 AI creation credits per card']} />
+        <MetaBullets items={['Send multiple different cards', 'Includes shipping', <span key="credits-per-card" className="text-metallic-rose-gold">10 AI creation credits per card</span>]} />
       </header>
 
       {/* Cost — all three tier prices, in gold */}
@@ -945,7 +945,7 @@ function TryRiskFreeCard({ pack }: TryRiskFreeCardProps) {
     <article className="opt-pack opt-pack-unified opt-pack-gold" data-screen-label="04a Try Risk-Free">
       <header className="opt-pk-head">
         <h3 className="opt-pk-name">Try Risk-Free</h3>
-        <MetaBullets items={['Send 1 card', 'Includes shipping', '10 AI creation credits']} />
+        <MetaBullets items={['Send 1 card', 'Includes shipping', <span key="credits" className="text-metallic-rose-gold">10 AI creation credits</span>]} />
       </header>
 
       <div className="opt-pk-cost opt-pk-cost-split">

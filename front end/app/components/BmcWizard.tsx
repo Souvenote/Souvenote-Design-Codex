@@ -65,7 +65,7 @@ function BmcWizard({
   };
 
   const openPricingForCredits = () => {
-    router.push(goToPricingAfterPurchase("/create"));
+    router.push(goToPricingAfterPurchase("/create/build-my-card"));
   };
 
   const onGenerate = () => {
@@ -89,6 +89,17 @@ function BmcWizard({
     setGenerating(true);
     window.location.hash = "review";
     window.setTimeout(() => setGenerating(false), 5200);
+  };
+
+  const spendRegenerationCredit = () => {
+    if (credits < MIN_GENERATION_CREDITS) {
+      openPricingForCredits();
+      return false;
+    }
+
+    const nextBalance = spendDemoCredits(MIN_GENERATION_CREDITS);
+    setCredits(getTotalDemoCredits(nextBalance));
+    return true;
   };
 
   const startOver = () => {
@@ -125,6 +136,7 @@ function BmcWizard({
           credits={credits}
           onStartOver={startOver}
           onTopUp={openPricingForCredits}
+          onRegenerateAsset={spendRegenerationCredit}
           onApproveAll={() => router.push("/delivery")}
         />
       ) : (

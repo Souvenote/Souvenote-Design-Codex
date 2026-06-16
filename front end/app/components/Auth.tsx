@@ -229,10 +229,8 @@ function SignUpView() {
         <div className="auth-authflow">
           <div className="auth-authflow-intro">
           <div className="auth-eyebrow">Sign Up · Welcome</div>
-          <h1 className="auth-title auth-title-hero">
-            You&rsquo;ve got <span className="souv-hero-italic text-metallic-gold">2 free credits</span> waiting!
-            <br />
-            <span className="souv-hero-italic text-metallic-rose-gold">Sign up to claim them.</span>
+          <h1 className="auth-title auth-title-hero auth-title-claim">
+            Sign up and claim <span className="text-metallic-rose-gold">2 free credits</span>
           </h1>
           </div>
 

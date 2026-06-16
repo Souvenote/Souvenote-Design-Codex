@@ -239,6 +239,21 @@
   line-height: 0.98;
   margin-bottom: 12px;
 }
+.auth-card-wide .auth-title.auth-title-claim {
+  max-width: 980px;
+  margin-inline: auto;
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 500;
+  letter-spacing: -0.015em;
+  color: var(--platinum-hi);
+  text-shadow:
+    0 1px 0 rgba(255,255,255,0.10),
+    0 12px 26px rgba(0,0,0,0.34);
+}
+.auth-card-wide .auth-title.auth-title-claim .souv-hero-italic {
+  font-weight: 500;
+}
 .auth-card-wide .auth-sub { font-size: 18px; margin-bottom: 0; }
 .auth-card-login .auth-title {
   font-size: clamp(2.35rem, 4vw, 3.45rem);

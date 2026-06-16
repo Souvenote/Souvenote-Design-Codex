@@ -52,6 +52,7 @@ type BmcHeadProps = {
   accent?: "gold" | "rose" | "silver";
   center?: boolean;
   titleStyle?: React.CSSProperties;
+  titleClassName?: string;
   italicAccent?: boolean;
 };
 
@@ -170,6 +171,7 @@ function BmcHead({
   accent = "gold",
   center = false,
   titleStyle,
+  titleClassName = "",
   italicAccent = true,
 }: BmcHeadProps) {
   const nav = React.useContext(BmcNavContext);
@@ -189,7 +191,7 @@ function BmcHead({
           <span className="bmc-eyebrow-num">{num}</span>
           <span>{eyebrow}</span>
         </div>
-        <h1 className="bmc-title" style={titleStyle}>
+        <h1 className={`bmc-title ${titleClassName}`.trim()} style={titleStyle}>
           {pre}
           {italicWord && <span className={accentClassName}>{italicWord}</span>}
           {post}

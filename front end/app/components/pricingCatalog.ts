@@ -1,4 +1,4 @@
-export const MIN_BIG_SENDER_CARDS = 2;
+export const MIN_BIG_SENDER_CARDS = 1;
 export const MAX_BIG_SENDER_CARDS = 30;
 
 export type BigSenderTier = {
@@ -32,7 +32,7 @@ export type BigSenderPricing = {
 };
 
 export const BIG_SENDER_TIERS: BigSenderTier[] = [
-  { min: 2, max: 10, pricePerCard: 8.99, label: "2-10 cards" },
+  { min: 1, max: 10, pricePerCard: 8.99, label: "1-10 cards" },
   { min: 11, max: 20, pricePerCard: 7.99, label: "11-20 cards" },
   { min: 21, max: 30, pricePerCard: 6.99, label: "21-30+ cards" },
 ];
@@ -89,22 +89,6 @@ export function makeTryRiskFreeCartItem(): PricingCartItem {
     lockedQuantity: true,
     replaceGroup: "pack-try-risk-free",
     unitNote: "$9.99 hold",
-  };
-}
-
-export function makeSingleCardSendCartItem(): PricingCartItem {
-  return {
-    id: "pack-send-this-card",
-    type: "pack",
-    name: "Send This Card",
-    meta: "1 card · shipping included",
-    sub: "Send the Souvenote you just created.",
-    price: 6.99,
-    qty: 1,
-    cardCount: 1,
-    lockedQuantity: true,
-    replaceGroup: "pack-send-this-card",
-    unitNote: "$6.99 / card",
   };
 }
 

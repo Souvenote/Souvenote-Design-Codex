@@ -75,7 +75,7 @@ const CO_CARD_PACKS: PickerPack[] = [
     bonus: 0,
     featured: true,
     requiresPricingChoice: true,
-    blurb: "2-10 cards are $8.99 each, 11-20 are $7.99 each, and 21-30+ are $6.99 each.",
+    blurb: "1-10 cards are $8.99 each, 11-20 are $7.99 each, and 21-30+ are $6.99 each.",
   },
 ];
 

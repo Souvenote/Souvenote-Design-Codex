@@ -19,11 +19,19 @@ import {
   DlvShippingSection,
 } from "./DeliveryForm";
 import type { DeliveryErrors, DeliveryMode, DeliveryRecipient, DeliveryWhen } from "./DeliveryForm";
-import { useDemoBalance } from "./DemoBalance";
+import { readDemoBalance, useDemoBalance } from "./DemoBalance";
 import type { DemoBalance } from "./DemoBalance";
 import type { DemoCredits, DemoUser } from "./DemoUser";
 import { rememberPricingReturn } from "./PricingReturn";
-import { addPricingCartItemToCart, makeSingleCardSendCartItem } from "./pricingCatalog";
+import {
+  addPricingCartItemToCart,
+  BIG_SENDER_TIERS,
+  clampBigSenderQuantity,
+  getBigSenderPricing,
+  makeBigSenderCartItem,
+  MAX_BIG_SENDER_CARDS,
+  MIN_BIG_SENDER_CARDS,
+} from "./pricingCatalog";
 
 type DeliveryOrder = {
   number: string;
@@ -58,12 +66,10 @@ type DlvBlankGiftModalProps = {
   onSaveGift: () => void;
 };
 
-type DlvSendCardPurchaseModalProps = {
+type DlvCardTopUpModalProps = {
   open: boolean;
   onClose: () => void;
-  onSendOne: () => void;
-  onBuyMore: () => void;
-  onHome: () => void;
+  onReserve: (quantity: number) => void;
 };
 
 type DeliveryAppProps = {
@@ -211,46 +217,90 @@ function DlvBlankGiftModal({
   );
 }
 
-function DlvSendCardPurchaseModal({
+function DlvCardTopUpModal({
   open,
   onClose,
-  onSendOne,
-  onBuyMore,
-  onHome,
-}: DlvSendCardPurchaseModalProps) {
+  onReserve,
+}: DlvCardTopUpModalProps) {
+  const [qty, setQty] = React.useState(MIN_BIG_SENDER_CARDS);
+
   if (!open) return null;
 
+  function setQtyClamped(nextRaw: number | string) {
+    setQty(clampBigSenderQuantity(nextRaw));
+  }
+
+  const pricing = getBigSenderPricing(qty);
+  const creationCredits = qty * 10;
+
   return (
-    <div className="bmc-modal-wrap" role="dialog" aria-modal="true" aria-labelledby="dlv-send-card-title" data-screen-label="Delivery - Send Card Purchase Modal">
+    <div className="bmc-modal-wrap" role="dialog" aria-modal="true" aria-labelledby="dlv-card-topup-title" data-screen-label="Delivery - Card balance top-up modal">
       <div className="bmc-modal-scrim" onClick={onClose} />
-      <div className="bmc-modal bmc-send-card-modal is-gold">
+      <div className="bmc-modal dlv-card-topup-modal is-gold">
         <button type="button" className="bmc-modal-close" onClick={onClose} aria-label="Close"><BmcIcon name="close" w={16} /></button>
-        <div className="bmc-send-card-eyebrow">
-          <BmcIcon name="check" w={14} />
-          Delivery details ready
+        <div className="bmc-eyebrow dlv-card-topup-eyebrow">
+          <span>Card balance required</span>
         </div>
-        <h2 id="dlv-send-card-title" className="bmc-modal-title">
-          Send this card?
+        <h2 id="dlv-card-topup-title" className="bmc-modal-title dlv-card-topup-title">
+          Top up your card balance to send this{' '}
+          <span className="dlv-card-topup-wordmark">
+            <img src="/assets/WordmarkLobster.png" alt="Souvenote" />
+          </span>
         </h2>
-        <p className="bmc-modal-sub bmc-send-card-sub">
-          Your card is ready to mail. Send this card for $6.99, purchase more than one card, or head home and come back later.
+        <ul className="dlv-card-topup-sub" aria-label="Card balance benefits">
+          <li className="dlv-card-topup-subline">Choose between Bulk, multi or single sends at delivery</li>
+          <li className="dlv-card-topup-subline">Each card comes with 10 creation credits</li>
+        </ul>
+
+        <div className="dlv-card-topup-pack" aria-label="Choose card quantity">
+          <div className="dlv-card-topup-tiers" role="list" aria-label="Volume tiers">
+            {BIG_SENDER_TIERS.map((tier) => {
+              const active = qty >= tier.min && qty <= tier.max;
+              return (
+                <button
+                  key={tier.label}
+                  type="button"
+                  role="listitem"
+                  className={`dlv-card-topup-tier ${active ? "is-active" : ""}`}
+                  onClick={() => setQtyClamped(tier.min)}
+                >
+                  <span>{tier.label}</span>
+                  <b>${tier.pricePerCard.toFixed(2)}</b>
+                  <em>/ card</em>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="dlv-card-topup-stepper">
+            <span>How many cards?</span>
+            <div className="dlv-card-topup-value">
+              <strong>${pricing.totalText}</strong>
+              <em>{creationCredits} credits</em>
+            </div>
+            <div className="dlv-card-topup-controls">
+              <button type="button" aria-label="Decrease" onClick={() => setQtyClamped(qty - 1)} disabled={qty <= MIN_BIG_SENDER_CARDS}>-</button>
+              <input
+                aria-label="Card quantity"
+                type="number"
+                min={MIN_BIG_SENDER_CARDS}
+                max={MAX_BIG_SENDER_CARDS}
+                value={qty}
+                onChange={(event) => setQtyClamped(event.target.value)}
+              />
+              <button type="button" aria-label="Increase" onClick={() => setQtyClamped(qty + 1)} disabled={qty >= MAX_BIG_SENDER_CARDS}>+</button>
+            </div>
+          </div>
+        </div>
+
+        <div className="bmc-modal-acts dlv-card-topup-actions">
+          <button type="button" className="bmc-cta" onClick={() => onReserve(qty)}>
+            Reserve {qty} {qty === 1 ? "card" : "cards"} - ${pricing.totalText} <BmcIcon name="arrow" w={15} />
+          </button>
+        </div>
+        <p className="dlv-card-topup-fineprint">
+          Your creations will be saved in "Saved Cards &amp; Songs" for 30 days upon generation.
         </p>
-        <div className="bmc-send-card-summary">
-          <span>Physical 5x7 card</span>
-          <b>$6.99 CAD</b>
-          <em>Shipping is always included.</em>
-        </div>
-        <div className="bmc-modal-acts bmc-send-card-actions">
-          <button type="button" className="bmc-cta" onClick={onSendOne}>
-            Send the card for $6.99 <BmcIcon name="arrow" w={15} />
-          </button>
-          <button type="button" className="bmc-cta-secondary" onClick={onBuyMore}>
-            Purchase more than 1 card
-          </button>
-          <button type="button" className="bmc-cta-quiet" onClick={onHome}>
-            Take me home
-          </button>
-        </div>
       </div>
     </div>
   );
@@ -265,9 +315,9 @@ function dlvArrival(_shipping: string, when: DeliveryWhen, date: string) {
   return "~" + base.toLocaleDateString("en-CA", opts);
 }
 
-const DELIVERY_DEFAULT_CREDITS: DemoCredits = { images: 4, songs: 2 };
+const DELIVERY_DEFAULT_CREDITS: DemoCredits = { images: 0, songs: 0 };
 
-function DeliveryApp({ user, initialCards = 3, initialCredits = DELIVERY_DEFAULT_CREDITS }: DeliveryAppProps) {
+function DeliveryApp({ user, initialCards = 0, initialCredits = DELIVERY_DEFAULT_CREDITS }: DeliveryAppProps) {
   const router = useRouter();
   const defaultBalance: DemoBalance = React.useMemo(
     () => ({ credits: initialCredits, cardBank: initialCards }),
@@ -314,7 +364,7 @@ function DeliveryApp({ user, initialCards = 3, initialCredits = DELIVERY_DEFAULT
   const blankGiftCount = useBlankSouvenoteGiftCount();
   const [giftReminderDismissed, setGiftReminderDismissed] = React.useState(false);
   const [giftModalOpen, setGiftModalOpen] = React.useState(false);
-  const [sendCardPurchaseOpen, setSendCardPurchaseOpen] = React.useState(false);
+  const [cardTopUpOpen, setCardTopUpOpen] = React.useState(false);
   const [giftRecipientName, setGiftRecipientName] = React.useState("");
   const [giftRecipientContact, setGiftRecipientContact] = React.useState("");
 
@@ -324,11 +374,23 @@ function DeliveryApp({ user, initialCards = 3, initialCredits = DELIVERY_DEFAULT
 
   const cardsNeeded = mode === "single" ? quantity : Math.max(recipients.length, 0);
   const enough = cardBank >= cardsNeeded && cardsNeeded > 0;
-  const needsSingleCardPurchase = cardsNeeded === 1 && !enough;
+  const needsCardTopUp = cardsNeeded > 0 && cardBank < cardsNeeded;
   const carrier = dlvCountry(draft.country).carrier;
   const goToPricing = React.useCallback(() => {
     router.push("/pricing");
   }, [router]);
+
+  React.useEffect(() => {
+    const liveCardBank = readDemoBalance(defaultBalance).cardBank;
+
+    if (liveCardBank >= cardsNeeded && cardsNeeded > 0) {
+      setCardBank(liveCardBank);
+      setCardTopUpOpen(false);
+      return;
+    }
+
+    if (needsCardTopUp && !sent) setCardTopUpOpen(true);
+  }, [cardsNeeded, defaultBalance, needsCardTopUp, sent]);
 
   React.useEffect(() => {
     window.__dlvSetCards = setCardBank;
@@ -355,6 +417,11 @@ function DeliveryApp({ user, initialCards = 3, initialCredits = DELIVERY_DEFAULT
   }
 
   function handleSend() {
+    if (needsCardTopUp) {
+      setCardTopUpOpen(true);
+      return;
+    }
+
     if (mode === "single") {
       const nextErrors = dlvValidate(draft);
       if (Object.keys(nextErrors).length) {
@@ -368,15 +435,6 @@ function DeliveryApp({ user, initialCards = 3, initialCredits = DELIVERY_DEFAULT
       }
     } else if (recipients.length === 0) {
       bmcError("Add at least one recipient address before sending. Fill in the required fields and tap Add recipient.", "Address needed");
-      return;
-    }
-
-    if (!enough) {
-      if (needsSingleCardPurchase) {
-        setSendCardPurchaseOpen(true);
-        return;
-      }
-      goToPricing();
       return;
     }
 
@@ -401,15 +459,11 @@ function DeliveryApp({ user, initialCards = 3, initialCredits = DELIVERY_DEFAULT
     finalizeSend();
   }
 
-  function sendOneCardForPurchase() {
-    addPricingCartItemToCart(makeSingleCardSendCartItem());
+  function reserveCardsForDelivery(quantity: number) {
+    addPricingCartItemToCart(makeBigSenderCartItem(quantity));
     rememberPricingReturn("/delivery");
+    setCardTopUpOpen(false);
     router.push("/cart");
-  }
-
-  function buyMoreCards() {
-    rememberPricingReturn("/delivery");
-    router.push("/pricing#card-packs");
   }
 
   return (
@@ -484,17 +538,15 @@ function DeliveryApp({ user, initialCards = 3, initialCredits = DELIVERY_DEFAULT
             <span className={`dlv-cost-sub ${!enough ? "is-low" : ""}`}>
               {enough
                 ? <>Uses {cardsNeeded} of {cardBank} in your card bank {"\u00b7"} <button type="button" className="dlv-topup-link" onClick={goToPricing}>Top up</button></>
-                : needsSingleCardPurchase
-                  ? <>Send this card for $6.99 after delivery details are ready.</>
-                  : <>You have {cardBank} in your card bank - top up to send {cardsNeeded > 1 ? `all ${cardsNeeded}` : ""}</>}
+                : <>Top up your card balance to send this Souvenote.</>}
             </span>
           </div>
           <div className="dlv-actionbar-right">
             <Link href="/create/build-my-card#review" className="bmc-cta-secondary"><BmcIcon name="back" w={14} /> Back to review</Link>
             <button type="button" className="bmc-cta bmc-cta-lg" onClick={handleSend}>
-              {enough || needsSingleCardPurchase
+              {enough
                 ? <>{cardsNeeded > 1 ? `Send ${cardsNeeded} cards` : "Send my card"} <BmcIcon name="arrow" w={16} /></>
-                : <>Top up cards <BmcIcon name="arrow" w={16} /></>}
+                : <>Top up balance <BmcIcon name="arrow" w={16} /></>}
             </button>
           </div>
         </div>
@@ -514,12 +566,10 @@ function DeliveryApp({ user, initialCards = 3, initialCredits = DELIVERY_DEFAULT
         onKeepLater={keepGiftForLaterAndSend}
         onSaveGift={saveGiftRecipientAndSend}
       />
-      <DlvSendCardPurchaseModal
-        open={sendCardPurchaseOpen}
-        onClose={() => setSendCardPurchaseOpen(false)}
-        onSendOne={sendOneCardForPurchase}
-        onBuyMore={buyMoreCards}
-        onHome={() => router.push("/home")}
+      <DlvCardTopUpModal
+        open={cardTopUpOpen}
+        onClose={() => setCardTopUpOpen(false)}
+        onReserve={reserveCardsForDelivery}
       />
       <BmcErrorModal />
     </>

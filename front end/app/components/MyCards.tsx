@@ -7,14 +7,13 @@ import { Navbar } from "./Navbar";
 import { Footer } from "./Footer";
 import { BmcIcon } from "./BmcShared";
 import { CardArt } from "./CardArt";
-import { useDemoBalance } from "./DemoBalance";
+import { useDemoBalance, ZERO_DEMO_BALANCE } from "./DemoBalance";
 import { getCreateFlowGate } from "./createFlowRules";
 import type { CreateGateRequirement } from "./createFlowRules";
 import { goToPricingAfterPurchase } from "./PricingReturn";
 import { useDemoLibrary } from "./DemoLibrary";
 import { useBlankSouvenoteGiftCount } from "./GiftAddon";
 import type { DemoUser } from "./DemoUser";
-import type { DemoBalance } from "./DemoBalance";
 
 type MyCardsAppProps = {
   user: DemoUser;
@@ -222,12 +221,10 @@ function McsSongRow({ s }: McsSongRowProps) {
   );
 }
 
-const MY_CARDS_DEFAULT_BALANCE: DemoBalance = { credits: { images: 4, songs: 2 }, cardBank: 3 };
-
 function MyCardsApp({ user, full = true }: MyCardsAppProps) {
   const router = useRouter();
   const [mode, setMode] = React.useState(full);
-  const demoBalance = useDemoBalance(MY_CARDS_DEFAULT_BALANCE);
+  const demoBalance = useDemoBalance(ZERO_DEMO_BALANCE);
   const demoLibrary = useDemoLibrary();
   const blankGiftCount = useBlankSouvenoteGiftCount();
 
@@ -263,7 +260,7 @@ function MyCardsApp({ user, full = true }: MyCardsAppProps) {
   }
 
   function mailCard() {
-    if (canContinue("send")) router.push("/delivery");
+    router.push("/delivery");
   }
 
   return (

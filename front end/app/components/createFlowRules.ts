@@ -1,4 +1,4 @@
-export type CreateGateRequirement = "generation" | "send";
+export type CreateGateRequirement = "generation";
 
 export type AccountBalance = {
   credits: {
@@ -8,20 +8,10 @@ export type AccountBalance = {
   cardBank: number;
 };
 
-export const demoAccountBalance: AccountBalance = {
-  credits: { images: 7, songs: 3 },
-  cardBank: 1,
-};
-
 export const MIN_GENERATION_CREDITS = 1;
 export const CARD_WITH_QR_SONG_CREDITS = 2;
 
-export type CreateFlowGate =
-  | { allowed: true }
-  | {
-      allowed: false;
-      reason: "credits" | "cards" | "credits-and-cards";
-    };
+export type CreateFlowGate = { allowed: true } | { allowed: false };
 
 export function getTotalCredits(balance: AccountBalance) {
   return balance.credits.images + balance.credits.songs;
@@ -32,22 +22,10 @@ export function getCreateFlowGate(
   requirement: CreateGateRequirement,
 ): CreateFlowGate {
   const totalCredits = getTotalCredits(balance);
-  const hasCredits = totalCredits > 0;
   const hasGenerationCredits = totalCredits >= MIN_GENERATION_CREDITS;
-  const hasCards = balance.cardBank > 0;
 
   if (requirement === "generation" && !hasGenerationCredits) {
-    return {
-      allowed: false,
-      reason: hasCards ? "credits" : "credits-and-cards",
-    };
-  }
-
-  if (requirement === "send" && !hasCards) {
-    return {
-      allowed: false,
-      reason: hasCredits ? "cards" : "credits-and-cards",
-    };
+    return { allowed: false };
   }
 
   return { allowed: true };

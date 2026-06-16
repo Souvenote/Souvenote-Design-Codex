@@ -17,6 +17,8 @@ type PanelStatusProps = {
 
 type ReviewPanelProps = PanelStatusProps & {
   onApprove: () => void;
+  onInvalidate?: () => void;
+  onRegenerate?: () => boolean;
   editing: boolean;
   setEditing: (editing: boolean) => void;
 };
@@ -51,6 +53,7 @@ type BmcReviewProps = {
   onStartOver?: () => void;
   onApproveAll?: () => void;
   onTopUp?: () => void;
+  onRegenerateAsset?: () => boolean;
   credits?: number;
   generating?: boolean;
   includeSong?: boolean;
@@ -79,13 +82,44 @@ function PanelStatus({ generating, approved }: PanelStatusProps) {
   );
 }
 
-function BmcReviewFront({ approved, onApprove, editing, setEditing, generating }: ReviewPanelProps) {
-  const [instr, setInstr] = React.useState('Make the moon a touch warmer; keep the dance pose.');
+const INITIAL_IMAGE_EDIT = 'Make the moon a touch warmer; keep the dance pose.';
+const INITIAL_SONG_GENRE = 'Slow R&B Ballad';
+const INITIAL_SONG_LYRICS = `[00:00-00:08 Verse]
+A pair of shoes by the door...
+
+[00:25-00:41 Chorus]
+To the moon and back, to the moon and back...`;
+
+function BmcReviewFront({ approved, onApprove, onInvalidate, onRegenerate, editing, setEditing, generating }: ReviewPanelProps) {
+  const [instr, setInstr] = React.useState(INITIAL_IMAGE_EDIT);
+  const [regenerating, setRegenerating] = React.useState(false);
+  const timer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const editMade = instr.trim() !== INITIAL_IMAGE_EDIT.trim();
+  const panelGenerating = generating || regenerating;
+
+  React.useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
+
+  function regenerate() {
+    if (!editMade || panelGenerating) return;
+    const spent = onRegenerate?.() ?? true;
+    if (!spent) return;
+    setRegenerating(true);
+    timer.current = setTimeout(() => {
+      setRegenerating(false);
+      setEditing(false);
+    }, 2200);
+  }
+
+  function updateInstruction(next: string) {
+    setInstr(next);
+    if (approved && next.trim() !== INITIAL_IMAGE_EDIT.trim()) onInvalidate?.();
+  }
+
   return (
     <div className="bmc-panel">
       <div className="bmc-panel-head">
         <div className="bmc-panel-title">Front card</div>
-        <PanelStatus generating={generating} approved={approved} />
+        <PanelStatus generating={panelGenerating} approved={approved} />
       </div>
 
       <div className="bmc-front-art">
@@ -95,23 +129,30 @@ function BmcReviewFront({ approved, onApprove, editing, setEditing, generating }
         </div>
         <div className="bmc-front-fig" />
       </div>
-      <div className="bmc-front-caption">5×7 portrait · Transform · Cinematic · Heartfelt + Elegant</div>
+      <div className="bmc-front-caption">5x7 portrait - Transform - Cinematic - Heartfelt + Elegant</div>
 
       {editing && (
         <div className="bmc-edit-inst">
           <label className="bmc-label">Edit instruction</label>
-          <textarea className="bmc-textarea" value={instr} onChange={(e) => setInstr(e.target.value)} placeholder="Describe what to change. Composition stays as-is." />
+          <textarea className="bmc-textarea" value={instr} onChange={(e) => updateInstruction(e.target.value)} placeholder="Describe what to change. Composition stays as-is." />
           <p className="bmc-help" style={{ marginTop: 8 }}>
             Image edits cost <b style={{ color: 'var(--gold-hi)', fontStyle: 'normal' }}>1 credit</b> if successful.
           </p>
+          {editMade && (
+            <div className="bmc-panel-acts bmc-regenerate-acts">
+              <button type="button" className="bmc-cta-secondary" onClick={regenerate} disabled={panelGenerating}>
+                <BmcIcon name="refresh" w={14} /> {regenerating ? 'Regenerating...' : 'Regenerate'}
+              </button>
+            </div>
+          )}
         </div>
       )}
 
       <div className="bmc-panel-acts">
-        <button type="button" className="bmc-cta" onClick={onApprove} disabled={approved || generating}>
-          <BmcIcon name="check" w={14} /> {generating ? 'Generating\u2026' : approved ? 'Approved' : 'Approve Image'}
+        <button type="button" className="bmc-cta" onClick={onApprove} disabled={approved || panelGenerating}>
+          <BmcIcon name="check" w={14} /> {panelGenerating ? 'Generating\u2026' : approved ? 'Approved' : 'Approve Image'}
         </button>
-        <button type="button" className="bmc-cta-secondary" onClick={() => setEditing(!editing)}>
+        <button type="button" className="bmc-cta-secondary" onClick={() => setEditing(!editing)} disabled={panelGenerating}>
           <BmcIcon name="edit" w={14} /> {editing ? 'Close' : 'Edit'}
         </button>
       </div>
@@ -165,16 +206,44 @@ function BmcGenreSelect({ value, onChange }: BmcGenreSelectProps) {
   );
 }
 
-function BmcReviewSong({ approved, onApprove, editing, setEditing, generating }: ReviewPanelProps) {
+function BmcReviewSong({ approved, onApprove, onInvalidate, onRegenerate, editing, setEditing, generating }: ReviewPanelProps) {
   const [playing, setPlaying] = React.useState(false);
-  const [genre, setGenre] = React.useState('Slow R&B Ballad');
+  const [genre, setGenre] = React.useState(INITIAL_SONG_GENRE);
+  const [lyrics, setLyrics] = React.useState(INITIAL_SONG_LYRICS);
+  const [regenerating, setRegenerating] = React.useState(false);
+  const timer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const editMade = genre !== INITIAL_SONG_GENRE || lyrics.trim() !== INITIAL_SONG_LYRICS.trim();
+  const panelGenerating = generating || regenerating;
   const BARS = [12,18,24,16,30,22,12,26,20,32,14,26,10,22,30,16,24,11,20,28,14,24,18,30,11,22,16,26,20,12,24,30,14,20,10,26,18,30,14,22,12,24,20,28,10,16,26,18,22,14,24,18,30,22];
+
+  React.useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
+
+  function regenerate() {
+    if (!editMade || panelGenerating) return;
+    const spent = onRegenerate?.() ?? true;
+    if (!spent) return;
+    setRegenerating(true);
+    timer.current = setTimeout(() => {
+      setRegenerating(false);
+      setEditing(false);
+    }, 2400);
+  }
+
+  function updateGenre(next: string) {
+    setGenre(next);
+    if (approved && next !== INITIAL_SONG_GENRE) onInvalidate?.();
+  }
+
+  function updateLyrics(next: string) {
+    setLyrics(next);
+    if (approved && next.trim() !== INITIAL_SONG_LYRICS.trim()) onInvalidate?.();
+  }
 
   return (
     <div className="bmc-panel">
       <div className="bmc-panel-head">
         <div className="bmc-panel-title">QR Song</div>
-        <PanelStatus generating={generating} approved={approved} />
+        <PanelStatus generating={panelGenerating} approved={approved} />
       </div>
 
       <div className="bmc-song-player">
@@ -199,21 +268,28 @@ function BmcReviewSong({ approved, onApprove, editing, setEditing, generating }:
         <div className="bmc-edit-inst" style={{ marginTop: 14 }}>
           <label className="bmc-label">Genre</label>
           <div style={{ marginBottom: 12 }}>
-            <BmcGenreSelect value={genre} onChange={setGenre} />
+            <BmcGenreSelect value={genre} onChange={updateGenre} />
           </div>
           <label className="bmc-label">Lyrics</label>
-          <textarea className="bmc-textarea" defaultValue={`[00:00-00:08 Verse]\nA pair of shoes by the door…\n\n[00:25-00:41 Chorus]\nTo the moon and back, to the moon and back…`} />
+          <textarea className="bmc-textarea" value={lyrics} onChange={(e) => updateLyrics(e.target.value)} />
           <p className="bmc-help" style={{ marginTop: 8 }}>
             QR song edits cost <b style={{ color: 'var(--gold-hi)', fontStyle: 'normal', margin: '0 3px' }}>1 credit</b> if successful.
           </p>
+          {editMade && (
+            <div className="bmc-panel-acts bmc-regenerate-acts">
+              <button type="button" className="bmc-cta-secondary" onClick={regenerate} disabled={panelGenerating}>
+                <BmcIcon name="refresh" w={14} /> {regenerating ? 'Regenerating...' : 'Regenerate'}
+              </button>
+            </div>
+          )}
         </div>
       )}
 
       <div className="bmc-panel-acts">
-        <button type="button" className="bmc-cta" onClick={onApprove} disabled={approved || generating}>
-          <BmcIcon name="check" w={14} /> {generating ? 'Generating\u2026' : approved ? 'Approved' : 'Approve QR Song'}
+        <button type="button" className="bmc-cta" onClick={onApprove} disabled={approved || panelGenerating}>
+          <BmcIcon name="check" w={14} /> {panelGenerating ? 'Generating\u2026' : approved ? 'Approved' : 'Approve QR Song'}
         </button>
-        <button type="button" className="bmc-cta-secondary" onClick={() => setEditing(!editing)}>
+        <button type="button" className="bmc-cta-secondary" onClick={() => setEditing(!editing)} disabled={panelGenerating}>
           <BmcIcon name="edit" w={14} /> {editing ? 'Close' : 'Edit'}
         </button>
       </div>
@@ -329,31 +405,27 @@ function BmcInviteModal({ open, onClose, includeSong = true }: BmcInviteModalPro
           </div>
         </div>
         <h2 className="bmc-modal-title">
-          {includeSong ? (
-            <>Your card and <span className="souv-hero-italic text-metallic-rose-gold">song</span> are being made.</>
-          ) : (
-            <>Your <span className="souv-hero-italic text-metallic-rose-gold">card</span> is being made.</>
-          )}
+          <span className="bmc-invite-title-brandline">
+            <span className="bmc-invite-wordmark">
+              <img src="/assets/WordmarkLobster.png" alt="Souvenote" />
+            </span>
+            <span className="bmc-invite-title-script">is</span>
+          </span>
+          <span className="bmc-invite-title-script bmc-invite-title-nowrap">generating your assets.</span>
         </h2>
-        <p className="bmc-modal-sub">
-          {includeSong
-            ? 'We are creating your card image, inside message, and custom QR song now.'
-            : 'We are creating your card image and inside message now.'}
-          This can take a moment.
-        </p>
 
         <div className="bmc-invite-assets" aria-label="Assets being generated">
-          <span>Card image</span>
-          <span>Message</span>
-          {includeSong && <span>QR song</span>}
+          <span aria-label="Card" title="Card"><BmcIcon name="image" w={23} /></span>
+          {includeSong && <span aria-label="Song" title="Song"><BmcIcon name="note" w={23} /></span>}
+          <span aria-label="Message" title="Message"><BmcIcon name="message" w={23} /></span>
         </div>
 
         <p className="bmc-invite-while">
-          While we finish generating, invite a friend to Souvenote and earn credits for your next card.
+          While you wait, invite a friend to Souvenote and earn credits for your next card.
         </p>
 
         <div className="bmc-invite-reward">
-          <BmcIcon name="coin" w={15} /> For every friend you invite, earn <b>10 credits</b>
+          <BmcIcon name="coin" w={15} /> For each friend who signs up, earn <b>10 free credits</b>.
         </div>
 
         {sent.length > 0 && (
@@ -397,7 +469,7 @@ function BmcInviteModal({ open, onClose, includeSong = true }: BmcInviteModalPro
   return createPortal(ui, document.body);
 }
 
-function BmcReview({ onStartOver, onApproveAll, onTopUp, credits = 6, generating = false, includeSong = true }: BmcReviewProps) {
+function BmcReview({ onStartOver, onApproveAll, onTopUp, onRegenerateAsset, credits = 6, generating = false, includeSong = true }: BmcReviewProps) {
   const router = useRouter();
   const [imgApproved, setImgApproved] = React.useState(false);
   const [songApproved, setSongApproved] = React.useState(false);
@@ -418,6 +490,13 @@ function BmcReview({ onStartOver, onApproveAll, onTopUp, credits = 6, generating
   const approveAll = onApproveAll || (() => router.push('/delivery'));
   const topUp = onTopUp || (() => router.push('/pricing'));
   const outOfCredits = credits <= 0;
+  const spendRegenerationCredit = () => {
+    if (credits <= 0) {
+      topUp();
+      return false;
+    }
+    return onRegenerateAsset?.() ?? true;
+  };
   const handleApproveAll = () => {
     if (generating) return;
     setImgApproved(true);
@@ -433,9 +512,9 @@ function BmcReview({ onStartOver, onApproveAll, onTopUp, credits = 6, generating
           <span className="bmc-eyebrow-num">06</span>
           <span>Approval</span>
         </div>
-        <h1 className="bmc-title">
-          {includeSong ? 'Three pieces' : 'Two pieces'}, one{' '}
-          <span className="souv-hero-italic text-metallic-rose-gold">keepsake</span>
+        <h1 className="bmc-title bmc-title-script">
+          {includeSong ? 'Three pieces' : 'Two pieces'},{' '}
+          <span className="souv-hero-italic text-metallic-rose-gold">one keepsake</span>
         </h1>
         <p className="bmc-lede" style={{ margin: '0 auto' }}>
           {includeSong
@@ -449,6 +528,12 @@ function BmcReview({ onStartOver, onApproveAll, onTopUp, credits = 6, generating
           approved={imgApproved}
           generating={generating}
           onApprove={() => setImgApproved(true)}
+          onInvalidate={() => setImgApproved(false)}
+          onRegenerate={() => {
+            const spent = spendRegenerationCredit();
+            if (spent) setImgApproved(false);
+            return spent;
+          }}
           editing={editing.image}
           setEditing={(v) => setEditing(s => ({ ...s, image: v }))}
         />
@@ -458,6 +543,12 @@ function BmcReview({ onStartOver, onApproveAll, onTopUp, credits = 6, generating
               approved={songApproved}
               generating={generating}
               onApprove={() => setSongApproved(true)}
+              onInvalidate={() => setSongApproved(false)}
+              onRegenerate={() => {
+                const spent = spendRegenerationCredit();
+                if (spent) setSongApproved(false);
+                return spent;
+              }}
               editing={editing.song}
               setEditing={(v) => setEditing(s => ({ ...s, song: v }))}
             />

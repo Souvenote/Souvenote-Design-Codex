@@ -186,6 +186,18 @@
   color: var(--platinum-hi);
   margin: 0 0 14px;
 }
+.bmc-title.bmc-title-script {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 500;
+  letter-spacing: -0.035em;
+}
+.bmc-title.bmc-title-script .souv-hero-italic {
+  font-family: inherit;
+  font-style: inherit;
+  font-weight: inherit;
+  letter-spacing: inherit;
+}
 .bmc-lede {
   font-family: var(--font-sans);
   font-size: 19.5px; line-height: 1.55;
@@ -878,10 +890,10 @@
 .bmc-front-art {
   position: relative;
   aspect-ratio: 5 / 7;
-  max-height: 58vh;
   margin: 0 auto;
-  width: auto;
+  width: min(100%, 340px);
   max-width: 100%;
+  box-sizing: border-box;
   border-radius: var(--r-lg);
   overflow: hidden;
   background:
@@ -1046,6 +1058,11 @@
   border-radius: var(--r-md);
 }
 .bmc-edit-inst .bmc-label { margin-bottom: 6px; }
+.bmc-regenerate-acts {
+  justify-content: flex-start;
+  margin-top: 14px;
+  margin-bottom: 0;
+}
 
 /* Modal for "Are you sure?" */
 .bmc-modal-wrap {
@@ -1218,92 +1235,6 @@
 /* ---- Invite-a-friend modal ("while you wait") -------------------- */
 .bmc-modal.bmc-invite { width: min(540px, 100%); padding: 38px 34px 26px; }
 
-.bmc-modal.bmc-send-card-modal {
-  width: min(860px, 100%);
-  padding: 40px 42px 34px;
-  text-align: left;
-  border-color: rgba(212,175,55,0.34);
-}
-.bmc-send-card-eyebrow {
-  display: inline-flex;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 9px;
-  margin: 0 0 14px;
-  font-family: var(--font-sans);
-  font-weight: 800;
-  font-size: 11px;
-  letter-spacing: .2em;
-  text-transform: uppercase;
-  color: var(--gold-hi);
-}
-.bmc-send-card-modal .bmc-modal-title {
-  font-size: clamp(2rem, 4vw, 3rem);
-  line-height: 1.04;
-}
-.bmc-send-card-sub {
-  max-width: 62ch;
-  margin-left: 0;
-  margin-right: 0;
-}
-.bmc-send-card-summary {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 18px;
-  margin: 4px 0 0;
-  padding: 17px 20px;
-  border: 1px solid rgba(212,175,55,0.26);
-  border-radius: var(--r-xl);
-  background: rgba(212,175,55,0.055);
-  max-width: none;
-  text-align: left;
-}
-.bmc-send-card-summary span,
-.bmc-send-card-summary em {
-  font-family: var(--font-sans);
-  font-weight: 700;
-  font-size: 10.5px;
-  letter-spacing: .13em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-.bmc-send-card-summary b {
-  font-family: var(--font-display);
-  font-weight: 800;
-  font-size: 1.75rem;
-  line-height: 1;
-  color: var(--gold-hi);
-}
-.bmc-send-card-summary em {
-  font-family: var(--font-sans);
-  font-size: .95rem;
-  font-style: italic;
-  font-weight: 600;
-  letter-spacing: 0;
-  text-transform: none;
-  color: var(--text-secondary);
-}
-.bmc-modal-acts.bmc-send-card-actions {
-  justify-content: flex-end;
-  align-items: center;
-  flex-wrap: wrap;
-  margin-top: 28px;
-  padding-top: 22px;
-  border-top: 1px solid var(--divider);
-}
-.bmc-send-card-actions .bmc-cta,
-.bmc-send-card-actions .bmc-cta-secondary {
-  flex: 0 1 260px;
-  width: auto;
-}
-.bmc-send-card-actions .bmc-cta-quiet {
-  flex: 0 0 auto;
-  width: auto;
-  min-height: 52px;
-  cursor: pointer;
-}
-
 .bmc-invite-eyebrow {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
   margin: 0 auto 10px;
@@ -1330,7 +1261,49 @@
     0 0 0 9px rgba(212,175,55,0.055),
     0 14px 36px rgba(212,175,55,0.20);
 }
-.bmc-modal.bmc-invite .bmc-modal-title { font-size: clamp(1.65rem, 4.6vw, 2.2rem); margin-bottom: 12px; }
+.bmc-modal.bmc-invite .bmc-modal-title {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.02em;
+  font-size: clamp(1.65rem, 4.6vw, 2.2rem);
+  margin-bottom: 12px;
+}
+.bmc-invite-title-brandline {
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.28em;
+  white-space: nowrap;
+}
+.bmc-invite-title-script {
+  display: inline-block;
+  align-items: baseline;
+  font-family: var(--font-display);
+  font-size: clamp(2.1rem, 5.2vw, 2.85rem);
+  font-style: italic;
+  font-weight: 500;
+  line-height: 0.98;
+  letter-spacing: -0.015em;
+  color: var(--platinum-hi);
+  text-shadow:
+    0 1px 0 rgba(255,255,255,0.10),
+    0 12px 26px rgba(0,0,0,0.34);
+}
+.bmc-invite-title-nowrap {
+  white-space: nowrap;
+}
+.bmc-invite-wordmark {
+  display: inline-flex;
+  align-items: baseline;
+  vertical-align: -0.12em;
+}
+.bmc-invite-wordmark img {
+  display: block;
+  width: clamp(168px, 34vw, 260px);
+  height: auto;
+}
 .bmc-modal.bmc-invite .bmc-modal-sub { max-width: 42ch; margin-bottom: 14px; }
 .bmc-invite-assets {
   display: flex;
@@ -1341,9 +1314,11 @@
 }
 .bmc-invite-assets span {
   display: inline-flex;
+  justify-content: center;
   align-items: center;
-  min-height: 30px;
-  padding: 7px 12px;
+  width: 54px;
+  height: 44px;
+  padding: 0;
   border: 1px solid rgba(212,175,55,0.30);
   border-radius: var(--r-pill);
   background: rgba(212,175,55,0.07);
@@ -1353,6 +1328,10 @@
   font-weight: 800;
   letter-spacing: .14em;
   text-transform: uppercase;
+}
+.bmc-invite-assets svg {
+  color: var(--gold-hi);
+  flex: 0 0 auto;
 }
 .bmc-invite-while {
   margin: 0 auto 14px;
@@ -1463,20 +1442,6 @@
 
 @media (max-width: 480px) {
   .bmc-modal.bmc-invite { padding: 30px 22px 22px; }
-  .bmc-modal.bmc-send-card-modal {
-    padding: 34px 24px 26px;
-  }
-  .bmc-send-card-summary,
-  .bmc-modal-acts.bmc-send-card-actions {
-    align-items: stretch;
-    flex-direction: column;
-  }
-  .bmc-send-card-actions .bmc-cta,
-  .bmc-send-card-actions .bmc-cta-secondary,
-  .bmc-send-card-actions .bmc-cta-quiet {
-    width: 100%;
-    flex-basis: auto;
-  }
   .bmc-invite-reward { font-size: 13px; }
 }
 
@@ -1960,8 +1925,17 @@
   border-color: rgba(212,175,55,0.55);
   box-shadow: inset 0 2px 5px rgba(0,0,0,0.4), 0 0 0 3px rgba(212,175,55,0.14);
 }
-/* First label inside a fieldcard reads gold, mirroring Basics */
-.bmc-page .bmc-fieldcard > .bmc-label:first-child { color: var(--gold); }
+/* Field headings shimmer gold across the Build My Card flow. */
+.bmc-page .bmc-label,
+.bmc-page .bmc-label .bmc-opt {
+  background-image: linear-gradient(90deg, #B48A20 0%, #E2C050 22%, #F8E088 38%, #D4A830 52%, #F4D870 68%, #D0A020 82%, #A07818 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  animation: souvenote-shimmer 14s linear infinite;
+}
 
 /* ============================================================
    CLICKABLE BUTTON WORDS → ROSE-GOLD (flow-wide)

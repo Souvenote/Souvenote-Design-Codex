@@ -326,6 +326,7 @@ function BmcBasicsStep({ onContinue, onBack }: StepNavProps) {
         eyebrow="The basics"
         title="Tell us who it's for, and why"
         italicWord="and why"
+        titleClassName="bmc-title-script"
         lede="Light context lets us craft the card and, if you choose one, a QR-code song that fits the moment. Names appear inside the card and optional song lyrics, where natural."
       />
 
@@ -479,6 +480,7 @@ function BmcImageStep({ onContinue, onBack, hasPhoto }: BmcImageStepProps) {
         eyebrow="Imagine the front"
         title="Choose a blueprint, then dial it in"
         italicWord="then dial it in"
+        titleClassName="bmc-title-script"
         lede="Transform, enhance or decorate an existing photo just how you like."
       />
 
@@ -646,6 +648,7 @@ function BmcMessageStep({ onContinue, onBack, blueprintLabel = 'Transform Scene 
         eyebrow="What's inside"
         title="Ready to write or need inspiration?"
         italicWord="need inspiration?"
+        titleClassName="bmc-title-script"
         titleStyle={{ whiteSpace: 'nowrap', fontSize: 'clamp(2rem, 4.4vw, 3rem)', lineHeight: 1.05 }}
         lede="Write the message that goes in your card. If you're having trouble, use our message generator up to five times for help."
       />
@@ -725,6 +728,7 @@ function BmcSongStep({ includeSong, setIncludeSong, onBack, onGenerate }: BmcSon
         title="Set the tone, we'll make the tune"
         italicWord="we'll make the tune"
         accent="rose"
+        titleClassName="bmc-title-script"
         titleStyle={{ whiteSpace: 'nowrap', fontSize: 'clamp(2rem, 4.4vw, 3rem)', lineHeight: 1.05 }}
         lede="A song is optional. If you include one, we'll place it inside the printed card as a scannable QR code."
       />

@@ -10,5 +10,3 @@ export type DemoCredits = {
 };
 
 export const demoUser: DemoUser = { name: "Cameron Wilson", email: "cameron@souvenote.com", initials: "CW" };
-export const demoCredits: DemoCredits = { images: 7, songs: 3 };
-export const demoCardBank = 3;

@@ -795,11 +795,17 @@
 }
 .pt-modal-step-head { margin-bottom: 24px; }
 .pt-modal-step-title {
-  font-family: var(--font-display); font-weight: 800;
-  font-size: clamp(1.6rem, 2.6vw, 2.2rem); line-height: 1.1;
-  letter-spacing: -0.02em;
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 500;
+  font-size: clamp(2.15rem, 4vw, 3.1rem);
+  line-height: 1;
+  letter-spacing: -0.015em;
   color: var(--platinum-hi);
   margin: 0 0 8px;
+  text-shadow:
+    0 1px 0 rgba(255,255,255,0.10),
+    0 12px 26px rgba(0,0,0,0.34);
 }
 .pt-modal-step-sub {
   font-family: var(--font-sans);
@@ -1050,6 +1056,31 @@
   letter-spacing: .22em; text-transform: uppercase;
   color: var(--text-muted);
 }
+.pt-modal .pt-modal-step-title .text-metallic-rose-gold {
+  font-family: inherit;
+  font-style: inherit;
+  font-weight: inherit;
+  background-image: linear-gradient(90deg, #A06058 0%, #D8958C 22%, #E8C0B6 38%, #C88680 52%, #E0ACA2 68%, #C48478 82%, #9A5048 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  animation: souvenote-shimmer 14s linear infinite;
+}
+.pt-modal .pt-label,
+.pt-modal .pt-label-opt {
+  background-image: linear-gradient(90deg, #B48A20 0%, #E2C050 22%, #F8E088 38%, #D4A830 52%, #F4D870 68%, #D0A020 82%, #A07818 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  animation: souvenote-shimmer 14s linear infinite;
+}
+.pt-modal .pt-label-opt {
+  font-style: italic;
+}
 .pt-input, .pt-select, .pt-textarea {
   width: 100%;
   font-family: var(--font-sans); font-size: 14px;
@@ -1258,7 +1289,7 @@
 .pt-modal-tmpl-name { font-size: 18.5px; }
 .pt-modal-tmpl-sub { font-size: 11px; }
 .pt-modal-step { font-size: 11.5px; }
-.pt-modal-step-title { font-size: clamp(1.78rem, 2.8vw, 2.4rem); }
+.pt-modal-step-title { font-size: clamp(2.15rem, 4vw, 3.1rem); }
 .pt-modal-step-sub { font-size: 17px; }
 .pt-modal .pt-photo-or-eyebrow { font-size: 10.5px; }
 .pt-modal .pt-photo-or-title { font-size: 19.5px; }

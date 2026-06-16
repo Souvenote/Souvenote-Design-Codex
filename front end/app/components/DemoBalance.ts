@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { demoCardBank, demoCredits } from "./DemoUser";
 import type { DemoCredits } from "./DemoUser";
 
 export type DemoBalance = {
@@ -38,14 +37,11 @@ declare global {
 }
 
 export const DEMO_BALANCE_STORAGE_KEY = "souv_demo_balance";
-export const DEFAULT_DEMO_BALANCE: DemoBalance = {
-  credits: demoCredits,
-  cardBank: demoCardBank,
-};
 export const ZERO_DEMO_BALANCE: DemoBalance = {
   credits: { images: 0, songs: 0 },
   cardBank: 0,
 };
+export const DEFAULT_DEMO_BALANCE: DemoBalance = ZERO_DEMO_BALANCE;
 
 function normalizeNumber(value: unknown, fallback = 0): number {
   const next = Number(value);

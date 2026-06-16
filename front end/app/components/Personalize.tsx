@@ -1152,8 +1152,7 @@ function PtPersonalizeModal({ tmpl, open, onClose, onCreate, initialStep = 'phot
             <>
               <div className="pt-modal-step-head">
                 <h2 className="pt-modal-step-title">
-                  Add their birthday{' '}
-                  <span className="souv-hero-italic text-metallic-rose-gold">if you know it</span>
+                  Add their <span className="text-metallic-rose-gold">birthday</span>
                 </h2>
                 <p className="pt-modal-step-sub">
                   {tmpl.name === 'Horoscope' ? 'Recommended for this template so we can estimate their sign. You can skip it if you do not know it.' :
@@ -1163,7 +1162,7 @@ function PtPersonalizeModal({ tmpl, open, onClose, onCreate, initialStep = 'phot
               </div>
 
               <div className="pt-field">
-                <label className="pt-label">Their birthday <em style={{fontStyle:'italic',color:'var(--text-muted)'}}>· optional</em></label>
+                <label className="pt-label">Their birthday <em className="pt-label-opt">· optional</em></label>
                 <input className="pt-input" type="date" />
                 <p className="pt-help">Optional. We never share the date; it stays on this card.</p>
               </div>
@@ -1203,11 +1202,11 @@ function PtPersonalizeModal({ tmpl, open, onClose, onCreate, initialStep = 'phot
 
               <div className="pt-field-row">
                 <div className="pt-field" style={{ marginBottom: 0 }}>
-                  <label className="pt-label">Recipient name <em style={{fontStyle:'italic',color:'var(--text-muted)'}}>· optional</em></label>
+                  <label className="pt-label">Recipient name <em className="pt-label-opt">· optional</em></label>
                   <input className="pt-input" placeholder="Who's it for?" />
                 </div>
                 <div className="pt-field" style={{ marginBottom: 0 }}>
-                  <label className="pt-label">Phonetic spelling <em style={{fontStyle:'italic',color:'var(--text-muted)'}}>· optional</em></label>
+                  <label className="pt-label">Phonetic spelling <em className="pt-label-opt">· optional</em></label>
                   <input className="pt-input" placeholder="e.g. KAH-rin" />
                 </div>
               </div>
@@ -1216,7 +1215,7 @@ function PtPersonalizeModal({ tmpl, open, onClose, onCreate, initialStep = 'phot
 
               <div className="pt-field">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <label className="pt-label">Inside message <em style={{fontStyle:'italic',color:'var(--text-muted)'}}>· optional</em></label>
+                  <label className="pt-label">Inside message <em className="pt-label-opt">· optional</em></label>
                   <span className="pt-msg-counter">
                     <span><b>{500 - insideMsg.length}</b> chars left</span>
                   </span>
@@ -1240,7 +1239,7 @@ function PtPersonalizeModal({ tmpl, open, onClose, onCreate, initialStep = 'phot
 
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap: 40, marginTop: 28, paddingTop: 28, borderTop: '1px solid rgba(232,234,238,0.10)' }}>
                 <div className="pt-field" style={{ margin: 0 }}>
-                  <label className="pt-label text-metallic-rose-gold" style={{ fontSize: 15, letterSpacing: '.05em', marginBottom: 16 }}>You're all set, let's generate.</label>
+                  <label className="pt-label" style={{ fontSize: 15, letterSpacing: '.05em', marginBottom: 16 }}>You're all set, let's generate.</label>
                   <div style={{ display:'flex', flexDirection:'column', gap: 12, fontFamily:'var(--font-sans)', fontSize:14.5, color:'var(--text-secondary)' }}>
                     <span style={{ display:'flex', alignItems:'center', gap: 10 }}>
                       <PtIcon name="check" w={14} /> Front card image
@@ -1391,7 +1390,7 @@ function PtChat({ open, setOpen }: PtChatProps) {
 // ============================================================
 // TOP-LEVEL APP
 // ============================================================
-const PERSONALIZE_DEFAULT_BALANCE: DemoBalance = { credits: { images: 7, songs: 0 }, cardBank: 1 };
+const PERSONALIZE_DEFAULT_BALANCE: DemoBalance = { credits: { images: 0, songs: 0 }, cardBank: 0 };
 
 function PersonalizeApp({ openModal = false, accountBalance = PERSONALIZE_DEFAULT_BALANCE }: PersonalizeAppProps) {
   const router = useRouter();
@@ -1413,7 +1412,7 @@ function PersonalizeApp({ openModal = false, accountBalance = PERSONALIZE_DEFAUL
   const onPersonalize = (t: Template) => { setChosen(t); setModalOpen(true); };
   const onClose = () => { setModalOpen(false); };
   const openPricingForCredits = () => {
-    router.push(goToPricingAfterPurchase('/create'));
+    router.push(goToPricingAfterPurchase('/create/personalize-a-template'));
   };
   // Create my Card → close modal, jump to the Review page (which auto-opens the invite modal while generating).
   const onCreate = (includeSong = true) => {
@@ -1441,6 +1440,15 @@ function PersonalizeApp({ openModal = false, accountBalance = PERSONALIZE_DEFAUL
     setTimeout(() => setReviewGen(false), 5200);
   };
   const backToMarketplace = () => { setReviewGen(false); setView('marketplace'); window.scrollTo(0, 0); };
+  const spendRegenerationCredit = () => {
+    if (totalCredits < MIN_GENERATION_CREDITS) {
+      openPricingForCredits();
+      return false;
+    }
+
+    spendDemoCredits(MIN_GENERATION_CREDITS);
+    return true;
+  };
 
   if (view === 'review') {
     return (
@@ -1452,6 +1460,7 @@ function PersonalizeApp({ openModal = false, accountBalance = PERSONALIZE_DEFAUL
           onStartOver={backToMarketplace}
           onApproveAll={() => router.push('/delivery')}
           onTopUp={openPricingForCredits}
+          onRegenerateAsset={spendRegenerationCredit}
         />
       </div>
     );
