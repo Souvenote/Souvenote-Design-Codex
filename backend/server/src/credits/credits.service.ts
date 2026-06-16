@@ -128,3 +128,8 @@ export class CreditsService {
   }
 }
 // test UUID: ad2c7c0f-797f-4bc2-b103-91a1fc61ddef
+// test cardDraftId: a15cea95-1043-4ecf-9350-83911fc35651
+/*
+Card Draft ID: 34b37a18-d719-48a4-9ad7-5996f06f2fd8
+mock s3key: mock/34b37a18-d719-48a4-9ad7-5996f06f2fd8/9edd3738-5fd8-4602-83b3-edb8dfbad8cf-birthday-photo.png
+*/

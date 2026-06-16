@@ -10,6 +10,7 @@ This folder contains the PostgreSQL database setup for the Souvenote backend.
 ## First Migration
 
 `001_initial_schema.sql` will create the first version of the database schema.
+`002_phase1_mock_backend.sql` adds the Phase 1 local mock upload, checkout, and fulfillment storage needed for the end-to-end MVP flow.
 
 Planned core tables:
 - users
@@ -69,6 +70,7 @@ From the `backend/` folder, run:
 ```bash
 createdb -U postgres souvenote_dev
 psql -U postgres -d souvenote_dev -f database/migrations/001_initial_schema.sql
+psql -U postgres -d souvenote_dev -f database/migrations/002_phase1_mock_backend.sql
 psql -U postgres -d souvenote_dev -f database/seeds/001_pricing_catalog.sql
 ```
 
@@ -129,6 +131,7 @@ If the schema changes during development and there is no important local data to
 dropdb -U postgres souvenote_dev
 createdb -U postgres souvenote_dev
 psql -U postgres -d souvenote_dev -f database/migrations/001_initial_schema.sql
+psql -U postgres -d souvenote_dev -f database/migrations/002_phase1_mock_backend.sql
 psql -U postgres -d souvenote_dev -f database/seeds/001_pricing_catalog.sql
 ```
 
@@ -179,6 +182,7 @@ From the `backend/` folder, run:
 ```bash
 createdb -U postgres souvenote_dev
 psql -U postgres -d souvenote_dev -f database/migrations/001_initial_schema.sql
+psql -U postgres -d souvenote_dev -f database/migrations/002_phase1_mock_backend.sql
 psql -U postgres -d souvenote_dev -f database/seeds/001_pricing_catalog.sql
 ```
 
@@ -241,6 +245,7 @@ From the `backend/` folder, run:
 dropdb -U postgres souvenote_dev
 createdb -U postgres souvenote_dev
 psql -U postgres -d souvenote_dev -f database/migrations/001_initial_schema.sql
+psql -U postgres -d souvenote_dev -f database/migrations/002_phase1_mock_backend.sql
 psql -U postgres -d souvenote_dev -f database/seeds/001_pricing_catalog.sql
 ```
 
