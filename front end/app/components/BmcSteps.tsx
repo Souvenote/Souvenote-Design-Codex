@@ -37,7 +37,8 @@ type BmcSongStepProps = {
   includeSong: boolean;
   setIncludeSong: (includeSong: boolean) => void;
   onBack?: () => void;
-  onGenerate: () => void;
+  onGenerate: () => void | Promise<void>;
+  generating?: boolean;
 };
 
 type Blueprint = {
@@ -714,7 +715,7 @@ you are the song I will never put aside.
 [00:41-00:45 Final]
 To the moon and back — and back, and back.`;
 
-function BmcSongStep({ includeSong, setIncludeSong, onBack, onGenerate }: BmcSongStepProps) {
+function BmcSongStep({ includeSong, setIncludeSong, onBack, onGenerate, generating = false }: BmcSongStepProps) {
   const [genre, setGenre] = React.useState('Slow R&B Ballad');
   const [lyrics, setLyrics] = React.useState(LYRIC_SEED);
   const [editing, setEditing] = React.useState(false);
@@ -820,8 +821,8 @@ function BmcSongStep({ includeSong, setIncludeSong, onBack, onGenerate }: BmcSon
               <BmcIcon name="back" w={14} /> Back
             </button>
           )}
-          <button type="button" className="bmc-cta bmc-cta-lg" onClick={onGenerate}>
-            <BmcIcon name="spark2" w={18} /> Generate Your Card
+          <button type="button" className="bmc-cta bmc-cta-lg" onClick={onGenerate} disabled={generating}>
+            <BmcIcon name="spark2" w={18} /> {generating ? "Starting..." : "Generate Your Card"}
           </button>
         </div>
       </div>

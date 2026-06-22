@@ -3,9 +3,13 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { BmcReview } from "./BmcReview";
+import { BmcErrorModal, bmcError } from "./BmcShared";
 import { OrnamentDivider } from "./Ornaments";
 import { AttestationGate } from "./AttestationGate";
-import { getTotalDemoCredits, spendDemoCredits } from "./DemoBalance";
+import { createLocalIdempotencyKey, startGeneration } from "../lib/api";
+import { publishCreditBalance } from "../lib/creditBalance";
+import type { CreditBalanceStatus } from "../lib/creditBalance";
+import { getTotalDemoCredits } from "./DemoBalance";
 import type { DemoBalance } from "./DemoBalance";
 import { CARD_WITH_QR_SONG_CREDITS, MIN_GENERATION_CREDITS } from "./createFlowRules";
 import { goToPricingAfterPurchase } from "./PricingReturn";
@@ -92,8 +96,9 @@ type PtPersonalizeModalProps = {
   tmpl: Template | null;
   open: boolean;
   onClose: () => void;
-  onCreate?: (includeSong: boolean) => void;
+  onCreate?: (includeSong: boolean) => void | Promise<void>;
   initialStep?: ModalStepId;
+  generating?: boolean;
 };
 
 type ChatPreset = "Caption" | "Personal Message" | "Vibe Check" | "Custom";
@@ -113,6 +118,8 @@ type PersonalizeView = "marketplace" | "review";
 type PersonalizeAppProps = {
   openModal?: boolean;
   accountBalance?: DemoBalance;
+  creditStatus?: CreditBalanceStatus;
+  refreshCredits?: () => Promise<unknown> | unknown;
 };
 
 // ============================================================
@@ -924,7 +931,7 @@ const MODAL_STEPS: ModalStep[] = [
   { id: 'caption',   label: 'Caption & Message' },
 ];
 
-function PtPersonalizeModal({ tmpl, open, onClose, onCreate, initialStep = 'photo' }: PtPersonalizeModalProps) {
+function PtPersonalizeModal({ tmpl, open, onClose, onCreate, initialStep = 'photo', generating = false }: PtPersonalizeModalProps) {
   const [step, setStep] = React.useState<ModalStepId>(initialStep);
   const [photoPreviews, setPhotoPreviews] = React.useState<PhotoPreview[]>([]);
   const [attested, setAttested] = React.useState(false);
@@ -1294,8 +1301,8 @@ function PtPersonalizeModal({ tmpl, open, onClose, onCreate, initialStep = 'phot
                 Continue <PtIcon name="arrow" w={14} />
               </button>
             ) : (
-              <button type="button" className="pt-cta" onClick={() => onCreate && onCreate(includeSong)}>
-                Create my Card <PtIcon name="arrow" w={14} />
+              <button type="button" className="pt-cta" onClick={() => onCreate && onCreate(includeSong)} disabled={generating}>
+                {generating ? "Starting..." : "Create my Card"} <PtIcon name="arrow" w={14} />
               </button>
             )}
           </div>
@@ -1392,7 +1399,12 @@ function PtChat({ open, setOpen }: PtChatProps) {
 // ============================================================
 const PERSONALIZE_DEFAULT_BALANCE: DemoBalance = { credits: { images: 0, songs: 0 }, cardBank: 0 };
 
-function PersonalizeApp({ openModal = false, accountBalance = PERSONALIZE_DEFAULT_BALANCE }: PersonalizeAppProps) {
+function PersonalizeApp({
+  openModal = false,
+  accountBalance = PERSONALIZE_DEFAULT_BALANCE,
+  creditStatus = "idle",
+  refreshCredits,
+}: PersonalizeAppProps) {
   const router = useRouter();
   const [chosen, setChosen] = React.useState<Template | null>(openModal ? TEMPLATES[0] : null);
   const [modalOpen, setModalOpen] = React.useState(openModal);
@@ -1400,6 +1412,7 @@ function PersonalizeApp({ openModal = false, accountBalance = PERSONALIZE_DEFAUL
   const [view, setView] = React.useState<PersonalizeView>('marketplace');
   const [reviewGen, setReviewGen] = React.useState(false);
   const [reviewIncludeSong, setReviewIncludeSong] = React.useState(true);
+  const [generationPending, setGenerationPending] = React.useState(false);
   const totalCredits = getTotalDemoCredits(accountBalance);
 
   React.useEffect(() => {
@@ -1415,15 +1428,42 @@ function PersonalizeApp({ openModal = false, accountBalance = PERSONALIZE_DEFAUL
     router.push(goToPricingAfterPurchase('/create/personalize-a-template'));
   };
   // Create my Card → close modal, jump to the Review page (which auto-opens the invite modal while generating).
-  const onCreate = (includeSong = true) => {
+  const onCreate = async (includeSong = true) => {
+    if (generationPending) return;
     const generationCost = includeSong ? CARD_WITH_QR_SONG_CREDITS : MIN_GENERATION_CREDITS;
 
-    if (totalCredits < generationCost) {
-      openPricingForCredits();
+    if (creditStatus === "loading") {
+      bmcError("We are still checking your credit balance. Try again in a moment.", "Checking credits");
       return;
     }
 
-    spendDemoCredits(generationCost);
+    if (creditStatus === "error") {
+      bmcError("We could not reach your backend credit balance. Start the local backend and try again.", "Credits unavailable");
+      await refreshCredits?.();
+      return;
+    }
+
+    if (totalCredits < generationCost) {
+      bmcError(
+        `You need ${generationCost} ${generationCost === 1 ? "credit" : "credits"} to generate this card. Your current backend balance is ${totalCredits}.`,
+        "Not enough credits",
+      );
+      return;
+    }
+
+    setGenerationPending(true);
+
+    try {
+      const response = await startGeneration({
+        idempotencyKey: createLocalIdempotencyKey("personalize-template-generation"),
+      });
+
+      if (response.balance) {
+        publishCreditBalance(response.balance);
+      } else {
+        await refreshCredits?.();
+      }
+
     setReviewIncludeSong(includeSong);
     addGeneratedSouvenote({
       title: chosen ? `${chosen.name} Souvenote` : "Personalized Souvenote",
@@ -1438,16 +1478,44 @@ function PersonalizeApp({ openModal = false, accountBalance = PERSONALIZE_DEFAUL
     window.scrollTo(0, 0);
     // Assets finish rendering after a few seconds — then the panels become approvable.
     setTimeout(() => setReviewGen(false), 5200);
+    } catch (error) {
+      setReviewGen(false);
+      bmcError(
+        error instanceof Error ? error.message : "Generation could not start. Please try again.",
+        "Generation could not start",
+      );
+      await refreshCredits?.();
+    } finally {
+      setGenerationPending(false);
+    }
   };
   const backToMarketplace = () => { setReviewGen(false); setView('marketplace'); window.scrollTo(0, 0); };
-  const spendRegenerationCredit = () => {
+  const spendRegenerationCredit = async () => {
     if (totalCredits < MIN_GENERATION_CREDITS) {
-      openPricingForCredits();
+      bmcError("You need at least 1 credit to regenerate an asset.", "Not enough credits");
       return false;
     }
 
-    spendDemoCredits(MIN_GENERATION_CREDITS);
-    return true;
+    try {
+      const response = await startGeneration({
+        idempotencyKey: createLocalIdempotencyKey("personalize-template-regenerate"),
+      });
+
+      if (response.balance) {
+        publishCreditBalance(response.balance);
+      } else {
+        await refreshCredits?.();
+      }
+
+      return true;
+    } catch (error) {
+      bmcError(
+        error instanceof Error ? error.message : "Regeneration could not start. Please try again.",
+        "Regeneration could not start",
+      );
+      await refreshCredits?.();
+      return false;
+    }
   };
 
   if (view === 'review') {
@@ -1462,6 +1530,7 @@ function PersonalizeApp({ openModal = false, accountBalance = PERSONALIZE_DEFAUL
           onTopUp={openPricingForCredits}
           onRegenerateAsset={spendRegenerationCredit}
         />
+        <BmcErrorModal />
       </div>
     );
   }
@@ -1469,7 +1538,15 @@ function PersonalizeApp({ openModal = false, accountBalance = PERSONALIZE_DEFAUL
   return (
     <div className="pt-page">
       <PtMarketplace onPersonalize={onPersonalize} />
-      <PtPersonalizeModal tmpl={chosen} open={modalOpen} onClose={onClose} onCreate={onCreate} initialStep={openModal ? 'caption' : 'photo'} />
+      <PtPersonalizeModal
+        tmpl={chosen}
+        open={modalOpen}
+        onClose={onClose}
+        onCreate={onCreate}
+        initialStep={openModal ? 'caption' : 'photo'}
+        generating={generationPending}
+      />
+      <BmcErrorModal />
     </div>
   );
 }

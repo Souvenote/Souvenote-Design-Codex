@@ -6,8 +6,10 @@ import { useRouter } from "next/navigation";
 import { CheckoutModal } from "./Checkout";
 import type { CheckoutPack } from "./Checkout";
 import { CardArt } from "./CardArt";
+import { createLocalIdempotencyKey, fetchCreditBalance, grantCredits } from "../lib/api";
+import { publishCreditBalance } from "../lib/creditBalance";
 import { makeBigSenderCartItem, makeTryRiskFreeCartItem } from "./pricingCatalog";
-import { applyDemoTopUpFromCart } from "./DemoBalance";
+import { addDemoBalance, getCartTopUpDelta } from "./DemoBalance";
 import { consumePricingReturn, peekPricingReturn } from "./PricingReturn";
 import {
   BLANK_SOUVENOTE_GIFT_CART_ID,
@@ -30,6 +32,7 @@ type CartItem = {
   glowIdx?: number;
   lockedQuantity?: boolean;
   cardCount?: number;
+  creditsPerCard?: unknown;
   replaceGroup?: string;
   cards?: unknown;
   tokens?: unknown;
@@ -96,7 +99,9 @@ function normalizeCartItems(raw: unknown): CartItem[] {
     const normalized: CartItem = isBigSender
       ? makeBigSenderCartItem(source.cardCount || parseInt(String(source.meta || ""), 10) || source.qty || 1)
       : isTryRiskFree
-        ? makeTryRiskFreeCartItem()
+        ? makeTryRiskFreeCartItem({
+          creditsPerCard: Number(source.creditsPerCard) || undefined,
+        })
         : isBlankGift
           ? makeBlankSouvenoteGiftCartItem()
           : {
@@ -428,11 +433,27 @@ function CartPage() {
     if (promo.trim().toUpperCase() === "SOUVENOTE10") setPromoApplied(true);
   }
 
-  function handlePaid() {
+  async function handlePaid() {
+    const topUpDelta = getCartTopUpDelta(items);
+
+    if (topUpDelta.credits > 0) {
+      const grant = await grantCredits({
+        amount: topUpDelta.credits,
+        source: "mock_checkout_purchase",
+        idempotencyKey: createLocalIdempotencyKey(`cart-credit-grant-${topUpDelta.credits}`),
+      });
+
+      if (grant.balance) {
+        publishCreditBalance(grant.balance);
+      } else {
+        publishCreditBalance(await fetchCreditBalance());
+      }
+    }
+
     const blankGiftCount = items.reduce((sum, item) => (
       isBlankSouvenoteGiftId(item.id) ? sum + Math.max(1, item.qty) : sum
     ), 0);
-    applyDemoTopUpFromCart(items);
+    if (topUpDelta.cards > 0) addDemoBalance({ cards: topUpDelta.cards });
     if (blankGiftCount > 0) addBlankSouvenoteGifts(blankGiftCount);
     setCheckoutOpen(false);
     setItems([]);
@@ -486,8 +507,9 @@ function CartPage() {
   const subtotal = items.reduce((sum, item) => sum + item.price * item.qty, 0);
   const lockedCartItem = items.length === 1 && items[0].lockedQuantity && items[0].cardCount ? items[0] : null;
   const lockedCardCount = lockedCartItem?.cardCount ?? 0;
+  const lockedCreditsPerCard = Number(lockedCartItem?.creditsPerCard) || 10;
   const checkoutPack: CheckoutPack = lockedCartItem
-    ? { kind: "cards", name: lockedCartItem.name, price: subtotal, cards: lockedCardCount, tokens: lockedCardCount * 10, bonus: 0 }
+    ? { kind: "cards", name: lockedCartItem.name, price: subtotal, cards: lockedCardCount, tokens: lockedCardCount * lockedCreditsPerCard, bonus: 0 }
     : { kind: "cart", name: "Your cart", price: subtotal, lineCount: count, cardCount };
   const discount = promoApplied ? +(subtotal * 0.10).toFixed(2) : 0;
   const taxable = subtotal - discount;

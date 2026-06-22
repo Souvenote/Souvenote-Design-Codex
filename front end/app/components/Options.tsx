@@ -3,6 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { fetchPricingOffers, type PricingOffer } from "../lib/api";
 import { StampCorners } from "./Ornaments";
 import {
   BIG_SENDER_TIERS,
@@ -77,6 +78,9 @@ type CardPack = {
   id: string;
   name: string;
   price?: string;
+  priceCents?: number;
+  noSendFeeCents?: number;
+  holdDays?: number;
   priceUnit?: string;
   tokens?: string;
   cards?: string;
@@ -122,6 +126,8 @@ type CartItem = {
   unitNote: string;
   replaceGroup?: string;
   cardCount?: number;
+  creditsPerCard?: number;
+  tokens?: string;
   lockedQuantity?: boolean;
 };
 
@@ -562,7 +568,142 @@ const CARD_PACKS_DATA: CardPacksData = {
   },
 };
 
+function centsToDollars(cents?: number) {
+  if (!Number.isFinite(cents)) return null;
+  return Number(((cents ?? 0) / 100).toFixed(2));
+}
+
+function formatCents(cents?: number) {
+  const dollars = centsToDollars(cents);
+  return dollars === null ? undefined : `$${dollars.toFixed(2)}`;
+}
+
+function getNumberMetadata(
+  metadata: Record<string, unknown> | undefined,
+  key: string,
+) {
+  const value = metadata?.[key];
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+function formatCardRange(min: number, max: number) {
+  if (min === max) return `${min} physical 5x7`;
+  return `${min}-${max} physical 5x7`;
+}
+
+function formatTierLabel(min: number, max: number) {
+  if (min === max) return `${min} ${min === 1 ? "card" : "cards"}`;
+  return `${min}-${max}${max >= MAX_BIG_SENDER_CARDS ? "+" : ""} cards`;
+}
+
+function parseFirstNumber(value: unknown): number | undefined {
+  const match = String(value ?? "").match(/\d+/);
+  if (!match) return undefined;
+
+  const next = Number(match[0]);
+  return Number.isFinite(next) ? Math.floor(next) : undefined;
+}
+
+function buildCardPacksData(offers: PricingOffer[]): CardPacksData {
+  const tryRiskFreeOffer = offers.find(
+    (offer) => offer.id === "try_risk_free_one_card" || offer.type === "try_risk_free",
+  );
+  const bigSenderOffers = offers
+    .filter((offer) => offer.type === "big_sender")
+    .sort((a, b) => a.cardCountMin - b.cardCountMin);
+
+  const holdDays = getNumberMetadata(tryRiskFreeOffer?.metadata, "hold_days");
+  const noSendFeeCents = getNumberMetadata(
+    tryRiskFreeOffer?.metadata,
+    "no_send_fee_cents",
+  );
+
+  const bigSenderTiers = bigSenderOffers.map((offer) => ({
+    min: offer.cardCountMin,
+    max: offer.cardCountMax,
+    pricePerCard: centsToDollars(offer.priceCents) ?? 0,
+    label: formatTierLabel(offer.cardCountMin, offer.cardCountMax),
+  }));
+
+  const firstBigSender = bigSenderOffers[0];
+  const lastBigSender = bigSenderOffers[bigSenderOffers.length - 1];
+
+  return {
+    ...CARD_PACKS_DATA,
+    trf: tryRiskFreeOffer
+      ? {
+          ...CARD_PACKS_DATA.trf,
+          id: tryRiskFreeOffer.id,
+          name: tryRiskFreeOffer.name,
+          price: formatCents(tryRiskFreeOffer.priceCents) ?? CARD_PACKS_DATA.trf.price,
+          priceCents: tryRiskFreeOffer.priceCents,
+          noSendFeeCents,
+          holdDays,
+          priceUnit: tryRiskFreeOffer.shippingIncluded
+            ? "shipping included"
+            : CARD_PACKS_DATA.trf.priceUnit,
+          tokens: String(tryRiskFreeOffer.creditsPerCard),
+          cards: formatCardRange(
+            tryRiskFreeOffer.cardCountMin,
+            tryRiskFreeOffer.cardCountMax,
+          ),
+          creditsPerCard: String(tryRiskFreeOffer.creditsPerCard),
+        }
+      : CARD_PACKS_DATA.trf,
+    tiered: bigSenderOffers.length
+      ? {
+          ...CARD_PACKS_DATA.tiered,
+          id: "big_sender",
+          name: "Big Sender",
+          priceUnit: firstBigSender?.shippingIncluded
+            ? "Sliding Scale - Includes shipping and AI creation credits"
+            : CARD_PACKS_DATA.tiered.priceUnit,
+          creditsPerCard: firstBigSender
+            ? String(firstBigSender.creditsPerCard)
+            : CARD_PACKS_DATA.tiered.creditsPerCard,
+          minCards: firstBigSender?.cardCountMin,
+          maxCards: lastBigSender?.cardCountMax,
+          tiers: bigSenderTiers,
+        }
+      : CARD_PACKS_DATA.tiered,
+  };
+}
+
 function CardPacks({ currency }: CardPacksProps) {
+  const [pricingOffers, setPricingOffers] = React.useState<PricingOffer[]>([]);
+  const [pricingStatus, setPricingStatus] = React.useState<"loading" | "ready" | "error">("loading");
+  const [pricingError, setPricingError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    let active = true;
+
+    fetchPricingOffers()
+      .then((offers) => {
+        if (!active) return;
+        setPricingOffers(offers);
+        setPricingStatus("ready");
+        setPricingError(null);
+      })
+      .catch((error: unknown) => {
+        if (!active) return;
+        setPricingStatus("error");
+        setPricingError(
+          error instanceof Error
+            ? error.message
+            : "Pricing could not be loaded from the backend.",
+        );
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const cardPacksData = React.useMemo(() => {
+    if (pricingStatus !== "ready" || pricingOffers.length === 0) return null;
+    return buildCardPacksData(pricingOffers);
+  }, [pricingOffers, pricingStatus]);
+
   return (
     <section className="opt-pricing" data-screen-label="04 Card Packs" id="card-packs">
       <div className="opt-pricing-head">
@@ -578,10 +719,25 @@ function CardPacks({ currency }: CardPacksProps) {
       </div>
 
       {/* Two larger cards, centred — Try Risk-Free · Big Sender */}
-      <div className="opt-pricing-grid opt-pricing-grid-2c">
-        <TryRiskFreeCard pack={CARD_PACKS_DATA.trf} />
-        <TieredPackCard pack={CARD_PACKS_DATA.tiered} />
-      </div>
+      {pricingStatus === "loading" && (
+        <p className="opt-pricing-state" aria-live="polite">
+          Loading live pricing from the local backend...
+        </p>
+      )}
+      {pricingStatus === "error" && (
+        <p className="opt-pricing-state is-error" role="status">
+          Could not load live backend pricing. Start the backend to see card pack prices.
+          {pricingError ? ` ${pricingError}` : ""}
+        </p>
+      )}
+
+      {/* No local fallback prices here for now; this makes backend-sourced pricing obvious during local testing. */}
+      {cardPacksData && (
+        <div className="opt-pricing-grid opt-pricing-grid-2c">
+          <TryRiskFreeCard pack={cardPacksData.trf} />
+          <TieredPackCard pack={cardPacksData.tiered} />
+        </div>
+      )}
 
       <ul className="opt-pricing-notes">
         <li>Each card has a 12 month send window and are saved in Saved Cards &amp; Songs so you can send when the time is right.</li>
@@ -676,6 +832,11 @@ function PackCard({ pack, kind, compact, wide }: PackCardProps) {
   const isCardPack = kind === 'card';
   const cardPack = isCardPack ? pack as CardPack : null;
   const priceUnit = cardPack?.priceUnit;
+  const cardCount = cardPack ? parseFirstNumber(cardPack.cards) : undefined;
+  const rawCreditsPerCard = cardPack?.creditsPerCard ?? cardPack?.tokens;
+  const creditsPerCard = cardPack
+    ? parseFirstNumber(rawCreditsPerCard) ?? (rawCreditsPerCard ? 0 : undefined)
+    : undefined;
   return (
     <article className={`opt-pack opt-pack-${pack.accent} ${pack.featured ? 'is-featured' : ''} ${compact ? 'is-compact' : ''} ${wide ? 'is-wide' : ''}`}>
       {pack.featured && (
@@ -729,6 +890,9 @@ function PackCard({ pack, kind, compact, wide }: PackCardProps) {
         price: parseFloat(String(pack.price).replace(/[^0-9.]/g, '')) || 0,
         qty: 1,
         unitNote: kind === 'credit' ? 'one-time top-up' : 'card pack',
+        ...(kind === 'credit' ? { tokens: pack.tokens } : {}),
+        ...(cardCount ? { cardCount } : {}),
+        ...(creditsPerCard !== undefined ? { creditsPerCard } : {}),
       })}>
         <span>Choose {pack.name}</span>
         <IconSparkArrow />
@@ -812,11 +976,16 @@ function TieredPackCard({ pack }: TieredPackCardProps) {
   const { minCards = MIN_BIG_SENDER_CARDS, maxCards = MAX_BIG_SENDER_CARDS, tiers = BIG_SENDER_TIERS } = pack;
   const [qty, setQty] = React.useState(minCards);
 
+  React.useEffect(() => {
+    setQty((current) => clampBigSenderQuantity(current, minCards, maxCards));
+  }, [minCards, maxCards]);
+
   function setQtyClamped(nextRaw: number | string) {
-    setQty(clampBigSenderQuantity(nextRaw));
+    setQty(clampBigSenderQuantity(nextRaw, minCards, maxCards));
   }
 
-  const pricing = getBigSenderPricing(qty);
+  const pricing = getBigSenderPricing(qty, tiers);
+  const displayQty = pricing.qty;
   const total = pricing.totalText;
 
   return (
@@ -829,7 +998,7 @@ function TieredPackCard({ pack }: TieredPackCardProps) {
       {/* Cost — all three tier prices, in gold */}
       <div className="opt-pack-tiers opt-pack-tiers-hero" role="list" aria-label="Volume tiers">
         {tiers.map((t) => {
-          const active = qty >= t.min && qty <= t.max;
+          const active = displayQty >= t.min && displayQty <= t.max;
           return (
             <button
               key={t.label}
@@ -847,7 +1016,7 @@ function TieredPackCard({ pack }: TieredPackCardProps) {
 
       {/* Scale picker — directly below pricing */}
       <ScalePicker
-        qty={qty}
+        qty={displayQty}
         setQty={setQtyClamped}
         min={minCards}
         max={maxCards}
@@ -864,7 +1033,7 @@ function TieredPackCard({ pack }: TieredPackCardProps) {
         ]}
       />
 
-      <button className="opt-pack-cta is-gold opt-pk-cta" onClick={() => buyAndGo(makeBigSenderCartItem(qty))}>
+      <button className="opt-pack-cta is-gold opt-pk-cta" onClick={() => buyAndGo(makeBigSenderCartItem(displayQty, tiers))}>
         <span>Reserve {qty} cards · ${total}</span>
         <IconSparkArrow />
       </button>
@@ -927,6 +1096,8 @@ function FamilyPackCard({ pack }: FamilyPackCardProps) {
         sub: `Keep up to ${keep} for yourself, gift the rest.`,
         price: parseFloat(total) || 0,
         qty: 1,
+        cardCount: qty,
+        creditsPerCard: parseFirstNumber(pack.creditsPerCard) ?? 10,
         unitNote: `$${pricePerCard.toFixed(2)} / card`,
       })}>
         <span>Reserve {qty} cards · ${total}</span>
@@ -941,30 +1112,46 @@ function FamilyPackCard({ pack }: FamilyPackCardProps) {
 // ============================================================
 function TryRiskFreeCard({ pack }: TryRiskFreeCardProps) {
   const buyAndGo = useSouvBuyAndGo();
+  const holdPrice = pack.price ?? "$9.99";
+  const noSendPrice = formatCents(pack.noSendFeeCents) ?? "$2.00";
+  const holdDays = pack.holdDays ?? 5;
+  const credits = pack.creditsPerCard ?? pack.tokens ?? "10";
+  const shippingLabel = pack.priceUnit === "shipping included"
+    ? "Includes shipping"
+    : pack.priceUnit ?? "Includes shipping";
+  const cardLabel = pack.cards?.startsWith("1")
+    ? "Send 1 card"
+    : pack.cards ?? "Send 1 card";
+
   return (
     <article className="opt-pack opt-pack-unified opt-pack-gold" data-screen-label="04a Try Risk-Free">
       <header className="opt-pk-head">
-        <h3 className="opt-pk-name">Try Risk-Free</h3>
-        <MetaBullets items={['Send 1 card', 'Includes shipping', <span key="credits" className="text-metallic-rose-gold">10 AI creation credits</span>]} />
+        <h3 className="opt-pk-name">{pack.name}</h3>
+        <MetaBullets items={[cardLabel, shippingLabel, <span key="credits" className="text-metallic-rose-gold">{credits} AI creation credits</span>]} />
       </header>
 
       <div className="opt-pk-cost opt-pk-cost-split">
-        <div className="opt-pk-cost-line"><b>$9.99</b><em>if you love it.</em></div>
-        <div className="opt-pk-cost-line"><b>$2.00</b><em>if you don't.</em></div>
+        <div className="opt-pk-cost-line"><b>{holdPrice}</b><em>if you love it.</em></div>
+        <div className="opt-pk-cost-line"><b>{noSendPrice}</b><em>if you don't.</em></div>
       </div>
 
       <div className="opt-pk-rule" />
 
       <HowItWorks
         items={[
-          { label: 'Unlock instantly', body: <>A temporary 5-day hold of <b>$9.99</b> is placed on your card to unlock your <b>10 design credits</b> immediately.</> },
-          { label: 'If you send the card', body: 'The $9.99 hold is finalized. Your card is printed and shipped with no extra fees.' },
-          { label: "If you don't send", body: <>The hold is released after 5 days. You are only charged <b>$2.00</b> for the 10 AI credits.</> },
+          { label: 'Unlock instantly', body: <>A temporary {holdDays}-day hold of <b>{holdPrice}</b> is placed on your card to unlock your <b>{credits} design credits</b> immediately.</> },
+          { label: 'If you send the card', body: `The ${holdPrice} hold is finalized. Your card is printed and shipped with no extra fees.` },
+          { label: "If you don't send", body: <>The hold is released after {holdDays} days. You are only charged <b>{noSendPrice}</b> for the {credits} AI credits.</> },
         ]}
       />
 
-      <button className="opt-pack-cta is-gold opt-pk-cta" onClick={() => buyAndGo(makeTryRiskFreeCartItem())}>
-        <span>Choose Try Risk-Free</span>
+      <button className="opt-pack-cta is-gold opt-pk-cta" onClick={() => buyAndGo(makeTryRiskFreeCartItem({
+        name: pack.name,
+        priceCents: pack.priceCents,
+        creditsPerCard: Number(credits) || 10,
+        holdDays,
+      }))}>
+        <span>Choose {pack.name}</span>
         <IconSparkArrow />
       </button>
     </article>

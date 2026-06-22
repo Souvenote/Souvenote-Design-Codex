@@ -1256,6 +1256,16 @@
   transition: transform .3s var(--ease-brand), box-shadow .3s var(--ease-brand);
 }
 .pt-cta:hover { transform: translateY(-1px); box-shadow: 0 10px 26px rgba(212,175,55,0.4); }
+.pt-cta:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+.pt-cta:disabled:hover {
+  transform: none;
+  box-shadow: none;
+}
 .pt-cta svg { width: 14px; height: 14px; }
 .pt-cta-secondary {
   display: inline-flex; align-items: center; justify-content: center;

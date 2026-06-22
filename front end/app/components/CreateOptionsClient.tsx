@@ -5,7 +5,8 @@ import { Footer } from "./Footer";
 import { Navbar } from "./Navbar";
 import { BackButton, OptionsHeader, TileGrid } from "./Options";
 import { PageChrome } from "./PageChrome";
-import { getTotalDemoCredits, useDemoBalance, ZERO_DEMO_BALANCE } from "./DemoBalance";
+import { useCreditBalance } from "../lib/creditBalance";
+import { useDemoBalance, ZERO_DEMO_BALANCE } from "./DemoBalance";
 import {
   getCreateFlowGate,
 } from "./createFlowRules";
@@ -21,8 +22,13 @@ type CreateTile = {
 
 export function CreateOptionsClient() {
   const router = useRouter();
-  const accountBalance = useDemoBalance(ZERO_DEMO_BALANCE);
-  const totalCredits = getTotalDemoCredits(accountBalance);
+  const demoBalance = useDemoBalance(ZERO_DEMO_BALANCE);
+  const creditBalance = useCreditBalance({ fallbackBalance: 0 });
+  const accountBalance = {
+    credits: { images: creditBalance.balance, songs: 0 },
+    cardBank: demoBalance.cardBank,
+  };
+  const totalCredits = creditBalance.balance;
 
   function handleTileSelect(tile: CreateTile) {
     if (tile.requiresCredits) {
@@ -45,14 +51,14 @@ export function CreateOptionsClient() {
           loggedIn
           user={user}
           credits={accountBalance.credits}
-          cardBank={accountBalance.cardBank}
+          cardBank={demoBalance.cardBank}
           cartCount={0}
         />
         <main>
           <OptionsHeader user={user} credits={totalCredits} lowBalance={totalCredits < 1} />
           <TileGrid
             credits={totalCredits}
-            cardBank={accountBalance.cardBank}
+            cardBank={demoBalance.cardBank}
             onSelect={handleTileSelect}
           />
           <BackButton href="/home" label="Back to home" />

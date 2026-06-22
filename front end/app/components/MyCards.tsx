@@ -8,6 +8,7 @@ import { Footer } from "./Footer";
 import { BmcIcon } from "./BmcShared";
 import { CardArt } from "./CardArt";
 import { useDemoBalance, ZERO_DEMO_BALANCE } from "./DemoBalance";
+import { useCreditBalance } from "../lib/creditBalance";
 import { getCreateFlowGate } from "./createFlowRules";
 import type { CreateGateRequirement } from "./createFlowRules";
 import { goToPricingAfterPurchase } from "./PricingReturn";
@@ -225,6 +226,7 @@ function MyCardsApp({ user, full = true }: MyCardsAppProps) {
   const router = useRouter();
   const [mode, setMode] = React.useState(full);
   const demoBalance = useDemoBalance(ZERO_DEMO_BALANCE);
+  const creditBalance = useCreditBalance({ fallbackBalance: 0 });
   const demoLibrary = useDemoLibrary();
   const blankGiftCount = useBlankSouvenoteGiftCount();
 
@@ -246,7 +248,10 @@ function MyCardsApp({ user, full = true }: MyCardsAppProps) {
   const songs = mode ? [...demoLibrary.songs, ...MCS_SONGS] : [];
 
   function canContinue(requirement: CreateGateRequirement) {
-    const gate = getCreateFlowGate(demoBalance, requirement);
+    const gate = getCreateFlowGate({
+      credits: { images: creditBalance.balance, songs: 0 },
+      cardBank: demoBalance.cardBank,
+    }, requirement);
     if (!gate.allowed) {
       router.push(goToPricingAfterPurchase("/create"));
       return false;

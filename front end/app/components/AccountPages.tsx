@@ -4,6 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import type { DemoUser } from "./DemoUser";
 import { getTotalDemoCredits, useDemoBalance } from "./DemoBalance";
+import { useCreditBalance } from "../lib/creditBalance";
 import { useDemoLibrary } from "./DemoLibrary";
 import { useBlankSouvenoteGiftCount } from "./GiftAddon";
 
@@ -61,13 +62,6 @@ const AccIco = {
   check: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12l4 4 10-10" /></svg>,
 };
 
-const PROFILE_STATS: ProfileStat[] = [
-  { num: "6", label: "Credits", gold: true },
-  { num: "12", label: "Cards made" },
-  { num: "8", label: "Songs made" },
-  { num: "3", label: "Cards in bank" },
-];
-
 const PROFILE_ACTIVITY: ProfileActivity[] = [
   { ico: AccIco.card, title: <>Finished <b>&quot;To the moon and back&quot;</b></>, time: "2 days ago" },
   { ico: AccIco.note, title: <>Generated a <b>Slow R&amp;B Ballad</b></>, time: "2 days ago" },
@@ -83,10 +77,11 @@ const PROFILE_LINKS: ProfileLink[] = [
 
 function ProfilePage({ user }: AccountPageProps) {
   const demoBalance = useDemoBalance();
+  const creditBalance = useCreditBalance({ fallbackBalance: getTotalDemoCredits(demoBalance) });
   const demoLibrary = useDemoLibrary();
   const blankGiftCount = useBlankSouvenoteGiftCount();
   const profileStats: ProfileStat[] = [
-    { num: String(getTotalDemoCredits(demoBalance)), label: "Credits", gold: true },
+    { num: creditBalance.status === "loading" ? "..." : String(creditBalance.balance), label: creditBalance.status === "error" ? "Credits offline" : "Credits", gold: true },
     { num: String(demoLibrary.cards.length), label: "Cards made" },
     { num: String(demoLibrary.songs.length), label: "Songs made" },
     { num: String(demoBalance.cardBank), label: "Cards in bank" },

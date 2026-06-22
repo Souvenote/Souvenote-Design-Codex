@@ -18,7 +18,7 @@ type PanelStatusProps = {
 type ReviewPanelProps = PanelStatusProps & {
   onApprove: () => void;
   onInvalidate?: () => void;
-  onRegenerate?: () => boolean;
+  onRegenerate?: () => boolean | Promise<boolean>;
   editing: boolean;
   setEditing: (editing: boolean) => void;
 };
@@ -53,7 +53,7 @@ type BmcReviewProps = {
   onStartOver?: () => void;
   onApproveAll?: () => void;
   onTopUp?: () => void;
-  onRegenerateAsset?: () => boolean;
+  onRegenerateAsset?: () => boolean | Promise<boolean>;
   credits?: number;
   generating?: boolean;
   includeSong?: boolean;
@@ -99,11 +99,14 @@ function BmcReviewFront({ approved, onApprove, onInvalidate, onRegenerate, editi
 
   React.useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
 
-  function regenerate() {
+  async function regenerate() {
     if (!editMade || panelGenerating) return;
-    const spent = onRegenerate?.() ?? true;
-    if (!spent) return;
     setRegenerating(true);
+    const spent = await (onRegenerate?.() ?? true);
+    if (!spent) {
+      setRegenerating(false);
+      return;
+    }
     timer.current = setTimeout(() => {
       setRegenerating(false);
       setEditing(false);
@@ -218,11 +221,14 @@ function BmcReviewSong({ approved, onApprove, onInvalidate, onRegenerate, editin
 
   React.useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
 
-  function regenerate() {
+  async function regenerate() {
     if (!editMade || panelGenerating) return;
-    const spent = onRegenerate?.() ?? true;
-    if (!spent) return;
     setRegenerating(true);
+    const spent = await (onRegenerate?.() ?? true);
+    if (!spent) {
+      setRegenerating(false);
+      return;
+    }
     timer.current = setTimeout(() => {
       setRegenerating(false);
       setEditing(false);
@@ -469,7 +475,7 @@ function BmcInviteModal({ open, onClose, includeSong = true }: BmcInviteModalPro
   return createPortal(ui, document.body);
 }
 
-function BmcReview({ onStartOver, onApproveAll, onTopUp, onRegenerateAsset, credits = 6, generating = false, includeSong = true }: BmcReviewProps) {
+function BmcReview({ onStartOver, onApproveAll, onTopUp, onRegenerateAsset, credits = 0, generating = false, includeSong = true }: BmcReviewProps) {
   const router = useRouter();
   const [imgApproved, setImgApproved] = React.useState(false);
   const [songApproved, setSongApproved] = React.useState(false);
@@ -490,12 +496,12 @@ function BmcReview({ onStartOver, onApproveAll, onTopUp, onRegenerateAsset, cred
   const approveAll = onApproveAll || (() => router.push('/delivery'));
   const topUp = onTopUp || (() => router.push('/pricing'));
   const outOfCredits = credits <= 0;
-  const spendRegenerationCredit = () => {
+  const spendRegenerationCredit = async () => {
     if (credits <= 0) {
       topUp();
       return false;
     }
-    return onRegenerateAsset?.() ?? true;
+    return await (onRegenerateAsset?.() ?? true);
   };
   const handleApproveAll = () => {
     if (generating) return;
@@ -529,8 +535,8 @@ function BmcReview({ onStartOver, onApproveAll, onTopUp, onRegenerateAsset, cred
           generating={generating}
           onApprove={() => setImgApproved(true)}
           onInvalidate={() => setImgApproved(false)}
-          onRegenerate={() => {
-            const spent = spendRegenerationCredit();
+          onRegenerate={async () => {
+            const spent = await spendRegenerationCredit();
             if (spent) setImgApproved(false);
             return spent;
           }}
@@ -544,8 +550,8 @@ function BmcReview({ onStartOver, onApproveAll, onTopUp, onRegenerateAsset, cred
               generating={generating}
               onApprove={() => setSongApproved(true)}
               onInvalidate={() => setSongApproved(false)}
-              onRegenerate={() => {
-                const spent = spendRegenerationCredit();
+              onRegenerate={async () => {
+                const spent = await spendRegenerationCredit();
                 if (spent) setSongApproved(false);
                 return spent;
               }}

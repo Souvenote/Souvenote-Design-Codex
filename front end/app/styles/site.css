@@ -329,6 +329,8 @@ img { display: block; max-width: 100%; }
   letter-spacing: .14em;
 }
 .souv-credits-stack .souv-credit em { color: var(--platinum-mid); }
+.souv-credits-stack.is-loading .souv-credit:first-child em { color: var(--gold-hi); }
+.souv-credits-stack.is-error .souv-credit:first-child em { color: var(--rose-gold-hi); }
 .souv-credit-bank { position: relative; }
 .souv-credit-bank b { color: var(--rose-gold-hi); }
 

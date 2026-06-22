@@ -421,6 +421,19 @@
 }
 .opt-pricing-lede em { font-style: italic; color: var(--gold-hi); }
 
+.opt-pricing-state {
+  max-width: 720px;
+  margin: -18px auto 24px;
+  text-align: center;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+.opt-pricing-state.is-error {
+  color: var(--rose-gold-hi);
+}
+
 .opt-pricing-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);

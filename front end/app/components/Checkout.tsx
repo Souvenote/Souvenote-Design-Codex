@@ -43,7 +43,7 @@ type CheckoutModalProps = {
   pack?: CheckoutPack | null;
   country?: string;
   onClose: () => void;
-  onPaid?: (pack: CheckoutPack) => void;
+  onPaid?: (pack: CheckoutPack) => void | Promise<void>;
   onBack?: () => void;
 };
 
@@ -156,9 +156,13 @@ function CheckoutModal({ open, pack, country = "CA", onClose, onPaid, onBack }: 
   const [promoApplied, setPromoApplied] = React.useState(false);
   const [card, setCard] = React.useState<CardDetails>({ number: "", exp: "", cvc: "", postal: "" });
   const [processing, setProcessing] = React.useState(false);
+  const [paymentError, setPaymentError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
-    if (open) setProcessing(false);
+    if (open) {
+      setProcessing(false);
+      setPaymentError(null);
+    }
   }, [open, pack]);
 
   if (!open || !pack) return null;
@@ -184,9 +188,16 @@ function CheckoutModal({ open, pack, country = "CA", onClose, onPaid, onBack }: 
 
   function pay() {
     if (!pack) return;
+    if (processing) return;
+    if (!onPaid) return;
     setProcessing(true);
+    setPaymentError(null);
     window.setTimeout(() => {
-      onPaid?.(pack);
+      Promise.resolve(onPaid?.(pack))
+        .catch((error) => {
+          setPaymentError(error instanceof Error ? error.message : "Payment succeeded, but credits could not be added. Please try again.");
+          setProcessing(false);
+        });
     }, 1300);
   }
 
@@ -256,6 +267,11 @@ function CheckoutModal({ open, pack, country = "CA", onClose, onPaid, onBack }: 
             <button type="button" className="bmc-cta co-pay-cta" onClick={pay} style={processing ? { opacity: 0.7, pointerEvents: "none" } : undefined}>
               {processing ? <><span className="bmc-gen-spin" style={{ borderTopColor: "#2a1015", borderColor: "rgba(42,16,21,0.3)" }} /> Processing...</> : <>Pay {coMoney(total)} CAD <BmcIcon name="arrow" w={15} /></>}
             </button>
+            {paymentError && (
+              <div className="co-promo-ok" role="alert" style={{ marginTop: 12, borderColor: "rgba(229,184,177,.45)", color: "var(--rose-gold-hi)" }}>
+                {paymentError}
+              </div>
+            )}
             <div className="co-secure"><BmcIcon name="lock" w={13} /> Payments secured by <b>Stripe</b></div>
             {onBack && <button type="button" className="bmc-text-link" onClick={onBack} style={{ display: "block", margin: "14px auto 0" }}>{"\u2190 Choose a different pack"}</button>}
           </div>

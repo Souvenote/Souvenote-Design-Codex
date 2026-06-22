@@ -25,7 +25,13 @@ type CartTopUpItem = {
   name?: unknown;
   tokens?: unknown;
   cardCount?: unknown;
+  creditsPerCard?: unknown;
   cards?: unknown;
+};
+
+export type CartTopUpDelta = {
+  credits: number;
+  cards: number;
 };
 
 declare global {
@@ -155,6 +161,32 @@ export function addDemoBalance(delta: DemoBalanceDelta): DemoBalance {
   return next;
 }
 
+export function getCartTopUpDelta(items: unknown): CartTopUpDelta {
+  if (!Array.isArray(items) || items.length === 0) return { credits: 0, cards: 0 };
+
+  return (items as CartTopUpItem[]).reduce<CartTopUpDelta>((sum, item) => {
+    const qty = Math.max(1, Math.floor(Number(item?.qty) || 1));
+
+    if (item?.type === "credits") {
+      return {
+        credits: sum.credits + parseFirstNumber(item.tokens || item.meta || item.name) * qty,
+        cards: sum.cards,
+      };
+    }
+
+    if (item?.type === "pack") {
+      const cards = normalizeNumber(item.cardCount, parseFirstNumber(item.meta || item.cards || item.name)) * qty;
+      const creditsPerCard = normalizeNumber(item.creditsPerCard, 10);
+      return {
+        credits: sum.credits + (cards * creditsPerCard),
+        cards: sum.cards + cards,
+      };
+    }
+
+    return sum;
+  }, { credits: 0, cards: 0 });
+}
+
 export function spendDemoCredits(amount: unknown): DemoBalance {
   if (typeof window === "undefined") return DEFAULT_DEMO_BALANCE;
 
@@ -180,28 +212,7 @@ export function spendDemoCredits(amount: unknown): DemoBalance {
 export function applyDemoTopUpFromCart(items: unknown): DemoBalance {
   if (!Array.isArray(items) || items.length === 0) return readDemoBalance();
 
-  const delta = (items as CartTopUpItem[]).reduce<{ credits: number; cards: number }>((sum, item) => {
-    const qty = Math.max(1, Math.floor(Number(item?.qty) || 1));
-
-    if (item?.type === "credits") {
-      return {
-        credits: sum.credits + parseFirstNumber(item.meta || item.name || item.tokens) * qty,
-        cards: sum.cards,
-      };
-    }
-
-    if (item?.type === "pack") {
-      const cards = normalizeNumber(item.cardCount, parseFirstNumber(item.meta || item.cards || item.name)) * qty;
-      return {
-        credits: sum.credits + (cards * 10),
-        cards: sum.cards + cards,
-      };
-    }
-
-    return sum;
-  }, { credits: 0, cards: 0 });
-
-  return addDemoBalance(delta);
+  return addDemoBalance(getCartTopUpDelta(items));
 }
 
 export function clearDemoBalance(): void {

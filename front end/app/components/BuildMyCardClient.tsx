@@ -8,6 +8,7 @@ import { PageChrome } from "./PageChrome";
 import { BmcWizard } from "./BmcWizard";
 import { demoUser } from "./DemoUser";
 import { getTotalDemoCredits, useDemoBalance, ZERO_DEMO_BALANCE } from "./DemoBalance";
+import { useCreditBalance } from "../lib/creditBalance";
 import { MIN_GENERATION_CREDITS } from "./createFlowRules";
 import { goToPricingAfterPurchase } from "./PricingReturn";
 
@@ -26,7 +27,7 @@ export function BuildMyCardClient() {
   const entryGateChecked = React.useRef(false);
   const demoBalance = useDemoBalance(ZERO_DEMO_BALANCE);
   const demoCreditTotal = getTotalDemoCredits(demoBalance);
-  const [credits, setCredits] = React.useState(demoCreditTotal);
+  const creditBalance = useCreditBalance({ fallbackBalance: demoCreditTotal });
 
   React.useEffect(() => {
     const syncHashStep = () => {
@@ -39,27 +40,31 @@ export function BuildMyCardClient() {
   }, []);
 
   React.useEffect(() => {
-    setCredits(demoCreditTotal);
-  }, [demoCreditTotal]);
-
-  React.useEffect(() => {
     setBalanceReady(true);
   }, []);
 
   React.useEffect(() => {
     if (!balanceReady || entryGateChecked.current) return;
+    if (creditBalance.status !== "ready") return;
     entryGateChecked.current = true;
-    if (demoCreditTotal < MIN_GENERATION_CREDITS) {
+    if (creditBalance.balance < MIN_GENERATION_CREDITS) {
       router.replace(goToPricingAfterPurchase("/create/build-my-card"));
     }
-  }, [balanceReady, demoCreditTotal, router]);
+  }, [balanceReady, creditBalance.balance, creditBalance.status, router]);
 
   return (
     <div className="souv-route-page">
       <PageChrome variant="bmc" />
       <div className="bmc-page">
-        <Navbar loggedIn user={demoUser} credits={{ images: credits, songs: 0 }} cardBank={demoBalance.cardBank} cartCount={0} />
-        <main><BmcWizard initialStep={initialStep} credits={credits} setCredits={setCredits} /></main>
+        <Navbar loggedIn user={demoUser} credits={{ images: creditBalance.balance, songs: 0 }} cardBank={demoBalance.cardBank} cartCount={0} />
+        <main>
+          <BmcWizard
+            initialStep={initialStep}
+            credits={creditBalance.balance}
+            creditStatus={creditBalance.status}
+            refreshCredits={creditBalance.refresh}
+          />
+        </main>
         <Footer />
       </div>
     </div>

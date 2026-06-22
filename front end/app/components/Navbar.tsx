@@ -2,6 +2,8 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useCreditBalance } from "../lib/creditBalance";
+import type { CreditBalanceStatus } from "../lib/creditBalance";
 import type { DemoCredits, DemoUser } from "./DemoUser";
 
 type NavLink = {
@@ -21,6 +23,7 @@ type CurrencyOption = {
 type CreditsTickerProps = {
   credits?: number;
   cardBank?: number;
+  status?: CreditBalanceStatus;
 };
 
 type CurrencySelectProps = {
@@ -33,7 +36,8 @@ type CurrencySelectProps = {
 type NavRightProps = {
   loggedIn: boolean;
   user: DemoUser;
-  credits: DemoCredits;
+  creditBalance: number;
+  creditStatus: CreditBalanceStatus;
   cardBank: number;
   cartCount: number;
   profileOpen: boolean;
@@ -94,16 +98,24 @@ function IconMenu() {
   );
 }
 
-function CreditsTicker({ credits = 0, cardBank = 0 }: CreditsTickerProps) {
+function CreditsTicker({ credits = 0, cardBank = 0, status = "idle" }: CreditsTickerProps) {
+  const loading = status === "loading";
+  const error = status === "error";
+  const creditLabel = loading ? "Loading" : error ? "Offline" : "Credits";
+  const creditValue = loading ? "..." : credits;
+  const linkTitle = error
+    ? "Credit balance unavailable. Showing local mock balance."
+    : "View Saved Cards & Songs";
+
   return (
     <div className="souv-balance-wrap">
       <Link
-        className="souv-credits souv-credits-stack souv-credits-link"
+        className={`souv-credits souv-credits-stack souv-credits-link ${loading ? "is-loading" : ""} ${error ? "is-error" : ""}`}
         href="/create/my-cards-and-songs"
-        title="View Saved Cards & Songs"
-        aria-label="View Saved Cards & Songs"
+        title={linkTitle}
+        aria-label={linkTitle}
       >
-        <span className="souv-credit"><em>Credits</em><b>{credits}</b></span>
+        <span className="souv-credit"><em>{creditLabel}</em><b>{creditValue}</b></span>
         <span className="souv-credit souv-credit-bank">
           <em>Cards</em><b>{cardBank}</b>
         </span>
@@ -170,7 +182,8 @@ function CurrencySelect({ currency, setCurrency, open, setOpen }: CurrencySelect
 function NavRight({
   loggedIn,
   user,
-  credits,
+  creditBalance,
+  creditStatus,
   cardBank,
   cartCount,
   profileOpen,
@@ -193,7 +206,7 @@ function NavRight({
 
   return (
     <div className="souv-nav-right">
-      <CreditsTicker credits={(credits.images ?? 0) + (credits.songs ?? 0)} cardBank={cardBank} />
+      <CreditsTicker credits={creditBalance} cardBank={cardBank} status={creditStatus} />
       <span className="souv-nav-sep" />
 
       <CurrencySelect
@@ -300,6 +313,11 @@ function Navbar({
   const [currency, setCurrency] = React.useState<CurrencyCode>("CAD");
   const [currencyOpen, setCurrencyOpen] = React.useState(false);
   const logoSrc = loggedIn ? "/assets/LogoMark.png" : "/assets/WordmarkLobster.png";
+  const localCreditBalance = (credits.images ?? 0) + (credits.songs ?? 0);
+  const creditBalance = useCreditBalance({
+    enabled: loggedIn,
+    fallbackBalance: localCreditBalance,
+  });
 
   return (
     <header className={`souv-nav ${followUserOnScroll ? "is-follow-user-on-scroll" : ""}`}>
@@ -346,7 +364,8 @@ function Navbar({
       <NavRight
         loggedIn={loggedIn}
         user={user}
-        credits={credits}
+        creditBalance={creditBalance.balance}
+        creditStatus={loggedIn && creditBalance.status === "idle" ? "loading" : creditBalance.status}
         cardBank={cardBank}
         cartCount={cartCount}
         profileOpen={profileOpen}
