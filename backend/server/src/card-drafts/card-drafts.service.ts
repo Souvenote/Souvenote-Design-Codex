@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
-import { CreateCardDraftDto } from './card-drafts.controller';
+import { CreateCardDraftDto, UpdateCardDraftDto } from './card-drafts.controller';
 
 @Injectable()
 export class CardDraftsService {
@@ -64,6 +64,36 @@ export class CardDraftsService {
         JSON.stringify(dto.creativeBrief ?? {}),
       ],
     );
+
+    return {
+      cardDraft: result.rows[0],
+    };
+  }
+
+  async updateCardDraft(draftId: string, dto: UpdateCardDraftDto) {
+    const result = await this.databaseService.query(
+      `
+        UPDATE card_drafts
+        SET
+          occasion = COALESCE($2, occasion),
+          relationship = COALESCE($3, relationship),
+          creative_brief = COALESCE($4::jsonb, creative_brief),
+          updated_at = NOW()
+        WHERE id = $1
+          AND deleted_at IS NULL
+        RETURNING id, user_id, occasion, relationship, creative_brief, status, created_at, updated_at;
+      `,
+      [
+        draftId,
+        dto.occasion ?? null,
+        dto.relationship ?? null,
+        dto.creativeBrief === undefined ? null : JSON.stringify(dto.creativeBrief ?? {}),
+      ],
+    );
+
+    if (result.rows.length === 0) {
+      throw new NotFoundException('Card draft not found.');
+    }
 
     return {
       cardDraft: result.rows[0],

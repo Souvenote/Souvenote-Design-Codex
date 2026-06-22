@@ -1,4 +1,4 @@
-import {Controller, Post, Get, Param, Body} from '@nestjs/common';
+import {Controller, Post, Get, Param, Body, Patch} from '@nestjs/common';
 import {CardDraftsService} from './card-drafts.service';
 import {IsString, IsOptional, IsObject} from 'class-validator';
 
@@ -6,6 +6,20 @@ export class CreateCardDraftDto {
   @IsString()
   userId: string;
 
+  @IsOptional()
+  @IsString()
+  occasion?: string;
+
+  @IsOptional()
+  @IsString()
+  relationship?: string;
+
+  @IsOptional()
+  @IsObject()
+  creativeBrief?: Record<string, unknown>;
+}
+
+export class UpdateCardDraftDto {
   @IsOptional()
   @IsString()
   occasion?: string;
@@ -37,5 +51,10 @@ export class CardDraftsController {
     @Post()
     async createCardDraft(@Body() dto: CreateCardDraftDto) {
         return this.cardDraftsService.createCardDraft(dto);
+    }
+
+    @Patch(':draftId')
+    async updateCardDraft(@Param('draftId') draftId: string, @Body() dto: UpdateCardDraftDto) {
+        return this.cardDraftsService.updateCardDraft(draftId, dto);
     }
 }

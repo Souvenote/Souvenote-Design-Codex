@@ -26,6 +26,69 @@ export type CreditBalance = {
   balance: number;
 };
 
+export type CardDraft = {
+  id: string;
+  user_id: string;
+  occasion?: string | null;
+  relationship?: string | null;
+  creative_brief?: Record<string, unknown> | null;
+  status: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type CreateCardDraftRequest = {
+  userId?: string;
+  occasion?: string;
+  relationship?: string;
+  creativeBrief?: Record<string, unknown>;
+};
+
+export type UpdateCardDraftRequest = {
+  occasion?: string;
+  relationship?: string;
+  creativeBrief?: Record<string, unknown>;
+};
+
+type CardDraftResponse = {
+  cardDraft: CardDraft;
+};
+
+type UserCardDraftsResponse = {
+  userId: string;
+  cardDrafts: CardDraft[];
+};
+
+export type CardDraftAsset = {
+  id: string;
+  user_id?: string;
+  card_draft_id?: string | null;
+  generation_job_id?: string | null;
+  asset_type?: string;
+  s3_key?: string | null;
+  moderation_state?: string | null;
+  approved_at?: string | null;
+  print_asset_key?: string | null;
+  qr_metadata?: Record<string, unknown> | null;
+  created_at?: string;
+  userId?: string;
+  cardDraftId?: string | null;
+  generationJobId?: string | null;
+  assetType?: string;
+  storageKey?: string | null;
+  mockUrl?: string | null;
+  moderationState?: string | null;
+  approvedAt?: string | null;
+  printAssetKey?: string | null;
+  qrMetadata?: Record<string, unknown>;
+  createdAt?: string | null;
+};
+
+type CardDraftAssetsResponse = {
+  cardDraftId: string;
+  assets: CardDraftAsset[];
+};
+
 export type StartGenerationRequest = {
   userId?: string;
   cardDraftId?: string;
@@ -55,6 +118,8 @@ export type GrantCreditsResponse = {
   ledgerEntry?: Record<string, unknown>;
   balance?: CreditBalance;
 };
+
+export const CARD_DRAFTS_UPDATED_EVENT = "souv-card-drafts-updated";
 
 async function readErrorMessage(response: Response, fallback: string) {
   try {
@@ -110,6 +175,144 @@ export async function fetchCreditBalance(userId = LOCAL_MOCK_USER_ID): Promise<C
     userId: payload.userId,
     balance: payload.balance,
   };
+}
+
+export async function createCardDraft({
+  userId = LOCAL_MOCK_USER_ID,
+  occasion,
+  relationship,
+  creativeBrief,
+}: CreateCardDraftRequest): Promise<CardDraft> {
+  const response = await fetch(`${API_BASE_URL}/card-drafts`, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      userId,
+      ...(occasion ? { occasion } : {}),
+      ...(relationship ? { relationship } : {}),
+      creativeBrief: creativeBrief ?? {},
+    }),
+  });
+
+  if (!response.ok) {
+    const message = await readErrorMessage(response, `Card draft request failed with status ${response.status}.`);
+    throw new Error(message);
+  }
+
+  const payload = (await response.json()) as Partial<CardDraftResponse>;
+  if (!payload.cardDraft?.id) {
+    throw new Error("Card draft response did not include a draft id.");
+  }
+
+  return payload.cardDraft;
+}
+
+export async function fetchCardDraftById(cardDraftId: string): Promise<CardDraft> {
+  const response = await fetch(`${API_BASE_URL}/card-drafts/${encodeURIComponent(cardDraftId)}`, {
+    headers: {
+      Accept: "application/json",
+    },
+  });
+
+  if (!response.ok) {
+    const message = await readErrorMessage(response, `Card draft request failed with status ${response.status}.`);
+    throw new Error(message);
+  }
+
+  const payload = (await response.json()) as Partial<CardDraftResponse>;
+  if (!payload.cardDraft?.id) {
+    throw new Error("Card draft response did not include a draft id.");
+  }
+
+  return payload.cardDraft;
+}
+
+export async function updateCardDraft(
+  cardDraftId: string,
+  { occasion, relationship, creativeBrief }: UpdateCardDraftRequest,
+): Promise<CardDraft> {
+  const response = await fetch(`${API_BASE_URL}/card-drafts/${encodeURIComponent(cardDraftId)}`, {
+    method: "PATCH",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      ...(occasion ? { occasion } : {}),
+      ...(relationship ? { relationship } : {}),
+      ...(creativeBrief ? { creativeBrief } : {}),
+    }),
+  });
+
+  if (!response.ok) {
+    const message = await readErrorMessage(response, `Card draft update failed with status ${response.status}.`);
+    throw new Error(message);
+  }
+
+  const payload = (await response.json()) as Partial<CardDraftResponse>;
+  if (!payload.cardDraft?.id) {
+    throw new Error("Card draft update response did not include a draft id.");
+  }
+
+  return payload.cardDraft;
+}
+
+export async function fetchUserCardDrafts(userId = LOCAL_MOCK_USER_ID): Promise<CardDraft[]> {
+  const response = await fetch(`${API_BASE_URL}/card-drafts/user/${encodeURIComponent(userId)}`, {
+    headers: {
+      Accept: "application/json",
+    },
+  });
+
+  if (!response.ok) {
+    const message = await readErrorMessage(response, `Card drafts request failed with status ${response.status}.`);
+    throw new Error(message);
+  }
+
+  const payload = (await response.json()) as Partial<UserCardDraftsResponse>;
+  if (!Array.isArray(payload.cardDrafts)) {
+    throw new Error("Card drafts response did not include a cardDrafts array.");
+  }
+
+  return payload.cardDrafts;
+}
+
+export async function fetchCardDraftAssets(cardDraftId: string): Promise<CardDraftAsset[]> {
+  const response = await fetch(`${API_BASE_URL}/assets/card-draft/${encodeURIComponent(cardDraftId)}`, {
+    headers: {
+      Accept: "application/json",
+    },
+  });
+
+  if (!response.ok) {
+    const message = await readErrorMessage(response, `Card draft assets request failed with status ${response.status}.`);
+    throw new Error(message);
+  }
+
+  const payload = (await response.json()) as Partial<CardDraftAssetsResponse>;
+  if (!Array.isArray(payload.assets)) {
+    throw new Error("Card draft assets response did not include an assets array.");
+  }
+
+  return payload.assets;
+}
+
+export async function refreshCardDraftBackendState(cardDraftId: string, userId = LOCAL_MOCK_USER_ID) {
+  const [cardDrafts, assets] = await Promise.all([
+    fetchUserCardDrafts(userId),
+    fetchCardDraftAssets(cardDraftId),
+  ]);
+
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent(CARD_DRAFTS_UPDATED_EVENT, {
+      detail: { userId, cardDraftId, cardDrafts, assets },
+    }));
+  }
+
+  return { cardDrafts, assets };
 }
 
 export async function startGeneration({

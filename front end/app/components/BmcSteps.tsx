@@ -12,6 +12,12 @@ type StepNavProps = {
   onBack?: () => void;
 };
 
+export type BmcDraftInputPatch = {
+  occasion?: string;
+  relationship?: string;
+  creativeBrief?: Record<string, unknown>;
+};
+
 type PhotoPreview = {
   url: string;
   name: string;
@@ -23,14 +29,20 @@ type BmcPhotoStepProps = StepNavProps & {
   describe: boolean;
   setDescribe: (describe: boolean) => void;
   country?: string;
+  initialDraft?: Record<string, unknown>;
+  onDraftPatch?: (patch: BmcDraftInputPatch) => void;
 };
 
 type BmcImageStepProps = StepNavProps & {
   hasPhoto: boolean;
+  initialDraft?: Record<string, unknown>;
+  onDraftPatch?: (patch: BmcDraftInputPatch) => void;
 };
 
 type BmcMessageStepProps = StepNavProps & {
   blueprintLabel?: string;
+  initialDraft?: Record<string, unknown>;
+  onDraftPatch?: (patch: BmcDraftInputPatch) => void;
 };
 
 type BmcSongStepProps = {
@@ -39,6 +51,8 @@ type BmcSongStepProps = {
   onBack?: () => void;
   onGenerate: () => void | Promise<void>;
   generating?: boolean;
+  initialDraft?: Record<string, unknown>;
+  onDraftPatch?: (patch: BmcDraftInputPatch) => void;
 };
 
 type Blueprint = {
@@ -63,16 +77,46 @@ export type GenreGroup = {
 
 type CSSVarStyle = React.CSSProperties & Record<`--${string}`, string | number>;
 
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" ? value as Record<string, unknown> : {};
+}
+
+function nestedRecord(source: Record<string, unknown> | undefined, key: string): Record<string, unknown> {
+  return asRecord(source?.[key]);
+}
+
+function textValue(value: unknown): string {
+  return typeof value === "string" ? value : "";
+}
+
+function booleanValue(value: unknown, fallback = false): boolean {
+  return typeof value === "boolean" ? value : fallback;
+}
+
+function numberValue(value: unknown, fallback = 0): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+
+function stringArrayValue(value: unknown, fallback: string[]): string[] {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : fallback;
+}
+
 // ============================================================
 // STEP 1 — PHOTO
 // ============================================================
 const MAX_REFS = 16;
 
-function BmcPhotoStep({ photoCount, setPhotoCount, describe, setDescribe, onContinue, country = 'CA' }: BmcPhotoStepProps) {
-  const [files, setFiles] = React.useState<PhotoPreview[]>([]);
-  const [describeText, setDescribeText] = React.useState('');
+function BmcPhotoStep({ photoCount, setPhotoCount, describe, setDescribe, onContinue, country = 'CA', initialDraft, onDraftPatch }: BmcPhotoStepProps) {
+  const initialPhoto = nestedRecord(initialDraft, "photo");
+  const initialReferenceImageNames = stringArrayValue(initialPhoto.referenceImageNames, []);
+  const [files, setFiles] = React.useState<PhotoPreview[]>(
+    textValue(initialPhoto.mode) === "upload"
+      ? initialReferenceImageNames.map((name) => ({ name, url: "/assets/LogoMark.png" }))
+      : [],
+  );
+  const [describeText, setDescribeText] = React.useState(textValue(initialPhoto.description));
   const [describeTouched, setDescribeTouched] = React.useState(false);
-  const [attested, setAttested] = React.useState(false); // completed via the gate
+  const [attested, setAttested] = React.useState(booleanValue(initialPhoto.attested)); // completed via the gate
   const [modal, setModal] = React.useState(false);
   const inputRef = React.useRef<HTMLInputElement | null>(null);
   const describeInputRef = React.useRef<HTMLTextAreaElement | null>(null);
@@ -94,6 +138,19 @@ function BmcPhotoStep({ photoCount, setPhotoCount, describe, setDescribe, onCont
   React.useEffect(() => {
     filesRef.current = files;
   }, [files]);
+  React.useEffect(() => {
+    onDraftPatch?.({
+      creativeBrief: {
+        photo: {
+          mode: describe ? "description" : files.length ? "upload" : "unset",
+          description: describe ? describeText.trim() : undefined,
+          referenceImageCount: files.length,
+          referenceImageNames: files.map((file) => file.name),
+          attested,
+        },
+      },
+    });
+  }, [attested, describe, describeText, files, onDraftPatch]);
   React.useEffect(() => {
     return () => {
       filesRef.current.forEach((file) => URL.revokeObjectURL(file.url));
@@ -309,16 +366,39 @@ const OCCASION_ACCENTS: Record<string, string> = {
   'Custom…':      '#D8CDBE', // warm platinum
 };
 
-function BmcBasicsStep({ onContinue, onBack }: StepNavProps) {
-  const [orientation, setOrientation] = React.useState('portrait');
-  const [occasion, setOccasion] = React.useState('');
-  const [custom, setCustom] = React.useState('');
-  const [recipient, setRecipient] = React.useState('');
-  const [phonetic, setPhonetic] = React.useState('');
-  const [relationship, setRelationship] = React.useState('');
-  const [sender, setSender] = React.useState('');
-  const [skipped, setSkipped] = React.useState(false);
+function BmcBasicsStep({ onContinue, onBack, initialDraft, onDraftPatch }: StepNavProps & { initialDraft?: Record<string, unknown>; onDraftPatch?: (patch: BmcDraftInputPatch) => void }) {
+  const initialBasics = nestedRecord(initialDraft, "basics");
+  const initialOccasion = textValue(initialBasics.occasion);
+  const customOccasionLabel = OCCASIONS[OCCASIONS.length - 1];
+  const [orientation, setOrientation] = React.useState(textValue(initialBasics.orientation) || 'portrait');
+  const [occasion, setOccasion] = React.useState(initialOccasion && !OCCASIONS.includes(initialOccasion) ? customOccasionLabel : initialOccasion);
+  const [custom, setCustom] = React.useState(initialOccasion && !OCCASIONS.includes(initialOccasion) ? initialOccasion : '');
+  const [recipient, setRecipient] = React.useState(textValue(initialBasics.recipient));
+  const [phonetic, setPhonetic] = React.useState(textValue(initialBasics.phonetic));
+  const [relationship, setRelationship] = React.useState(textValue(initialBasics.relationship));
+  const [sender, setSender] = React.useState(textValue(initialBasics.sender));
+  const [skipped, setSkipped] = React.useState(booleanValue(initialBasics.skipped));
   const isCustom = occasion === 'Custom…';
+
+  const resolvedOccasion = isCustom ? custom.trim() : occasion;
+
+  React.useEffect(() => {
+    onDraftPatch?.({
+      occasion: resolvedOccasion || undefined,
+      relationship: relationship.trim() || undefined,
+      creativeBrief: {
+        basics: {
+          orientation,
+          occasion: resolvedOccasion || undefined,
+          recipient: recipient.trim() || undefined,
+          phonetic: phonetic.trim() || undefined,
+          relationship: relationship.trim() || undefined,
+          sender: sender.trim() || undefined,
+          skipped,
+        },
+      },
+    });
+  }, [orientation, resolvedOccasion, recipient, phonetic, relationship, sender, skipped, onDraftPatch]);
 
   return (
     <>
@@ -416,23 +496,25 @@ const VIBES: string[] = ['Humorous','Heartfelt','Traditional','Modern','Cute','I
 const ACCENTS: string[] = ['No accents','Flowers','Hearts','Stars/Sparkles','Balloons','Cake','Pets','Custom…'];
 const BORDERS: string[] = ['No border','Watercolor floral','Gold foil','Minimalist line','Vintage frame','Modern geometric','Festive seasonal','Art deco','Custom…'];
 
-function BmcImageStep({ onContinue, onBack, hasPhoto }: BmcImageStepProps) {
+function BmcImageStep({ onContinue, onBack, hasPhoto, initialDraft, onDraftPatch }: BmcImageStepProps) {
+  const initialImage = nestedRecord(initialDraft, "image");
   const firstAllowed = hasPhoto ? 'transform' : 'transform';
-  const [blueprint, setBlueprint] = React.useState(firstAllowed);
-  const [style, setStyle] = React.useState('cinematic');
-  const [vibes, setVibes] = React.useState<string[]>(['Heartfelt']);
-  const [coverMode, setCoverMode] = React.useState('with');
-  const [coverText, setCoverText] = React.useState('');
+  const [blueprint, setBlueprint] = React.useState(textValue(initialImage.blueprint) || firstAllowed);
+  const [style, setStyle] = React.useState(textValue(initialImage.visualStyle) || 'cinematic');
+  const [vibes, setVibes] = React.useState<string[]>(stringArrayValue(initialImage.vibes, ['Heartfelt']));
+  const [coverMode, setCoverMode] = React.useState(textValue(initialImage.coverMode) || 'with');
+  const [coverText, setCoverText] = React.useState(textValue(initialImage.coverText));
   const [captionAttempts, setCaptionAttempts] = React.useState(1);
   const [coverErr, setCoverErr] = React.useState(false);
-  const [accents, setAccents] = React.useState<string[]>(['No accents']);
-  const [border, setBorder] = React.useState('Watercolor floral');
+  const [accents, setAccents] = React.useState<string[]>(stringArrayValue(initialImage.accents, ['No accents']));
+  const [border, setBorder] = React.useState(textValue(initialImage.border) || 'Watercolor floral');
+  const [vision, setVision] = React.useState(textValue(initialImage.vision));
 
   // Free-text "Custom…" values, revealed when the Custom… option is picked.
-  const [styleCustom, setStyleCustom] = React.useState('');
-  const [vibeCustom, setVibeCustom] = React.useState('');
-  const [accentCustom, setAccentCustom] = React.useState('');
-  const [borderCustom, setBorderCustom] = React.useState('');
+  const [styleCustom, setStyleCustom] = React.useState(textValue(initialImage.customVisualStyle));
+  const [vibeCustom, setVibeCustom] = React.useState(textValue(initialImage.customVibe));
+  const [accentCustom, setAccentCustom] = React.useState(textValue(initialImage.customAccent));
+  const [borderCustom, setBorderCustom] = React.useState(textValue(initialImage.customBorder));
 
   const toggleVibe = (v: string) => setVibes(curr =>
     curr.includes(v) ? curr.filter(x => x !== v) : (curr.length >= 3 ? curr : [...curr, v]));
@@ -447,6 +529,28 @@ function BmcImageStep({ onContinue, onBack, hasPhoto }: BmcImageStepProps) {
     }
     return rest.length >= 3 ? rest : [...rest, a];
   });
+
+  React.useEffect(() => {
+    onDraftPatch?.({
+      creativeBrief: {
+        image: {
+          blueprint,
+          visualStyle: style,
+          customVisualStyle: style === "custom" ? styleCustom.trim() || undefined : undefined,
+          vibes,
+          customVibe: vibes.includes("Custom\u2026") ? vibeCustom.trim() || undefined : undefined,
+          vision: vision.trim() || undefined,
+          coverMode,
+          coverText: coverMode === "with" ? coverText.trim() || undefined : undefined,
+          accents,
+          customAccent: accents.includes("Custom\u2026") ? accentCustom.trim() || undefined : undefined,
+          border,
+          customBorder: border === "Custom\u2026" ? borderCustom.trim() || undefined : undefined,
+          hasPhoto,
+        },
+      },
+    });
+  }, [accentCustom, accents, blueprint, border, borderCustom, coverMode, coverText, hasPhoto, onDraftPatch, style, styleCustom, vibeCustom, vibes, vision]);
 
   const SUGGESTED_CAPTIONS = [
     'To the moon and back',
@@ -545,7 +649,12 @@ function BmcImageStep({ onContinue, onBack, hasPhoto }: BmcImageStepProps) {
         {blueprint === 'transform' && (
           <div className="bmc-fieldcard">
             <label className="bmc-label">Describe your vision for the card</label>
-            <textarea className="bmc-textarea is-tall" placeholder="Describe a memory, inside joke, or imaginary story. The more vivid, the better." />
+            <textarea
+              className="bmc-textarea is-tall"
+              placeholder="Describe a memory, inside joke, or imaginary story. The more vivid, the better."
+              value={vision}
+              onChange={(event) => setVision(event.target.value)}
+            />
             <p className="bmc-help">Transform Scene and Style can also inspire optional QR-song lyrics when you include a song.</p>
           </div>
         )}
@@ -623,8 +732,9 @@ function BmcImageStep({ onContinue, onBack, hasPhoto }: BmcImageStepProps) {
 // ============================================================
 // STEP 4 — INSIDE MESSAGE
 // ============================================================
-function BmcMessageStep({ onContinue, onBack, blueprintLabel = 'Transform Scene and Style' }: BmcMessageStepProps) {
-  const [msg, setMsg] = React.useState('');
+function BmcMessageStep({ onContinue, onBack, blueprintLabel = 'Transform Scene and Style', initialDraft, onDraftPatch }: BmcMessageStepProps) {
+  const initialMessage = nestedRecord(initialDraft, "message");
+  const [msg, setMsg] = React.useState(textValue(initialMessage.insideMessage));
   const [attempts, setAttempts] = React.useState(1);
   const [error, setError] = React.useState(false);
   const SUGGESTED_MESSAGES = [
@@ -641,6 +751,17 @@ function BmcMessageStep({ onContinue, onBack, blueprintLabel = 'Transform Scene 
     });
   };
   const charsLeft = 500 - msg.length;
+
+  React.useEffect(() => {
+    onDraftPatch?.({
+      creativeBrief: {
+        message: {
+          blueprintLabel,
+          insideMessage: msg.trim() || undefined,
+        },
+      },
+    });
+  }, [blueprintLabel, msg, onDraftPatch]);
 
   return (
     <>
@@ -715,11 +836,25 @@ you are the song I will never put aside.
 [00:41-00:45 Final]
 To the moon and back — and back, and back.`;
 
-function BmcSongStep({ includeSong, setIncludeSong, onBack, onGenerate, generating = false }: BmcSongStepProps) {
-  const [genre, setGenre] = React.useState('Slow R&B Ballad');
-  const [lyrics, setLyrics] = React.useState(LYRIC_SEED);
+function BmcSongStep({ includeSong, setIncludeSong, onBack, onGenerate, generating = false, initialDraft, onDraftPatch }: BmcSongStepProps) {
+  const initialSong = nestedRecord(initialDraft, "song");
+  const [genre, setGenre] = React.useState(textValue(initialSong.genre) || 'Slow R&B Ballad');
+  const [lyrics, setLyrics] = React.useState(textValue(initialSong.lyrics) || LYRIC_SEED);
   const [editing, setEditing] = React.useState(false);
-  const [remixes, setRemixes] = React.useState(0);
+  const [remixes, setRemixes] = React.useState(numberValue(initialSong.remixes));
+
+  React.useEffect(() => {
+    onDraftPatch?.({
+      creativeBrief: {
+        song: {
+          includeSong,
+          genre: includeSong ? genre : undefined,
+          lyrics: includeSong ? lyrics : undefined,
+          remixes,
+        },
+      },
+    });
+  }, [genre, includeSong, lyrics, onDraftPatch, remixes]);
 
   return (
     <>

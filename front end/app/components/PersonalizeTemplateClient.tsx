@@ -12,9 +12,17 @@ import { useCreditBalance } from "../lib/creditBalance";
 import { MIN_GENERATION_CREDITS } from "./createFlowRules";
 import { goToPricingAfterPurchase } from "./PricingReturn";
 
+type PersonalizeModalStep = "photo" | "birthday" | "caption";
+
+function isPersonalizeModalStep(value: string | null): value is PersonalizeModalStep {
+  return value === "photo" || value === "birthday" || value === "caption";
+}
+
 export function PersonalizeTemplateClient() {
   const router = useRouter();
   const [openModal, setOpenModal] = React.useState(false);
+  const [initialModalStep, setInitialModalStep] = React.useState<PersonalizeModalStep>("photo");
+  const [resumeDraftId, setResumeDraftId] = React.useState<string | null>(null);
   const [balanceReady, setBalanceReady] = React.useState(false);
   const entryGateChecked = React.useRef(false);
   const demoBalance = useDemoBalance(ZERO_DEMO_BALANCE);
@@ -26,7 +34,11 @@ export function PersonalizeTemplateClient() {
   };
 
   React.useEffect(() => {
-    setOpenModal(new URLSearchParams(window.location.search).get("modal") === "1");
+    const params = new URLSearchParams(window.location.search);
+    setOpenModal(params.get("modal") === "1");
+    setResumeDraftId(params.get("draftId"));
+    const requestedStep = params.get("step");
+    setInitialModalStep(isPersonalizeModalStep(requestedStep) ? requestedStep : "photo");
   }, []);
 
   React.useEffect(() => {
@@ -34,13 +46,13 @@ export function PersonalizeTemplateClient() {
   }, []);
 
   React.useEffect(() => {
-    if (!balanceReady || entryGateChecked.current) return;
+    if (!balanceReady || entryGateChecked.current || resumeDraftId) return;
     if (creditBalance.status !== "ready") return;
     entryGateChecked.current = true;
     if (totalCredits < MIN_GENERATION_CREDITS) {
       router.replace(goToPricingAfterPurchase("/create/personalize-a-template"));
     }
-  }, [balanceReady, creditBalance.status, totalCredits, router]);
+  }, [balanceReady, creditBalance.status, resumeDraftId, totalCredits, router]);
 
   return (
     <div className="souv-route-page">
@@ -49,6 +61,8 @@ export function PersonalizeTemplateClient() {
       <main>
         <PersonalizeApp
           openModal={openModal}
+          resumeDraftId={resumeDraftId}
+          initialModalStep={initialModalStep}
           accountBalance={accountBalance}
           creditStatus={creditBalance.status}
           refreshCredits={creditBalance.refresh}

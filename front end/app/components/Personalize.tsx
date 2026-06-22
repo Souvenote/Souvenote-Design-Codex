@@ -6,14 +6,13 @@ import { BmcReview } from "./BmcReview";
 import { BmcErrorModal, bmcError } from "./BmcShared";
 import { OrnamentDivider } from "./Ornaments";
 import { AttestationGate } from "./AttestationGate";
-import { createLocalIdempotencyKey, startGeneration } from "../lib/api";
+import { createCardDraft, createLocalIdempotencyKey, fetchCardDraftById, refreshCardDraftBackendState, startGeneration, updateCardDraft } from "../lib/api";
 import { publishCreditBalance } from "../lib/creditBalance";
 import type { CreditBalanceStatus } from "../lib/creditBalance";
 import { getTotalDemoCredits } from "./DemoBalance";
 import type { DemoBalance } from "./DemoBalance";
 import { CARD_WITH_QR_SONG_CREDITS, MIN_GENERATION_CREDITS } from "./createFlowRules";
 import { goToPricingAfterPurchase } from "./PricingReturn";
-import { addGeneratedSouvenote } from "./DemoLibrary";
 
 // Personalize.tsx - Page 3: Personalize a Template (marketplace + modal + chatbot).
 
@@ -95,9 +94,10 @@ type PhotoPreview = {
 type PtPersonalizeModalProps = {
   tmpl: Template | null;
   open: boolean;
-  onClose: () => void;
-  onCreate?: (includeSong: boolean) => void | Promise<void>;
+  onClose: (draftInput?: PersonalizeDraftInput) => void | Promise<void>;
+  onCreate?: (includeSong: boolean, draftInput: PersonalizeDraftInput) => void | Promise<void>;
   initialStep?: ModalStepId;
+  initialDraftInput?: PersonalizeDraftInput | null;
   generating?: boolean;
 };
 
@@ -117,10 +117,55 @@ type PersonalizeView = "marketplace" | "review";
 
 type PersonalizeAppProps = {
   openModal?: boolean;
+  resumeDraftId?: string | null;
+  initialModalStep?: ModalStepId;
   accountBalance?: DemoBalance;
   creditStatus?: CreditBalanceStatus;
   refreshCredits?: () => Promise<unknown> | unknown;
 };
+
+type PersonalizeDraftInput = {
+  occasion?: string;
+  relationship?: string;
+  creativeBrief: Record<string, unknown>;
+};
+
+const CURRENT_CARD_DRAFT_ID_KEY = "souv_current_card_draft_id";
+
+function buildTemplateDraftInput(tmpl: Template): PersonalizeDraftInput {
+  return {
+    occasion: tmpl.occasion,
+    creativeBrief: {
+      flow: "personalize_template",
+      template: {
+        id: tmpl.id,
+        name: tmpl.name,
+        occasion: tmpl.occasion,
+        tag: tmpl.tag,
+      },
+    },
+  };
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" ? value as Record<string, unknown> : {};
+}
+
+function nestedRecord(source: Record<string, unknown> | undefined, key: string): Record<string, unknown> {
+  return asRecord(source?.[key]);
+}
+
+function textValue(value: unknown): string {
+  return typeof value === "string" ? value : "";
+}
+
+function booleanValue(value: unknown, fallback = false): boolean {
+  return typeof value === "boolean" ? value : fallback;
+}
+
+function stringArrayValue(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+}
 
 // ============================================================
 // ICONS
@@ -931,20 +976,30 @@ const MODAL_STEPS: ModalStep[] = [
   { id: 'caption',   label: 'Caption & Message' },
 ];
 
-function PtPersonalizeModal({ tmpl, open, onClose, onCreate, initialStep = 'photo', generating = false }: PtPersonalizeModalProps) {
+function PtPersonalizeModal({ tmpl, open, onClose, onCreate, initialStep = 'photo', initialDraftInput = null, generating = false }: PtPersonalizeModalProps) {
+  const initialBrief = asRecord(initialDraftInput?.creativeBrief);
+  const initialPhoto = nestedRecord(initialBrief, "photo");
   const [step, setStep] = React.useState<ModalStepId>(initialStep);
-  const [photoPreviews, setPhotoPreviews] = React.useState<PhotoPreview[]>([]);
-  const [attested, setAttested] = React.useState(false);
+  const initialReferenceImageNames = stringArrayValue(initialPhoto.referenceImageNames);
+  const [photoPreviews, setPhotoPreviews] = React.useState<PhotoPreview[]>(
+    textValue(initialPhoto.mode) === "upload"
+      ? initialReferenceImageNames.map((name) => ({ name, url: "/assets/LogoMark.png" }))
+      : [],
+  );
+  const [attested, setAttested] = React.useState(booleanValue(initialPhoto.attested));
   const [gateOpen, setGateOpen] = React.useState(false);
-  const [describe, setDescribe] = React.useState(false);
-  const [describeText, setDescribeText] = React.useState('');
-  const [captionText, setCaptionText] = React.useState('To the moon and back');
+  const [describe, setDescribe] = React.useState(textValue(initialPhoto.mode) === "description");
+  const [describeText, setDescribeText] = React.useState(textValue(initialPhoto.description));
+  const [captionText, setCaptionText] = React.useState(textValue(initialBrief.caption) || 'To the moon and back');
   const [captionAttempts, setCaptionAttempts] = React.useState(1);
-  const [insideMsg, setInsideMsg] = React.useState('');
+  const [insideMsg, setInsideMsg] = React.useState(textValue(initialBrief.insideMessage));
   const [msgAttempts, setMsgAttempts] = React.useState(1);
   const [msgError, setMsgError] = React.useState(false);
   const [describeError, setDescribeError] = React.useState(false);
-  const [includeSong, setIncludeSong] = React.useState(true);
+  const [includeSong, setIncludeSong] = React.useState(booleanValue(initialBrief.includeSong, true));
+  const [birthday, setBirthday] = React.useState(textValue(initialBrief.birthday));
+  const [recipient, setRecipient] = React.useState(textValue(initialBrief.recipient));
+  const [phonetic, setPhonetic] = React.useState(textValue(initialBrief.phonetic));
   const idx = MODAL_STEPS.findIndex(s => s.id === step);
   const last = idx === MODAL_STEPS.length - 1;
   const generationCost = includeSong ? CARD_WITH_QR_SONG_CREDITS : MIN_GENERATION_CREDITS;
@@ -952,7 +1007,6 @@ function PtPersonalizeModal({ tmpl, open, onClose, onCreate, initialStep = 'phot
 
   React.useEffect(() => {
     setStep(initialStep);
-    setIncludeSong(true);
   }, [open, initialStep]);
   React.useEffect(() => {
     return () => {
@@ -1019,9 +1073,39 @@ function PtPersonalizeModal({ tmpl, open, onClose, onCreate, initialStep = 'phot
     generateMessage();
   };
 
+  const buildDraftInput = (): PersonalizeDraftInput => ({
+    occasion: tmpl.occasion,
+    creativeBrief: {
+      flow: "personalize_template",
+      template: {
+        id: tmpl.id,
+        name: tmpl.name,
+        occasion: tmpl.occasion,
+        tag: tmpl.tag,
+      },
+      photo: {
+        mode: describe ? "description" : hasPhoto ? "upload" : "unset",
+        description: describe ? describeText.trim() || undefined : undefined,
+        referenceImageCount: photoPreviews.length,
+        referenceImageNames: photoPreviews.map((photo) => photo.name),
+        attested,
+      },
+      birthday: birthday || undefined,
+      recipient: recipient.trim() || undefined,
+      phonetic: phonetic.trim() || undefined,
+      caption: captionText.trim() || undefined,
+      insideMessage: insideMsg.trim() || undefined,
+      includeSong,
+    },
+  });
+
+  const closeAndSave = () => {
+    void onClose(buildDraftInput());
+  };
+
   return (
     <div className="pt-modal-wrap" role="dialog" aria-modal="true" data-screen-label="03b Personalize Modal">
-      <div className="pt-modal-scrim" onClick={onClose} />
+      <div className="pt-modal-scrim" onClick={closeAndSave} />
       <div className="pt-modal">
         <div className="pt-modal-head">
           <div className="pt-modal-tmpl">
@@ -1033,7 +1117,7 @@ function PtPersonalizeModal({ tmpl, open, onClose, onCreate, initialStep = 'phot
               <div className="pt-modal-tmpl-name">{tmpl.name}</div>
             </div>
           </div>
-          <button className="pt-modal-close" onClick={onClose} aria-label="Close">
+          <button className="pt-modal-close" onClick={closeAndSave} aria-label="Close">
             <PtIcon name="close" w={14} />
           </button>
         </div>
@@ -1170,7 +1254,7 @@ function PtPersonalizeModal({ tmpl, open, onClose, onCreate, initialStep = 'phot
 
               <div className="pt-field">
                 <label className="pt-label">Their birthday <em className="pt-label-opt">· optional</em></label>
-                <input className="pt-input" type="date" />
+                <input className="pt-input" type="date" value={birthday} onChange={(event) => setBirthday(event.target.value)} />
                 <p className="pt-help">Optional. We never share the date; it stays on this card.</p>
               </div>
             </>
@@ -1210,11 +1294,11 @@ function PtPersonalizeModal({ tmpl, open, onClose, onCreate, initialStep = 'phot
               <div className="pt-field-row">
                 <div className="pt-field" style={{ marginBottom: 0 }}>
                   <label className="pt-label">Recipient name <em className="pt-label-opt">· optional</em></label>
-                  <input className="pt-input" placeholder="Who's it for?" />
+                  <input className="pt-input" placeholder="Who's it for?" value={recipient} onChange={(event) => setRecipient(event.target.value)} />
                 </div>
                 <div className="pt-field" style={{ marginBottom: 0 }}>
                   <label className="pt-label">Phonetic spelling <em className="pt-label-opt">· optional</em></label>
-                  <input className="pt-input" placeholder="e.g. KAH-rin" />
+                  <input className="pt-input" placeholder="e.g. KAH-rin" value={phonetic} onChange={(event) => setPhonetic(event.target.value)} />
                 </div>
               </div>
 
@@ -1294,14 +1378,14 @@ function PtPersonalizeModal({ tmpl, open, onClose, onCreate, initialStep = 'phot
                 <PtIcon name="back" w={13} /> Back
               </button>
             ) : (
-              <button type="button" className="pt-link" onClick={onClose}>← Back to marketplace</button>
+              <button type="button" className="pt-link" onClick={closeAndSave}>← Back to marketplace</button>
             )}
             {!last ? (
               <button type="button" className="pt-cta" onClick={goNext}>
                 Continue <PtIcon name="arrow" w={14} />
               </button>
             ) : (
-              <button type="button" className="pt-cta" onClick={() => onCreate && onCreate(includeSong)} disabled={generating}>
+              <button type="button" className="pt-cta" onClick={() => onCreate && onCreate(includeSong, buildDraftInput())} disabled={generating}>
                 {generating ? "Starting..." : "Create my Card"} <PtIcon name="arrow" w={14} />
               </button>
             )}
@@ -1401,6 +1485,8 @@ const PERSONALIZE_DEFAULT_BALANCE: DemoBalance = { credits: { images: 0, songs: 
 
 function PersonalizeApp({
   openModal = false,
+  resumeDraftId = null,
+  initialModalStep = "photo",
   accountBalance = PERSONALIZE_DEFAULT_BALANCE,
   creditStatus = "idle",
   refreshCredits,
@@ -1413,22 +1499,146 @@ function PersonalizeApp({
   const [reviewGen, setReviewGen] = React.useState(false);
   const [reviewIncludeSong, setReviewIncludeSong] = React.useState(true);
   const [generationPending, setGenerationPending] = React.useState(false);
+  const [currentDraftId, setCurrentDraftId] = React.useState<string | null>(null);
+  const [resumeDraftInput, setResumeDraftInput] = React.useState<PersonalizeDraftInput | null>(null);
+  const currentDraftIdRef = React.useRef<string | null>(null);
+  const draftSavePromiseRef = React.useRef<Promise<string> | null>(null);
+  const draftSaveVersionRef = React.useRef(0);
   const totalCredits = getTotalDemoCredits(accountBalance);
 
-  React.useEffect(() => {
-    if (openModal) {
-      setChosen(TEMPLATES[0]);
-      setModalOpen(true);
-    }
-  }, [openModal]);
+  const rememberDraftId = React.useCallback((draftId: string | null) => {
+    currentDraftIdRef.current = draftId;
+    setCurrentDraftId(draftId);
 
-  const onPersonalize = (t: Template) => { setChosen(t); setModalOpen(true); };
-  const onClose = () => { setModalOpen(false); };
+    try {
+      if (draftId) {
+        window.localStorage.setItem(CURRENT_CARD_DRAFT_ID_KEY, draftId);
+      } else {
+        window.localStorage.removeItem(CURRENT_CARD_DRAFT_ID_KEY);
+      }
+    } catch {
+      // Local draft id persistence is best-effort until auth-backed state exists.
+    }
+  }, []);
+
+  const ensureDraftSaved = React.useCallback(async (
+    draftInput: PersonalizeDraftInput,
+    includeSong = true,
+  ) => {
+    if (currentDraftIdRef.current) {
+      await updateCardDraft(currentDraftIdRef.current, {
+        occasion: draftInput.occasion,
+        relationship: draftInput.relationship,
+        creativeBrief: {
+          ...draftInput.creativeBrief,
+          includeSong,
+        },
+      });
+      return currentDraftIdRef.current;
+    }
+    if (draftSavePromiseRef.current) return draftSavePromiseRef.current;
+
+    const saveVersion = draftSaveVersionRef.current;
+    const savePromise = createCardDraft({
+      occasion: draftInput.occasion,
+      relationship: draftInput.relationship,
+      creativeBrief: {
+        ...draftInput.creativeBrief,
+        includeSong,
+      },
+    })
+      .then(async (cardDraft) => {
+        if (saveVersion === draftSaveVersionRef.current) {
+          rememberDraftId(cardDraft.id);
+        }
+        await refreshCardDraftBackendState(cardDraft.id);
+        return cardDraft.id;
+      })
+      .finally(() => {
+        if (draftSavePromiseRef.current === savePromise) {
+          draftSavePromiseRef.current = null;
+        }
+      });
+
+    draftSavePromiseRef.current = savePromise;
+    return savePromise;
+  }, [rememberDraftId]);
+
+  const beginTemplateDraft = React.useCallback((template: Template) => {
+    draftSaveVersionRef.current += 1;
+    draftSavePromiseRef.current = null;
+    setResumeDraftInput(null);
+    rememberDraftId(null);
+    setChosen(template);
+    setModalOpen(true);
+
+    ensureDraftSaved(buildTemplateDraftInput(template)).catch(() => {
+      // The create action will surface backend save errors if the user continues.
+    });
+  }, [ensureDraftSaved, rememberDraftId]);
+
+  React.useEffect(() => {
+    if (!openModal) return;
+
+    if (resumeDraftId) {
+      let cancelled = false;
+      fetchCardDraftById(resumeDraftId)
+        .then((draft) => {
+          if (cancelled) return;
+          const brief = asRecord(draft.creative_brief);
+          const template = nestedRecord(brief, "template");
+          const templateId = textValue(template.id);
+          setResumeDraftInput({
+            occasion: textValue(draft.occasion) || textValue(template.occasion) || undefined,
+            relationship: textValue(draft.relationship) || undefined,
+            creativeBrief: brief,
+          });
+          rememberDraftId(draft.id);
+          setChosen(TEMPLATES.find((candidate) => candidate.id === templateId) || TEMPLATES[0]);
+          setModalOpen(true);
+        })
+        .catch((error) => {
+          if (!cancelled) {
+            bmcError(
+              error instanceof Error ? error.message : "That draft could not be loaded. Please try again.",
+              "Draft could not be loaded",
+            );
+          }
+        });
+
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    if (openModal) {
+      beginTemplateDraft(TEMPLATES[0]);
+    }
+  }, [beginTemplateDraft, openModal, rememberDraftId, resumeDraftId]);
+
+  const onPersonalize = (t: Template) => {
+    beginTemplateDraft(t);
+  };
+  const onClose = async (draftInput?: PersonalizeDraftInput) => {
+    if (draftInput && currentDraftIdRef.current) {
+      try {
+        await updateCardDraft(currentDraftIdRef.current, {
+          occasion: draftInput.occasion,
+          relationship: draftInput.relationship,
+          creativeBrief: draftInput.creativeBrief,
+        });
+        await refreshCardDraftBackendState(currentDraftIdRef.current);
+      } catch {
+        // Closing the modal should not trap the user; generation will surface save errors.
+      }
+    }
+    setModalOpen(false);
+  };
   const openPricingForCredits = () => {
     router.push(goToPricingAfterPurchase('/create/personalize-a-template'));
   };
   // Create my Card → close modal, jump to the Review page (which auto-opens the invite modal while generating).
-  const onCreate = async (includeSong = true) => {
+  const onCreate = async (includeSong = true, draftInput: PersonalizeDraftInput = { creativeBrief: {} }) => {
     if (generationPending) return;
     const generationCost = includeSong ? CARD_WITH_QR_SONG_CREDITS : MIN_GENERATION_CREDITS;
 
@@ -1454,9 +1664,13 @@ function PersonalizeApp({
     setGenerationPending(true);
 
     try {
+      const cardDraftId = await ensureDraftSaved(draftInput, includeSong);
+
       const response = await startGeneration({
+        cardDraftId,
         idempotencyKey: createLocalIdempotencyKey("personalize-template-generation"),
       });
+      await refreshCardDraftBackendState(cardDraftId);
 
       if (response.balance) {
         publishCreditBalance(response.balance);
@@ -1465,13 +1679,6 @@ function PersonalizeApp({
       }
 
     setReviewIncludeSong(includeSong);
-    addGeneratedSouvenote({
-      title: chosen ? `${chosen.name} Souvenote` : "Personalized Souvenote",
-      palette: "gold",
-      glyph: chosen?.name?.slice(0, 1) || "S",
-      includeSong,
-      songName: includeSong ? (chosen ? `${chosen.name} QR Song` : "Personalized Souvenote QR Song") : undefined,
-    });
     setModalOpen(false);
     setView('review');
     setReviewGen(true);
@@ -1489,7 +1696,7 @@ function PersonalizeApp({
       setGenerationPending(false);
     }
   };
-  const backToMarketplace = () => { setReviewGen(false); setView('marketplace'); window.scrollTo(0, 0); };
+  const backToMarketplace = () => { rememberDraftId(null); setReviewGen(false); setView('marketplace'); window.scrollTo(0, 0); };
   const spendRegenerationCredit = async () => {
     if (totalCredits < MIN_GENERATION_CREDITS) {
       bmcError("You need at least 1 credit to regenerate an asset.", "Not enough credits");
@@ -1498,8 +1705,12 @@ function PersonalizeApp({
 
     try {
       const response = await startGeneration({
+        ...(currentDraftId ? { cardDraftId: currentDraftId } : {}),
         idempotencyKey: createLocalIdempotencyKey("personalize-template-regenerate"),
       });
+      if (currentDraftId) {
+        await refreshCardDraftBackendState(currentDraftId);
+      }
 
       if (response.balance) {
         publishCreditBalance(response.balance);
@@ -1539,11 +1750,13 @@ function PersonalizeApp({
     <div className="pt-page">
       <PtMarketplace onPersonalize={onPersonalize} />
       <PtPersonalizeModal
+        key={`${currentDraftId || chosen?.id || "new"}-${initialModalStep}`}
         tmpl={chosen}
         open={modalOpen}
         onClose={onClose}
         onCreate={onCreate}
-        initialStep={openModal ? 'caption' : 'photo'}
+        initialStep={openModal ? initialModalStep : 'photo'}
+        initialDraftInput={resumeDraftInput}
         generating={generationPending}
       />
       <BmcErrorModal />

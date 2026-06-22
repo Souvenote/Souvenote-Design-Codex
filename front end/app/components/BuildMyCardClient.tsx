@@ -23,6 +23,7 @@ function isBuildStep(value: string): value is BuildStep {
 export function BuildMyCardClient() {
   const router = useRouter();
   const [initialStep, setInitialStep] = React.useState<BuildStep>("photo");
+  const [resumeDraftId, setResumeDraftId] = React.useState<string | null>(null);
   const [balanceReady, setBalanceReady] = React.useState(false);
   const entryGateChecked = React.useRef(false);
   const demoBalance = useDemoBalance(ZERO_DEMO_BALANCE);
@@ -31,6 +32,7 @@ export function BuildMyCardClient() {
 
   React.useEffect(() => {
     const syncHashStep = () => {
+      setResumeDraftId(new URLSearchParams(window.location.search).get("draftId"));
       const hash = window.location.hash.replace("#", "");
       if (isBuildStep(hash)) setInitialStep(hash);
     };
@@ -44,13 +46,13 @@ export function BuildMyCardClient() {
   }, []);
 
   React.useEffect(() => {
-    if (!balanceReady || entryGateChecked.current) return;
+    if (!balanceReady || entryGateChecked.current || resumeDraftId) return;
     if (creditBalance.status !== "ready") return;
     entryGateChecked.current = true;
     if (creditBalance.balance < MIN_GENERATION_CREDITS) {
       router.replace(goToPricingAfterPurchase("/create/build-my-card"));
     }
-  }, [balanceReady, creditBalance.balance, creditBalance.status, router]);
+  }, [balanceReady, creditBalance.balance, creditBalance.status, resumeDraftId, router]);
 
   return (
     <div className="souv-route-page">
@@ -60,6 +62,7 @@ export function BuildMyCardClient() {
         <main>
           <BmcWizard
             initialStep={initialStep}
+            resumeDraftId={resumeDraftId}
             credits={creditBalance.balance}
             creditStatus={creditBalance.status}
             refreshCredits={creditBalance.refresh}

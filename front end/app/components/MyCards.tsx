@@ -8,12 +8,8 @@ import { Footer } from "./Footer";
 import { BmcIcon } from "./BmcShared";
 import { CardArt } from "./CardArt";
 import { useDemoBalance, ZERO_DEMO_BALANCE } from "./DemoBalance";
-import { useCreditBalance } from "../lib/creditBalance";
-import { getCreateFlowGate } from "./createFlowRules";
-import type { CreateGateRequirement } from "./createFlowRules";
-import { goToPricingAfterPurchase } from "./PricingReturn";
-import { useDemoLibrary } from "./DemoLibrary";
-import { useBlankSouvenoteGiftCount } from "./GiftAddon";
+import { CARD_DRAFTS_UPDATED_EVENT, fetchCardDraftAssets, fetchUserCardDrafts } from "../lib/api";
+import type { CardDraft, CardDraftAsset } from "../lib/api";
 import type { DemoUser } from "./DemoUser";
 
 type MyCardsAppProps = {
@@ -38,6 +34,7 @@ type McsCard = {
   pal: string;
   glyph: string;
   song?: boolean;
+  message?: boolean;
   gift?: boolean;
   days: number;
   title: string;
@@ -50,6 +47,11 @@ type McsSong = {
   voice: string;
   card: string;
   days: number;
+};
+
+type CardDraftWithAssets = {
+  draft: CardDraft;
+  assets: CardDraftAsset[];
 };
 
 type McsExpiryProps = {
@@ -107,6 +109,149 @@ const MCS_DRAFTS: McsDraft[] = [];
 const MCS_CARDS: McsCard[] = [];
 const MCS_SONGS: McsSong[] = [];
 const MCS_BARS = [12, 18, 24, 16, 30, 22, 12, 26, 20, 28, 14, 24, 10, 22, 28, 16, 24, 12, 20, 26, 14, 22, 18, 28, 11, 20, 16, 24, 20, 12, 24, 28, 14, 20, 10, 24];
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" ? value as Record<string, unknown> : {};
+}
+
+function nestedRecord(source: Record<string, unknown>, key: string): Record<string, unknown> {
+  return asRecord(source[key]);
+}
+
+function textValue(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function assetType(asset: CardDraftAsset): string {
+  return textValue(asset.assetType || asset.asset_type).toLowerCase();
+}
+
+function hasAssetType(assets: CardDraftAsset[], type: string): boolean {
+  return assets.some((asset) => assetType(asset) === type);
+}
+
+function daysUntilExpiry(updatedAt: string): number {
+  const updated = new Date(updatedAt).getTime();
+  if (!Number.isFinite(updated)) return 30;
+
+  const expiry = updated + 30 * 24 * 60 * 60 * 1000;
+  const remaining = Math.ceil((expiry - Date.now()) / (24 * 60 * 60 * 1000));
+  return Math.max(1, remaining);
+}
+
+function formatSavedDate(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "recently";
+
+  return date.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function getDraftTitle(draft: CardDraft): string {
+  const brief = asRecord(draft.creative_brief);
+  const basics = nestedRecord(brief, "basics");
+  const template = nestedRecord(brief, "template");
+  const recipient = textValue(basics.recipient) || textValue(brief.recipient);
+  const occasion = textValue(draft.occasion) || textValue(basics.occasion) || textValue(template.occasion);
+  const templateName = textValue(template.name);
+  return [
+    templateName || occasion || "Custom Souvenote",
+    recipient ? `for ${recipient}` : "",
+  ].filter(Boolean).join(" ");
+}
+
+function draftFlow(draft: CardDraft): string {
+  const brief = asRecord(draft.creative_brief);
+  return textValue(brief.flow);
+}
+
+function hasBriefSection(brief: Record<string, unknown>, key: string): boolean {
+  return Object.keys(nestedRecord(brief, key)).length > 0 || textValue(brief[key]).length > 0;
+}
+
+function personalizeResumeTarget(draftId: string, brief: Record<string, unknown>) {
+  const step = hasBriefSection(brief, "photo")
+    ? hasBriefSection(brief, "birthday") || hasBriefSection(brief, "recipient") || hasBriefSection(brief, "caption") || hasBriefSection(brief, "insideMessage")
+      ? "caption"
+      : "birthday"
+    : "photo";
+
+  return {
+    href: `/create/personalize-a-template?modal=1&draftId=${encodeURIComponent(draftId)}&step=${step}`,
+    where: step === "photo" ? "photo or description" : step === "birthday" ? "birthday details" : "caption and message",
+    step: step === "photo" ? 1 : step === "birthday" ? 2 : 3,
+    total: 3,
+  };
+}
+
+function buildMyCardResumeTarget(draftId: string, brief: Record<string, unknown>) {
+  const baseHref = `/create/build-my-card?draftId=${encodeURIComponent(draftId)}`;
+
+  if (!hasBriefSection(brief, "photo")) {
+    return { href: `${baseHref}#photo`, where: "photo or description", step: 1, total: 5 };
+  }
+
+  if (!hasBriefSection(brief, "basics")) {
+    return { href: `${baseHref}#basics`, where: "the basics", step: 2, total: 5 };
+  }
+
+  if (!hasBriefSection(brief, "image")) {
+    return { href: `${baseHref}#image`, where: "image style", step: 3, total: 5 };
+  }
+
+  if (!hasBriefSection(brief, "message")) {
+    return { href: `${baseHref}#message`, where: "inside message", step: 4, total: 5 };
+  }
+
+  return { href: `${baseHref}#song`, where: "song and generation", step: 5, total: 5 };
+}
+
+function mapDraftToMcsDraft(draft: CardDraft): McsDraft {
+  const flow = draftFlow(draft);
+  const brief = asRecord(draft.creative_brief);
+  const title = getDraftTitle(draft);
+  const resume = flow === "personalize_template" ? personalizeResumeTarget(draft.id, brief) : buildMyCardResumeTarget(draft.id, brief);
+
+  return {
+    id: draft.id,
+    pal: flow === "personalize_template" ? "gold" : "rose",
+    title,
+    flow: flow === "personalize_template" ? "Personalize a Template" : "Build My Card",
+    where: resume.where,
+    step: resume.step,
+    total: resume.total,
+    days: daysUntilExpiry(draft.updated_at || draft.created_at),
+    href: resume.href,
+  };
+}
+
+function mapDraftToMcsCard({ draft, assets }: CardDraftWithAssets): McsCard {
+  const flow = draftFlow(draft);
+  const title = getDraftTitle(draft);
+  return {
+    id: draft.id,
+    pal: flow === "personalize_template" ? "gold" : "rose",
+    glyph: title.slice(0, 1).toUpperCase() || "S",
+    song: hasAssetType(assets, "song"),
+    message: hasAssetType(assets, "message"),
+    days: daysUntilExpiry(draft.updated_at || draft.created_at),
+    title,
+    saved: formatSavedDate(draft.updated_at || draft.created_at),
+  };
+}
+
+function mapDraftAssetsToSongs({ draft, assets }: CardDraftWithAssets): McsSong[] {
+  const title = getDraftTitle(draft);
+  return assets.filter((asset) => assetType(asset) === "song").map((asset, index) => ({
+    id: asset.id || `${draft.id}-song-${index}`,
+    name: `${title} QR Song`,
+    voice: "Generated Souvenote QR song",
+    card: title,
+    days: daysUntilExpiry(draft.updated_at || draft.created_at),
+  }));
+}
 
 function McsExpiry({ days }: McsExpiryProps) {
   const soon = days <= 7;
@@ -179,6 +324,8 @@ function McsCardItem({ c, onMail }: McsCardItemProps) {
             <span className="mcs-card-songdot is-gift"><BmcIcon name="spark2" w={10} /> Gift</span>
           ) : c.song ? (
             <span className="mcs-card-songdot"><BmcIcon name="note" w={10} /> QR song</span>
+          ) : c.message ? (
+            <span className="mcs-card-songdot"><BmcIcon name="edit" w={10} /> Message</span>
           ) : <span />}
           <McsExpiry days={c.days} />
         </div>
@@ -226,42 +373,79 @@ function MyCardsApp({ user, full = true }: MyCardsAppProps) {
   const router = useRouter();
   const [mode, setMode] = React.useState(full);
   const demoBalance = useDemoBalance(ZERO_DEMO_BALANCE);
-  const creditBalance = useCreditBalance({ fallbackBalance: 0 });
-  const demoLibrary = useDemoLibrary();
-  const blankGiftCount = useBlankSouvenoteGiftCount();
+  const [backendDrafts, setBackendDrafts] = React.useState<CardDraftWithAssets[]>([]);
+  const [draftsStatus, setDraftsStatus] = React.useState<"loading" | "ready" | "error">("loading");
+  const [draftsError, setDraftsError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     window.__mcsSetMode = (value) => setMode(value);
   }, []);
 
-  const drafts = mode ? MCS_DRAFTS : [];
-  const blankGiftCards: McsCard[] = Array.from({ length: blankGiftCount }, (_, index) => ({
-    id: `blank-souvenote-gift-${index + 1}`,
-    pal: "gold",
-    glyph: "Gift",
-    gift: true,
-    days: 365,
-    title: blankGiftCount > 1 ? `Blank Souvenote Gift ${index + 1}` : "Blank Souvenote Gift",
-    saved: "ready to give",
-  }));
-  const cards = mode ? [...blankGiftCards, ...demoLibrary.cards, ...MCS_CARDS] : [];
-  const songs = mode ? [...demoLibrary.songs, ...MCS_SONGS] : [];
+  const loadDraftsAndAssets = React.useCallback(async () => {
+    const draftsFromBackend = await fetchUserCardDrafts();
+    const draftsWithAssets = await Promise.all(
+      draftsFromBackend.map(async (draft) => ({
+        draft,
+        assets: await fetchCardDraftAssets(draft.id),
+      })),
+    );
 
-  function canContinue(requirement: CreateGateRequirement) {
-    const gate = getCreateFlowGate({
-      credits: { images: creditBalance.balance, songs: 0 },
-      cardBank: demoBalance.cardBank,
-    }, requirement);
-    if (!gate.allowed) {
-      router.push(goToPricingAfterPurchase("/create"));
-      return false;
-    }
+    return draftsWithAssets;
+  }, []);
 
-    return true;
-  }
+  React.useEffect(() => {
+    let active = true;
+    setDraftsStatus("loading");
+
+    loadDraftsAndAssets()
+      .then((draftsWithAssets) => {
+        if (!active) return;
+        setBackendDrafts(draftsWithAssets);
+        setDraftsStatus("ready");
+        setDraftsError(null);
+      })
+      .catch((error: unknown) => {
+        if (!active) return;
+        setBackendDrafts([]);
+        setDraftsStatus("error");
+        setDraftsError(error instanceof Error ? error.message : "Saved cards could not be loaded from the backend.");
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [loadDraftsAndAssets]);
+
+  React.useEffect(() => {
+    const sync = () => {
+      loadDraftsAndAssets()
+        .then((draftsWithAssets) => {
+          setBackendDrafts(draftsWithAssets);
+          setDraftsStatus("ready");
+          setDraftsError(null);
+        })
+        .catch((error: unknown) => {
+          setBackendDrafts([]);
+          setDraftsStatus("error");
+          setDraftsError(error instanceof Error ? error.message : "Saved cards could not be loaded from the backend.");
+        });
+    };
+
+    window.addEventListener(CARD_DRAFTS_UPDATED_EVENT, sync);
+    return () => window.removeEventListener(CARD_DRAFTS_UPDATED_EVENT, sync);
+  }, [loadDraftsAndAssets]);
+
+  const draftRows = mode
+    ? backendDrafts.filter(({ assets }) => !hasAssetType(assets, "image")).map(({ draft }) => mapDraftToMcsDraft(draft))
+    : [];
+  const cards = mode
+    ? backendDrafts.filter(({ assets }) => hasAssetType(assets, "image")).map(mapDraftToMcsCard)
+    : [];
+  const songs = mode ? backendDrafts.flatMap(mapDraftAssetsToSongs) : [];
+  const hasAnyBackendDrafts = backendDrafts.length > 0;
 
   function startGeneration(href: string) {
-    if (canContinue("generation")) router.push(href);
+    router.push(href);
   }
 
   function mailCard() {
@@ -288,14 +472,30 @@ function MyCardsApp({ user, full = true }: MyCardsAppProps) {
         </div>
 
         <div className="mcs-section" data-screen-label="Section · In progress">
-          <McsSectionHead title="In progress" count={drafts.length || null} />
-          {drafts.length ? (
-            <div className="mcs-drafts">{drafts.map((draft) => <McsDraftRow key={draft.id} d={draft} onResume={startGeneration} />)}</div>
+          <McsSectionHead title="In progress" count={draftRows.length || null} />
+          {draftsStatus === "loading" ? (
+            <McsEmpty
+              icon={<BmcIcon name="edit" w={30} />}
+              title="Loading your drafts"
+              sub="Checking the local backend for cards you have created."
+            />
+          ) : draftsStatus === "error" ? (
+            <McsEmpty
+              icon={<BmcIcon name="edit" w={30} />}
+              title="Saved cards unavailable"
+              sub={`Start the local backend to load your saved drafts. ${draftsError || ""}`.trim()}
+              cta="Create your first card"
+              href="/create"
+            />
+          ) : draftRows.length ? (
+            <div className="mcs-drafts">{draftRows.map((draft) => <McsDraftRow key={draft.id} d={draft} onResume={startGeneration} />)}</div>
           ) : (
             <McsEmpty
               icon={<BmcIcon name="edit" w={30} />}
               title="Nothing in progress"
               sub="Start a card and we'll save your spot here. Come back within 30 days to finish and send."
+              cta="Create your first card"
+              href="/create"
             />
           )}
         </div>
@@ -308,7 +508,9 @@ function MyCardsApp({ user, full = true }: MyCardsAppProps) {
             <McsEmpty
               icon={<BmcIcon name="image" w={30} />}
               title="No saved cards yet"
-              sub="Every card you finish lands here, ready to mail as a physical keepsake or remix again."
+              sub={hasAnyBackendDrafts ? "Generated cards will appear here after the backend returns an image asset for a draft." : "Every card you create lands here, ready to mail as a physical keepsake or remix again."}
+              cta={hasAnyBackendDrafts ? undefined : "Create your first card"}
+              href="/create"
             />
           )}
         </div>

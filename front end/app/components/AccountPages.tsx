@@ -5,7 +5,7 @@ import Link from "next/link";
 import type { DemoUser } from "./DemoUser";
 import { getTotalDemoCredits, useDemoBalance } from "./DemoBalance";
 import { useCreditBalance } from "../lib/creditBalance";
-import { useDemoLibrary } from "./DemoLibrary";
+import { fetchCardDraftAssets, fetchUserCardDrafts } from "../lib/api";
 import { useBlankSouvenoteGiftCount } from "./GiftAddon";
 
 type AccountPageProps = {
@@ -62,12 +62,7 @@ const AccIco = {
   check: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12l4 4 10-10" /></svg>,
 };
 
-const PROFILE_ACTIVITY: ProfileActivity[] = [
-  { ico: AccIco.card, title: <>Finished <b>&quot;To the moon and back&quot;</b></>, time: "2 days ago" },
-  { ico: AccIco.note, title: <>Generated a <b>Slow R&amp;B Ballad</b></>, time: "2 days ago" },
-  { ico: AccIco.send, title: <>Mailed a card to <b>Mom</b></>, time: "6 days ago" },
-  { ico: AccIco.gift, title: <>Earned <b>10 referral credits</b></>, time: "2 weeks ago" },
-];
+const PROFILE_ACTIVITY: ProfileActivity[] = [];
 
 const PROFILE_LINKS: ProfileLink[] = [
   { ico: AccIco.card, label: "Saved Cards & Songs", href: "/create/my-cards-and-songs" },
@@ -78,12 +73,39 @@ const PROFILE_LINKS: ProfileLink[] = [
 function ProfilePage({ user }: AccountPageProps) {
   const demoBalance = useDemoBalance();
   const creditBalance = useCreditBalance({ fallbackBalance: getTotalDemoCredits(demoBalance) });
-  const demoLibrary = useDemoLibrary();
   const blankGiftCount = useBlankSouvenoteGiftCount();
+  const [cardDraftCount, setCardDraftCount] = React.useState(0);
+  const [draftCountStatus, setDraftCountStatus] = React.useState<"loading" | "ready" | "error">("loading");
+
+  React.useEffect(() => {
+    let active = true;
+
+    setDraftCountStatus("loading");
+    fetchUserCardDrafts()
+      .then(async (drafts) => {
+        const assetGroups = await Promise.all(drafts.map((draft) => fetchCardDraftAssets(draft.id)));
+        const completedCount = assetGroups.filter((assets) => (
+          assets.some((asset) => String(asset.assetType || asset.asset_type || "").toLowerCase() === "image")
+        )).length;
+        if (!active) return;
+        setCardDraftCount(completedCount);
+        setDraftCountStatus("ready");
+      })
+      .catch(() => {
+        if (!active) return;
+        setCardDraftCount(0);
+        setDraftCountStatus("error");
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const profileStats: ProfileStat[] = [
     { num: creditBalance.status === "loading" ? "..." : String(creditBalance.balance), label: creditBalance.status === "error" ? "Credits offline" : "Credits", gold: true },
-    { num: String(demoLibrary.cards.length), label: "Cards made" },
-    { num: String(demoLibrary.songs.length), label: "Songs made" },
+    { num: draftCountStatus === "loading" ? "..." : String(cardDraftCount), label: draftCountStatus === "error" ? "Cards offline" : "Cards made" },
+    { num: "0", label: "Songs made" },
     { num: String(demoBalance.cardBank), label: "Cards in bank" },
     ...(blankGiftCount > 0 ? [{ num: String(blankGiftCount), label: "Blank gifts", gold: true }] : []),
   ];
@@ -160,13 +182,19 @@ function ProfilePage({ user }: AccountPageProps) {
         <div className="acc-panel">
           <div className="acc-panel-title">Recent activity</div>
           <div className="acc-activity">
-            {profileActivity.map((activity, index) => (
+            {profileActivity.length ? profileActivity.map((activity, index) => (
               <div className="acc-activity-row" key={index}>
                 <div className="acc-activity-ico">{activity.ico}</div>
                 <div className="acc-activity-main"><div className="acc-activity-title">{activity.title}</div></div>
                 <div className="acc-activity-time">{activity.time}</div>
               </div>
-            ))}
+            )) : (
+              <div className="acc-activity-row">
+                <div className="acc-activity-ico">{AccIco.card}</div>
+                <div className="acc-activity-main"><div className="acc-activity-title">No activity yet. Create your first card to get started.</div></div>
+                <div className="acc-activity-time">New</div>
+              </div>
+            )}
           </div>
         </div>
         <div className="acc-panel">
