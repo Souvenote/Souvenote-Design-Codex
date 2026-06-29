@@ -7,8 +7,19 @@ import { Navbar } from "./Navbar";
 import { Footer } from "./Footer";
 import { BmcIcon, BmcErrorModal, bmcError } from "./BmcShared";
 import { DlvKeepsake } from "./DeliveryKeepsake";
-import { useDemoLibrary } from "./DemoLibrary";
 import { consumeBlankSouvenoteGift, useBlankSouvenoteGiftCount } from "./GiftAddon";
+import { completeMockCheckout, createOrder, fetchCardDraftAssets, startCheckout, submitFulfillment } from "../lib/api";
+import type { CheckoutSession, FulfillmentRecord, Order, PostalAddress } from "../lib/api";
+import {
+  findGeneratedImageAsset,
+  hasGeneratedAsset,
+  MOCK_MVP_FLOW_UPDATED_EVENT,
+  readMockMvpFlowState,
+  rememberCheckoutResult,
+  rememberFulfillmentResult,
+  rememberSelectedAsset,
+  writeMockMvpFlowState,
+} from "../lib/mockMvpFlow";
 import {
   DLV_EMPTY_RECIP,
   dlvCountry,
@@ -42,6 +53,14 @@ type DeliveryOrder = {
   cards: number;
   cardsLeft: number;
 };
+
+type BackendAction =
+  | "idle"
+  | "loading_assets"
+  | "creating_order"
+  | "starting_checkout"
+  | "completing_checkout"
+  | "submitting_fulfillment";
 
 type DlvSentModalProps = {
   open: boolean;
@@ -317,6 +336,46 @@ function dlvArrival(_shipping: string, when: DeliveryWhen, date: string) {
 
 const DELIVERY_DEFAULT_CREDITS: DemoCredits = { images: 0, songs: 0 };
 
+function dlvRecipientName(recipient: DeliveryRecipient, fallback: string) {
+  return [recipient.firstName, recipient.lastName].filter(Boolean).join(" ").trim() || fallback;
+}
+
+function dlvPostalAddress(recipient: DeliveryRecipient, fallbackName: string): PostalAddress {
+  const line1 = [recipient.address1, recipient.address2, recipient.address3].filter(Boolean).join(", ");
+
+  return {
+    name: dlvRecipientName(recipient, fallbackName),
+    line1: line1 || "123 Main St",
+    city: recipient.city || "Toronto",
+    region: recipient.state || "ON",
+    postalCode: recipient.postalCode || "M1M 1M1",
+    country: recipient.country || "CA",
+  };
+}
+
+function deliveryOrderNumber(orderId: string | null | undefined) {
+  return orderId ? `SVN-${orderId.slice(0, 8).toUpperCase()}` : "SVN-MOCK";
+}
+
+function backendStatusLabel(status: string | null | undefined) {
+  switch (status) {
+    case "pending":
+      return "Order created";
+    case "checkout_started":
+      return "Mock checkout started";
+    case "paid_mock":
+      return "Mock checkout paid";
+    case "fulfillment_started":
+      return "Mock fulfillment started";
+    case "fulfilled_mock":
+      return "Fulfilled locally";
+    case "failed_mock":
+      return "Mock fulfillment failed";
+    default:
+      return "Ready for mock checkout";
+  }
+}
+
 function DeliveryApp({ user, initialCards = 0, initialCredits = DELIVERY_DEFAULT_CREDITS }: DeliveryAppProps) {
   const router = useRouter();
   const defaultBalance: DemoBalance = React.useMemo(
@@ -330,13 +389,12 @@ function DeliveryApp({ user, initialCards = 0, initialCredits = DELIVERY_DEFAULT
   const [recipients, setRecipients] = React.useState<DeliveryRecipient[]>([]);
   const [draft, setDraft] = React.useState<DeliveryRecipient>({
     ...DLV_EMPTY_RECIP,
-    title: "Mrs",
-    firstName: "Eleanor",
-    lastName: "Wilson",
-    address1: "88 Beachview Crescent",
-    city: "Victoria",
-    state: "BC",
-    postalCode: "V8N 2K1",
+    firstName: "Alex",
+    lastName: "Smith",
+    address1: "123 Main St",
+    city: "Toronto",
+    state: "ON",
+    postalCode: "M1M 1M1",
     country: "CA",
   });
   const [errors, setErrors] = React.useState<DeliveryErrors>({});
@@ -344,12 +402,12 @@ function DeliveryApp({ user, initialCards = 0, initialCredits = DELIVERY_DEFAULT
   const [returnOn, setReturnOn] = React.useState(true);
   const [sender, setSender] = React.useState<DeliveryRecipient>({
     ...DLV_EMPTY_RECIP,
-    firstName: "Cameron",
-    lastName: "Wilson",
-    address1: "12 Harbour Lane",
-    city: "Vancouver",
-    state: "BC",
-    postalCode: "V6B 1A1",
+    firstName: "Samuel",
+    lastName: "Mathew",
+    address1: "456 Sender St",
+    city: "Waterloo",
+    state: "ON",
+    postalCode: "N2L 1A1",
     country: "CA",
   });
   const [when, setWhen] = React.useState<DeliveryWhen>("now");
@@ -358,8 +416,14 @@ function DeliveryApp({ user, initialCards = 0, initialCredits = DELIVERY_DEFAULT
   const [cardBank, setCardBank] = React.useState(demoBalance.cardBank);
   const credits = demoBalance.credits;
   const [song, setSong] = React.useState(false);
-  const demoLibrary = useDemoLibrary();
-  const songIncluded = demoLibrary.cards[0]?.song !== false;
+  const [flowState, setFlowState] = React.useState(() => readMockMvpFlowState());
+  const [backendOrder, setBackendOrder] = React.useState<Order | null>(null);
+  const [checkoutSession, setCheckoutSession] = React.useState<CheckoutSession | null>(null);
+  const [fulfillment, setFulfillment] = React.useState<FulfillmentRecord | null>(null);
+  const [backendAction, setBackendAction] = React.useState<BackendAction>("idle");
+  const [backendError, setBackendError] = React.useState<string | null>(null);
+  const assetLookupDraftRef = React.useRef<string | null>(null);
+  const songIncluded = flowState.generatedAssets.length ? hasGeneratedAsset(flowState.generatedAssets, "song") : true;
   const [sent, setSent] = React.useState<DeliveryOrder | null>(null);
   const blankGiftCount = useBlankSouvenoteGiftCount();
   const [giftReminderDismissed, setGiftReminderDismissed] = React.useState(false);
@@ -372,9 +436,13 @@ function DeliveryApp({ user, initialCards = 0, initialCredits = DELIVERY_DEFAULT
     setCardBank(demoBalance.cardBank);
   }, [demoBalance.cardBank]);
 
+  const selectedImageAssetId = flowState.selectedAssetId || findGeneratedImageAsset(flowState.generatedAssets)?.id || null;
   const cardsNeeded = mode === "single" ? quantity : Math.max(recipients.length, 0);
-  const enough = cardBank >= cardsNeeded && cardsNeeded > 0;
-  const needsCardTopUp = cardsNeeded > 0 && cardBank < cardsNeeded;
+  const orderStatus = backendOrder?.status || flowState.orderStatus;
+  const hasBackendOrderInputs = Boolean(flowState.cardDraftId && selectedImageAssetId);
+  const enough = hasBackendOrderInputs && cardsNeeded > 0;
+  const needsCardTopUp = false;
+  const backendBusy = backendAction !== "idle";
   const carrier = dlvCountry(draft.country).carrier;
   const goToPricing = React.useCallback(() => {
     router.push("/pricing");
@@ -393,33 +461,81 @@ function DeliveryApp({ user, initialCards = 0, initialCredits = DELIVERY_DEFAULT
   }, [cardsNeeded, defaultBalance, needsCardTopUp, sent]);
 
   React.useEffect(() => {
+    const syncFlowState = () => setFlowState(readMockMvpFlowState());
+
+    syncFlowState();
+    window.addEventListener("storage", syncFlowState);
+    window.addEventListener(MOCK_MVP_FLOW_UPDATED_EVENT, syncFlowState);
+    return () => {
+      window.removeEventListener("storage", syncFlowState);
+      window.removeEventListener(MOCK_MVP_FLOW_UPDATED_EVENT, syncFlowState);
+    };
+  }, []);
+
+  React.useEffect(() => {
+    if (
+      !flowState.cardDraftId
+      || selectedImageAssetId
+      || backendAction !== "idle"
+      || assetLookupDraftRef.current === flowState.cardDraftId
+    ) return;
+
+    let active = true;
+    assetLookupDraftRef.current = flowState.cardDraftId;
+    setBackendAction("loading_assets");
+    setBackendError(null);
+
+    fetchCardDraftAssets(flowState.cardDraftId)
+      .then((assets) => {
+        if (!active || !flowState.cardDraftId) return;
+        const imageAsset = findGeneratedImageAsset(assets);
+        if (imageAsset?.id) {
+          rememberSelectedAsset(flowState.cardDraftId, imageAsset.id, assets);
+        } else {
+          setBackendError("Generated image asset is not ready yet. Go back to Review and wait for generation to finish.");
+        }
+      })
+      .catch((error) => {
+        if (!active) return;
+        setBackendError(error instanceof Error ? error.message : "Generated assets could not be loaded from the backend.");
+      })
+      .finally(() => {
+        if (active) setBackendAction("idle");
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [backendAction, flowState.cardDraftId, selectedImageAssetId]);
+
+  React.useEffect(() => {
     window.__dlvSetCards = setCardBank;
     window.__dlvOpenCheckout = goToPricing;
   }, [goToPricing]);
 
-  function finalizeSend() {
-    const left = cardBank - cardsNeeded;
-    setCardBank(left);
+  function buildSentOrder(order: Order): DeliveryOrder {
     const primary = mode === "single" ? draft : recipients[0];
     const toName = mode === "single"
       ? [primary.title, primary.firstName, primary.lastName].filter(Boolean).join(" ")
       : `${recipients.length} recipients`;
 
-    setSent({
-      number: "SVN-" + Math.random().toString(36).slice(2, 8).toUpperCase(),
+    return {
+      number: deliveryOrderNumber(order.id),
       to: toName,
       carrier,
       scheduled: when === "schedule",
       arrival: dlvArrival(shipping, when, date),
       cards: cardsNeeded,
-      cardsLeft: left,
-    });
+      cardsLeft: cardBank,
+    };
   }
 
-  function handleSend() {
-    if (needsCardTopUp) {
-      setCardTopUpOpen(true);
-      return;
+  function validateDeliveryInputs() {
+    if (!flowState.cardDraftId || !selectedImageAssetId) {
+      const message = "Review a generated card first so Delivery can use the real card draft and generated image asset.";
+      setBackendError(message);
+      bmcError(message, "Generated card needed");
+      return false;
     }
 
     if (mode === "single") {
@@ -431,32 +547,152 @@ function DeliveryApp({ user, initialCards = 0, initialCredits = DELIVERY_DEFAULT
           "Fill in the recipient's required address fields - name, street, city, province and postal code - before sending. We can't mail a card without a complete, deliverable address.",
           "Address needed",
         );
-        return;
+        return false;
       }
     } else if (recipients.length === 0) {
       bmcError("Add at least one recipient address before sending. Fill in the required fields and tap Add recipient.", "Address needed");
+      return false;
+    }
+
+    return true;
+  }
+
+  async function createOrderAndStartMockCheckout() {
+    if (backendBusy || !validateDeliveryInputs() || !flowState.cardDraftId || !selectedImageAssetId) return;
+
+    setBackendError(null);
+    setBackendAction("creating_order");
+
+    try {
+      const primaryRecipient = mode === "single" ? draft : recipients[0];
+      const order = await createOrder({
+        cardDraftId: flowState.cardDraftId,
+        selectedAssetId: selectedImageAssetId,
+        recipientAddress: dlvPostalAddress(primaryRecipient, "Alex Smith"),
+        senderAddress: dlvPostalAddress(sender, "Samuel Mathew"),
+      });
+
+      setBackendOrder(order);
+      writeMockMvpFlowState({
+        cardDraftId: order.cardDraftId,
+        selectedAssetId: order.selectedAssetId,
+        orderId: order.id,
+        orderStatus: order.status,
+      });
+
+      setBackendAction("starting_checkout");
+      const checkout = await startCheckout(order.id);
+      setBackendOrder(checkout.order);
+      setCheckoutSession(checkout.checkoutSession);
+      rememberCheckoutResult(checkout.order, checkout.checkoutSession);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "The mock checkout flow could not start.";
+      setBackendError(message);
+      bmcError(message, "Mock checkout failed");
+    } finally {
+      setBackendAction("idle");
+    }
+  }
+
+  async function completeCheckout() {
+    const orderId = backendOrder?.id || flowState.orderId;
+    if (backendBusy || !orderId) return;
+
+    setBackendError(null);
+    setBackendAction("completing_checkout");
+
+    try {
+      const checkout = await completeMockCheckout(orderId);
+      setBackendOrder(checkout.order);
+      setCheckoutSession(checkout.checkoutSession);
+      rememberCheckoutResult(checkout.order, checkout.checkoutSession);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Mock checkout could not be completed.";
+      setBackendError(message);
+      bmcError(message, "Mock checkout failed");
+    } finally {
+      setBackendAction("idle");
+    }
+  }
+
+  async function submitMockFulfillment() {
+    const order = backendOrder;
+    const orderId = order?.id || flowState.orderId;
+    const currentStatus = order?.status || flowState.orderStatus;
+    if (backendBusy || !orderId) return;
+
+    if (currentStatus !== "paid_mock") {
+      const message = "Complete mock checkout before submitting fulfillment.";
+      setBackendError(message);
+      bmcError(message, "Checkout required");
       return;
     }
+
+    setBackendError(null);
+    setBackendAction("submitting_fulfillment");
+
+    try {
+      const result = await submitFulfillment(orderId);
+      setBackendOrder(result.order);
+      setFulfillment(result.fulfillment);
+      rememberFulfillmentResult(result.order, result.fulfillment);
+      setSent(buildSentOrder(result.order));
+      router.push("/delivery/confirmation");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Mock fulfillment could not be submitted.";
+      setBackendError(message);
+      bmcError(message, "Mock fulfillment failed");
+    } finally {
+      setBackendAction("idle");
+    }
+  }
+
+  function handlePrimaryAction() {
+    if (orderStatus === "checkout_started") {
+      void completeCheckout();
+      return;
+    }
+
+    if (orderStatus === "paid_mock") {
+      void submitMockFulfillment();
+      return;
+    }
+
+    if (orderStatus === "fulfilled_mock") {
+      router.push("/delivery/confirmation");
+      return;
+    }
+
+    handleSend();
+  }
+
+  function handleSend() {
+    if (needsCardTopUp) {
+      setCardTopUpOpen(true);
+      return;
+    }
+
+    if (!validateDeliveryInputs()) return;
 
     if (blankGiftCount > 0) {
       setGiftModalOpen(true);
       return;
     }
 
-    finalizeSend();
+    void createOrderAndStartMockCheckout();
   }
 
   function keepGiftForLaterAndSend() {
     setGiftModalOpen(false);
     setGiftReminderDismissed(true);
-    finalizeSend();
+    void createOrderAndStartMockCheckout();
   }
 
   function saveGiftRecipientAndSend() {
     consumeBlankSouvenoteGift();
     setGiftModalOpen(false);
     setGiftReminderDismissed(true);
-    finalizeSend();
+    void createOrderAndStartMockCheckout();
   }
 
   function reserveCardsForDelivery(quantity: number) {
@@ -465,6 +701,22 @@ function DeliveryApp({ user, initialCards = 0, initialCredits = DELIVERY_DEFAULT
     setCardTopUpOpen(false);
     router.push("/cart");
   }
+
+  const primaryActionLabel = (() => {
+    if (backendAction === "loading_assets") return "Loading assets...";
+    if (backendAction === "creating_order") return "Creating order...";
+    if (backendAction === "starting_checkout") return "Starting checkout...";
+    if (backendAction === "completing_checkout") return "Completing checkout...";
+    if (backendAction === "submitting_fulfillment") return "Submitting fulfillment...";
+    if (orderStatus === "checkout_started") return "Complete mock checkout";
+    if (orderStatus === "paid_mock") return "Submit mock fulfillment";
+    if (orderStatus === "fulfilled_mock") return "View confirmation";
+    return "Start mock checkout";
+  })();
+
+  const backendStatus = backendStatusLabel(orderStatus);
+  const checkoutDetail = checkoutSession?.id || flowState.checkoutSessionId;
+  const fulfillmentDetail = fulfillment?.mockFulfillmentId || flowState.fulfillment?.mockFulfillmentId;
 
   return (
     <>
@@ -482,7 +734,7 @@ function DeliveryApp({ user, initialCards = 0, initialCredits = DELIVERY_DEFAULT
           </h1>
           <p className="bmc-lede" style={{ margin: "0 auto" }}>
             Your card is printed and folded, your message is hand-written in real ink, and any optional song is tucked
-            behind a QR code inside. Tell us where it&apos;s going. Sending costs one card from your bank.
+            behind a QR code inside. Tell us where it&apos;s going, then walk the local mock order through checkout and fulfillment.
           </p>
         </div>
 
@@ -533,20 +785,20 @@ function DeliveryApp({ user, initialCards = 0, initialCredits = DELIVERY_DEFAULT
           <div className="dlv-cost">
             <span className="dlv-cost-main">
               <BmcIcon name="message" w={15} />
-              {cardsNeeded > 1 ? `Sending ${cardsNeeded} cards` : "Sending 1 card"}
+              {backendStatus}
             </span>
             <span className={`dlv-cost-sub ${!enough ? "is-low" : ""}`}>
-              {enough
-                ? <>Uses {cardsNeeded} of {cardBank} in your card bank {"\u00b7"} <button type="button" className="dlv-topup-link" onClick={goToPricing}>Top up</button></>
-                : <>Top up your card balance to send this Souvenote.</>}
+              {backendError
+                ? backendError
+                : enough
+                  ? <>Draft {flowState.cardDraftId?.slice(0, 8)} {"\u00b7"} image asset {selectedImageAssetId?.slice(0, 8)}{checkoutDetail ? ` \u00b7 checkout ${checkoutDetail.slice(0, 18)}` : ""}{fulfillmentDetail ? ` \u00b7 ${fulfillmentDetail.slice(0, 24)}` : ""}</>
+                  : <>Go back to Review so Delivery can use a generated backend image asset.</>}
             </span>
           </div>
           <div className="dlv-actionbar-right">
             <Link href="/create/build-my-card#review" className="bmc-cta-secondary"><BmcIcon name="back" w={14} /> Back to review</Link>
-            <button type="button" className="bmc-cta bmc-cta-lg" onClick={handleSend}>
-              {enough
-                ? <>{cardsNeeded > 1 ? `Send ${cardsNeeded} cards` : "Send my card"} <BmcIcon name="arrow" w={16} /></>
-                : <>Top up balance <BmcIcon name="arrow" w={16} /></>}
+            <button type="button" className="bmc-cta bmc-cta-lg" onClick={handlePrimaryAction} disabled={backendBusy || (!enough && orderStatus !== "fulfilled_mock")}>
+              {primaryActionLabel} <BmcIcon name="arrow" w={16} />
             </button>
           </div>
         </div>

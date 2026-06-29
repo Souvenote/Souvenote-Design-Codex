@@ -84,6 +84,36 @@ export type CardDraftAsset = {
   createdAt?: string | null;
 };
 
+export type MockUploadRequest = {
+  userId?: string;
+  cardDraftId: string;
+  filename: string;
+  mimeType: string;
+  size: number;
+};
+
+export type MockUpload = {
+  id: string;
+  userId: string;
+  cardDraftId: string;
+  assetId?: string | null;
+  filename: string;
+  mimeType: string;
+  size: number;
+  status: string;
+  attestationAccepted?: boolean;
+  uploadedAt?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+  mockUrl?: string | null;
+  storageKey?: string | null;
+};
+
+export type MockUploadResponse = {
+  upload?: MockUpload;
+  asset?: CardDraftAsset | null;
+};
+
 type CardDraftAssetsResponse = {
   cardDraftId: string;
   assets: CardDraftAsset[];
@@ -101,10 +131,93 @@ export type GenerationStartResponse = {
     credits_charged?: number;
     [key: string]: unknown;
   };
-  savedAssets?: unknown[];
+  savedAssets?: CardDraftAsset[];
   mockAssets?: Record<string, unknown>;
   creditDeduction?: Record<string, unknown>;
   balance?: CreditBalance;
+};
+
+export type PostalAddress = {
+  name: string;
+  line1: string;
+  city: string;
+  region: string;
+  postalCode: string;
+  country: string;
+  line2?: string;
+};
+
+export type CreateOrderRequest = {
+  userId?: string;
+  cardDraftId: string;
+  selectedAssetId: string;
+  recipientAddress: PostalAddress;
+  senderAddress: PostalAddress;
+};
+
+export type Order = {
+  id: string;
+  userId: string;
+  cardDraftId: string | null;
+  selectedAssetId: string | null;
+  status: string;
+  offerCode?: string | null;
+  amountCents?: number;
+  currency?: string;
+  checkoutSessionId?: string | null;
+  paymentId?: string | null;
+  fulfillmentJobId?: string | null;
+  mockFulfillmentId?: string | null;
+  trackingUrl?: string | null;
+  recipientAddress?: Record<string, unknown>;
+  senderAddress?: Record<string, unknown>;
+  qrCodeUrl?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+};
+
+type OrderResponse = {
+  order: Order;
+};
+
+export type CheckoutSession = {
+  id: string;
+  orderId: string;
+  paymentId: string;
+  providerMode?: string;
+  status: string;
+  amountCents?: number;
+  currency?: string;
+  checkoutUrl?: string;
+  successUrl?: string | null;
+  cancelUrl?: string | null;
+  createdAt?: string | null;
+  paidAt?: string | null;
+};
+
+export type CheckoutResponse = {
+  checkoutSession: CheckoutSession;
+  order: Order;
+};
+
+export type FulfillmentRecord = {
+  id: string;
+  orderId: string;
+  userId: string;
+  providerMode?: string;
+  mockFulfillmentId?: string;
+  status: string;
+  submittedAt?: string | null;
+  estimatedDelivery?: string;
+  requestPayload?: Record<string, unknown>;
+  responsePayload?: Record<string, unknown>;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+};
+
+export type FulfillmentSubmitResponse = {
+  fulfillment: FulfillmentRecord;
+  order: Order;
 };
 
 export type GrantCreditsRequest = {
@@ -300,6 +413,36 @@ export async function fetchCardDraftAssets(cardDraftId: string): Promise<CardDra
   return payload.assets;
 }
 
+export async function mockUpload({
+  userId = LOCAL_MOCK_USER_ID,
+  cardDraftId,
+  filename,
+  mimeType,
+  size,
+}: MockUploadRequest): Promise<MockUploadResponse> {
+  const response = await fetch(`${API_BASE_URL}/uploads/mock`, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      userId,
+      cardDraftId,
+      filename,
+      mimeType,
+      size,
+    }),
+  });
+
+  if (!response.ok) {
+    const message = await readErrorMessage(response, `Mock upload failed with status ${response.status}.`);
+    throw new Error(message);
+  }
+
+  return (await response.json()) as MockUploadResponse;
+}
+
 export async function refreshCardDraftBackendState(cardDraftId: string, userId = LOCAL_MOCK_USER_ID) {
   const [cardDrafts, assets] = await Promise.all([
     fetchUserCardDrafts(userId),
@@ -339,6 +482,119 @@ export async function startGeneration({
   }
 
   return (await response.json()) as GenerationStartResponse;
+}
+
+export async function createOrder({
+  userId = LOCAL_MOCK_USER_ID,
+  cardDraftId,
+  selectedAssetId,
+  recipientAddress,
+  senderAddress,
+}: CreateOrderRequest): Promise<Order> {
+  const response = await fetch(`${API_BASE_URL}/orders`, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      userId,
+      cardDraftId,
+      selectedAssetId,
+      recipientAddress,
+      senderAddress,
+    }),
+  });
+
+  if (!response.ok) {
+    const message = await readErrorMessage(response, `Order creation failed with status ${response.status}.`);
+    throw new Error(message);
+  }
+
+  const payload = (await response.json()) as Partial<OrderResponse>;
+  if (!payload.order?.id) {
+    throw new Error("Order response did not include an order id.");
+  }
+
+  return payload.order;
+}
+
+export async function startCheckout(orderId: string): Promise<CheckoutResponse> {
+  const response = await fetch(`${API_BASE_URL}/checkout/start`, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ orderId }),
+  });
+
+  if (!response.ok) {
+    const message = await readErrorMessage(response, `Checkout start failed with status ${response.status}.`);
+    throw new Error(message);
+  }
+
+  const payload = (await response.json()) as Partial<CheckoutResponse>;
+  if (!payload.checkoutSession?.id || !payload.order?.id) {
+    throw new Error("Checkout response did not include a checkout session and order.");
+  }
+
+  return {
+    checkoutSession: payload.checkoutSession,
+    order: payload.order,
+  };
+}
+
+export async function completeMockCheckout(orderId: string): Promise<CheckoutResponse> {
+  const response = await fetch(`${API_BASE_URL}/checkout/mock-success`, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ orderId }),
+  });
+
+  if (!response.ok) {
+    const message = await readErrorMessage(response, `Mock checkout completion failed with status ${response.status}.`);
+    throw new Error(message);
+  }
+
+  const payload = (await response.json()) as Partial<CheckoutResponse>;
+  if (!payload.checkoutSession?.id || !payload.order?.id) {
+    throw new Error("Mock checkout response did not include a checkout session and order.");
+  }
+
+  return {
+    checkoutSession: payload.checkoutSession,
+    order: payload.order,
+  };
+}
+
+export async function submitFulfillment(orderId: string): Promise<FulfillmentSubmitResponse> {
+  const response = await fetch(`${API_BASE_URL}/fulfillment/submit`, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ orderId }),
+  });
+
+  if (!response.ok) {
+    const message = await readErrorMessage(response, `Fulfillment submit failed with status ${response.status}.`);
+    throw new Error(message);
+  }
+
+  const payload = (await response.json()) as Partial<FulfillmentSubmitResponse>;
+  if (!payload.fulfillment?.id || !payload.order?.id) {
+    throw new Error("Fulfillment response did not include a fulfillment record and order.");
+  }
+
+  return {
+    fulfillment: payload.fulfillment,
+    order: payload.order,
+  };
 }
 
 export async function grantCredits({

@@ -8,7 +8,7 @@ import { AttestationGate } from "./AttestationGate";
 // Depends on shared primitives from BmcShared.
 
 type StepNavProps = {
-  onContinue: () => void;
+  onContinue: () => void | Promise<void>;
   onBack?: () => void;
 };
 
@@ -21,6 +21,8 @@ export type BmcDraftInputPatch = {
 type PhotoPreview = {
   url: string;
   name: string;
+  mimeType?: string;
+  size?: number;
 };
 
 type BmcPhotoStepProps = StepNavProps & {
@@ -31,6 +33,7 @@ type BmcPhotoStepProps = StepNavProps & {
   country?: string;
   initialDraft?: Record<string, unknown>;
   onDraftPatch?: (patch: BmcDraftInputPatch) => void;
+  uploading?: boolean;
 };
 
 type BmcImageStepProps = StepNavProps & {
@@ -101,17 +104,37 @@ function stringArrayValue(value: unknown, fallback: string[]): string[] {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : fallback;
 }
 
+function referenceImageValue(value: unknown): PhotoPreview[] {
+  if (!Array.isArray(value)) return [];
+
+  return value.flatMap((item) => {
+    const record = asRecord(item);
+    const name = textValue(record.filename) || textValue(record.name);
+    if (!name) return [];
+
+    return [{
+      name,
+      url: "/assets/LogoMark.png",
+      mimeType: textValue(record.mimeType) || undefined,
+      size: numberValue(record.size, 0) || undefined,
+    }];
+  });
+}
+
 // ============================================================
 // STEP 1 — PHOTO
 // ============================================================
 const MAX_REFS = 16;
 
-function BmcPhotoStep({ photoCount, setPhotoCount, describe, setDescribe, onContinue, country = 'CA', initialDraft, onDraftPatch }: BmcPhotoStepProps) {
+function BmcPhotoStep({ photoCount, setPhotoCount, describe, setDescribe, onContinue, country = 'CA', initialDraft, onDraftPatch, uploading = false }: BmcPhotoStepProps) {
   const initialPhoto = nestedRecord(initialDraft, "photo");
   const initialReferenceImageNames = stringArrayValue(initialPhoto.referenceImageNames, []);
+  const initialReferenceImages = referenceImageValue(initialPhoto.referenceImages);
   const [files, setFiles] = React.useState<PhotoPreview[]>(
     textValue(initialPhoto.mode) === "upload"
-      ? initialReferenceImageNames.map((name) => ({ name, url: "/assets/LogoMark.png" }))
+      ? initialReferenceImages.length
+        ? initialReferenceImages
+        : initialReferenceImageNames.map((name) => ({ name, url: "/assets/LogoMark.png" }))
       : [],
   );
   const [describeText, setDescribeText] = React.useState(textValue(initialPhoto.description));
@@ -146,6 +169,11 @@ function BmcPhotoStep({ photoCount, setPhotoCount, describe, setDescribe, onCont
           description: describe ? describeText.trim() : undefined,
           referenceImageCount: files.length,
           referenceImageNames: files.map((file) => file.name),
+          referenceImages: files.map((file) => ({
+            filename: file.name,
+            mimeType: file.mimeType,
+            size: file.size,
+          })),
           attested,
         },
       },
@@ -163,7 +191,15 @@ function BmcPhotoStep({ photoCount, setPhotoCount, describe, setDescribe, onCont
   const addFiles = (list: FileList | File[] | null) => {
     const incoming = Array.from(list || []).filter((file) => /image\/(jpeg|png|webp)/.test(file.type));
     setFiles(curr => {
-      const next = [...curr, ...incoming.map((file) => ({ url: URL.createObjectURL(file), name: file.name }))].slice(0, MAX_REFS);
+      const next = [
+        ...curr,
+        ...incoming.map((file) => ({
+          url: URL.createObjectURL(file),
+          name: file.name,
+          mimeType: file.type,
+          size: file.size,
+        })),
+      ].slice(0, MAX_REFS);
       return next;
     });
     setDescribe(false);
@@ -183,7 +219,7 @@ function BmcPhotoStep({ photoCount, setPhotoCount, describe, setDescribe, onCont
       return;
     }
     if (hasFiles && !attestOk) { setModal(true); return; }
-    onContinue();
+    void onContinue();
   };
 
   const openDescribeSection = () => {
@@ -304,14 +340,15 @@ function BmcPhotoStep({ photoCount, setPhotoCount, describe, setDescribe, onCont
       <BmcFoot
         costLabel={<FreeCost />}
         onNext={tryContinue}
-        nextLabel="Continue"
+        nextLabel={uploading ? "Saving upload..." : "Continue"}
+        disabled={uploading}
       />
 
       {/* Read-to-the-bottom attestation gate */}
       <AttestationGate
         open={modal}
         onClose={() => setModal(false)}
-        onAgree={() => { setAttested(true); setModal(false); onContinue(); }}
+        onAgree={() => { setAttested(true); setModal(false); void onContinue(); }}
       />
 
       {describe && describeTouched && !hasDescription && (

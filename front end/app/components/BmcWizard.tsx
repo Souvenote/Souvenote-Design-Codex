@@ -2,8 +2,10 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { createCardDraft, createLocalIdempotencyKey, fetchCardDraftById, refreshCardDraftBackendState, startGeneration, updateCardDraft } from "../lib/api";
+import { createCardDraft, fetchCardDraftAssets, fetchCardDraftById, mockUpload, refreshCardDraftBackendState, startGeneration, updateCardDraft } from "../lib/api";
+import type { CardDraftAsset } from "../lib/api";
 import { publishCreditBalance } from "../lib/creditBalance";
+import { rememberGeneratedAssets, rememberSelectedAsset, resetMockMvpOrderState, writeMockMvpFlowState } from "../lib/mockMvpFlow";
 import type { CreditBalanceStatus } from "../lib/creditBalance";
 import { STEPS, BmcNavContext, BmcErrorModal, bmcError } from "./BmcShared";
 import { BmcPhotoStep, BmcBasicsStep, BmcImageStep, BmcMessageStep, BmcSongStep } from "./BmcSteps";
@@ -26,6 +28,12 @@ type BmcDraftInput = {
   occasion?: string;
   relationship?: string;
   creativeBrief: Record<string, unknown>;
+};
+
+type ReferenceImageUpload = {
+  filename: string;
+  mimeType: string;
+  size: number;
 };
 
 const CURRENT_CARD_DRAFT_ID_KEY = "souv_current_card_draft_id";
@@ -61,6 +69,26 @@ function numberValue(value: unknown, fallback = 0): number {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
 
+function getReferenceImageUploads(input: BmcDraftInput): ReferenceImageUpload[] {
+  const photo = nestedRecord(input.creativeBrief, "photo");
+  const referenceImages = photo.referenceImages;
+  if (!Array.isArray(referenceImages)) return [];
+
+  return referenceImages.flatMap((item) => {
+    const record = asRecord(item);
+    const filename = textValue(record.filename) || textValue(record.name);
+    const mimeType = textValue(record.mimeType);
+    const size = numberValue(record.size);
+
+    if (!filename || !mimeType.includes("/") || size <= 0) return [];
+    return [{ filename, mimeType, size }];
+  });
+}
+
+function referenceUploadSignature(cardDraftId: string, uploads: ReferenceImageUpload[]) {
+  return `${cardDraftId}:${JSON.stringify(uploads)}`;
+}
+
 declare global {
   interface Window {
     __bmcGoStep?: (id: BmcWizardStep) => void;
@@ -86,11 +114,16 @@ function BmcWizard({
   const [includeSong, setIncludeSong] = React.useState(true);
   const [generating, setGenerating] = React.useState(false);
   const [startingGeneration, setStartingGeneration] = React.useState(false);
+  const [uploadingReferences, setUploadingReferences] = React.useState(false);
+  const [reviewAssets, setReviewAssets] = React.useState<CardDraftAsset[]>([]);
+  const [reviewAssetsStatus, setReviewAssetsStatus] = React.useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [reviewAssetsError, setReviewAssetsError] = React.useState<string | null>(null);
   const [draftInput, setDraftInput] = React.useState<BmcDraftInput>({ creativeBrief: {} });
   const [currentDraftId, setCurrentDraftId] = React.useState<string | null>(null);
   const currentDraftIdRef = React.useRef<string | null>(null);
   const draftSavePromiseRef = React.useRef<Promise<string> | null>(null);
   const lastPersistedDraftRef = React.useRef<string>("");
+  const uploadedReferenceSignatureRef = React.useRef<string>("");
 
   const hasPhoto = photoCount > 0 && !describe;
   const idx = STEPS.findIndex((candidate) => candidate.id === step);
@@ -106,10 +139,71 @@ function BmcWizard({
     window.location.hash = id;
   }, []);
 
-  const goNext = () => {
+  const applyReviewAssets = React.useCallback((cardDraftId: string, assets: CardDraftAsset[]) => {
+    setReviewAssets(assets);
+    setReviewAssetsStatus("ready");
+    setReviewAssetsError(null);
+    rememberGeneratedAssets(cardDraftId, assets);
+  }, []);
+
+  const refreshReviewAssets = React.useCallback(async (cardDraftId: string) => {
+    setReviewAssetsStatus("loading");
+    setReviewAssetsError(null);
+
+    try {
+      const assets = await fetchCardDraftAssets(cardDraftId);
+      applyReviewAssets(cardDraftId, assets);
+      return assets;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Generated assets could not be loaded.";
+      setReviewAssets([]);
+      setReviewAssetsStatus("error");
+      setReviewAssetsError(message);
+      throw error;
+    }
+  }, [applyReviewAssets]);
+
+  const uploadReferenceImages = React.useCallback(async (cardDraftId: string, input: BmcDraftInput = draftInput) => {
+    const uploads = getReferenceImageUploads(input);
+    if (!uploads.length) return;
+
+    const signature = referenceUploadSignature(cardDraftId, uploads);
+    if (uploadedReferenceSignatureRef.current === signature) return;
+
+    setUploadingReferences(true);
+    try {
+      await Promise.all(
+        uploads.map((upload) => mockUpload({
+          cardDraftId,
+          filename: upload.filename,
+          mimeType: upload.mimeType,
+          size: upload.size,
+        })),
+      );
+      uploadedReferenceSignatureRef.current = signature;
+      await refreshCardDraftBackendState(cardDraftId);
+    } finally {
+      setUploadingReferences(false);
+    }
+  }, [draftInput]);
+
+  const goNext = async () => {
     const nextStep = STEPS[idx + 1]?.id;
     if (idx >= 0 && idx < STEPS.length - 1 && isBmcWizardStep(nextStep)) {
-      saveDraftInBackground();
+      if (step === "photo") {
+        try {
+          const cardDraftId = await ensureDraftSaved();
+          await uploadReferenceImages(cardDraftId);
+        } catch (error) {
+          bmcError(
+            error instanceof Error ? error.message : "Your upload could not be saved. Start the local backend and try again.",
+            "Upload could not be saved",
+          );
+          return;
+        }
+      } else {
+        saveDraftInBackground();
+      }
       goTo(nextStep);
     }
   };
@@ -130,8 +224,10 @@ function BmcWizard({
     try {
       if (draftId) {
         window.localStorage.setItem(CURRENT_CARD_DRAFT_ID_KEY, draftId);
+        writeMockMvpFlowState({ cardDraftId: draftId });
       } else {
         window.localStorage.removeItem(CURRENT_CARD_DRAFT_ID_KEY);
+        resetMockMvpOrderState(null);
       }
     } catch {
       // Local draft id persistence is best-effort until auth-backed state exists.
@@ -190,6 +286,7 @@ function BmcWizard({
     })
       .then(async (cardDraft) => {
         rememberDraftId(cardDraft.id);
+        resetMockMvpOrderState(cardDraft.id);
         await refreshCardDraftBackendState(cardDraft.id);
         return cardDraft.id;
       })
@@ -200,6 +297,14 @@ function BmcWizard({
     draftSavePromiseRef.current = savePromise;
     return savePromise;
   }, [draftInput, includeSong, rememberDraftId]);
+
+  React.useEffect(() => {
+    if (step !== "review" || !currentDraftId) return;
+
+    refreshReviewAssets(currentDraftId).catch(() => {
+      // The review screen shows the friendly error state.
+    });
+  }, [currentDraftId, refreshReviewAssets, step]);
 
   React.useEffect(() => {
     if (!resumeDraftId) return;
@@ -276,12 +381,14 @@ function BmcWizard({
 
     try {
       const cardDraftId = await ensureDraftSaved(includeSong);
+      await uploadReferenceImages(cardDraftId);
 
       const response = await startGeneration({
         cardDraftId,
-        idempotencyKey: createLocalIdempotencyKey("build-my-card-generation"),
+        idempotencyKey: `frontend-generation-${Date.now()}`,
       });
-      await refreshCardDraftBackendState(cardDraftId);
+      const backendState = await refreshCardDraftBackendState(cardDraftId);
+      applyReviewAssets(cardDraftId, backendState.assets);
 
       if (response.balance) {
         publishCreditBalance(response.balance);
@@ -313,10 +420,11 @@ function BmcWizard({
     try {
       const response = await startGeneration({
         ...(currentDraftId ? { cardDraftId: currentDraftId } : {}),
-        idempotencyKey: createLocalIdempotencyKey("build-my-card-regenerate"),
+        idempotencyKey: `frontend-generation-${Date.now()}`,
       });
       if (currentDraftId) {
-        await refreshCardDraftBackendState(currentDraftId);
+        const backendState = await refreshCardDraftBackendState(currentDraftId);
+        applyReviewAssets(currentDraftId, backendState.assets);
       }
 
       if (response.balance) {
@@ -341,6 +449,10 @@ function BmcWizard({
     setDescribe(false);
     setGenerating(false);
     setDraftInput({ creativeBrief: {} });
+    setReviewAssets([]);
+    setReviewAssetsStatus("idle");
+    setReviewAssetsError(null);
+    uploadedReferenceSignatureRef.current = "";
     rememberDraftId(null);
     setStep("photo");
     window.location.hash = "photo";
@@ -372,10 +484,22 @@ function BmcWizard({
           generating={generating}
           includeSong={includeSong}
           credits={credits}
+          cardDraftId={currentDraftId}
+          assets={reviewAssets}
+          assetsStatus={reviewAssetsStatus}
+          assetsError={reviewAssetsError}
           onStartOver={startOver}
           onTopUp={openPricingForCredits}
           onRegenerateAsset={spendRegenerationCredit}
-          onApproveAll={() => router.push("/delivery")}
+          onApproveAll={(selectedAssetId) => {
+            if (!currentDraftId || !selectedAssetId) {
+              bmcError("Generated image assets are not ready yet. Try again after the review assets finish loading.", "Review assets unavailable");
+              return;
+            }
+
+            rememberSelectedAsset(currentDraftId, selectedAssetId, reviewAssets);
+            router.push("/delivery");
+          }}
         />
       ) : (
         <div className="bmc-shell">
@@ -401,6 +525,7 @@ function BmcWizard({
                   onContinue={goNext}
                   initialDraft={draftInput.creativeBrief}
                   onDraftPatch={updateDraftInput}
+                  uploading={uploadingReferences}
                 />
               )}
               {step === "basics" && <BmcBasicsStep key={stepInstanceKey} onContinue={goNext} onBack={goBack} initialDraft={draftInput.creativeBrief} onDraftPatch={updateDraftInput} />}

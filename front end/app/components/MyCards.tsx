@@ -10,6 +10,7 @@ import { CardArt } from "./CardArt";
 import { useDemoBalance, ZERO_DEMO_BALANCE } from "./DemoBalance";
 import { CARD_DRAFTS_UPDATED_EVENT, fetchCardDraftAssets, fetchUserCardDrafts } from "../lib/api";
 import type { CardDraft, CardDraftAsset } from "../lib/api";
+import { rememberSelectedAsset } from "../lib/mockMvpFlow";
 import type { DemoUser } from "./DemoUser";
 
 type MyCardsAppProps = {
@@ -31,6 +32,8 @@ type McsDraft = {
 
 type McsCard = {
   id: string;
+  selectedAssetId?: string | null;
+  assets?: CardDraftAsset[];
   pal: string;
   glyph: string;
   song?: boolean;
@@ -230,8 +233,11 @@ function mapDraftToMcsDraft(draft: CardDraft): McsDraft {
 function mapDraftToMcsCard({ draft, assets }: CardDraftWithAssets): McsCard {
   const flow = draftFlow(draft);
   const title = getDraftTitle(draft);
+  const imageAsset = assets.filter((asset) => assetType(asset) === "image").at(-1);
   return {
     id: draft.id,
+    selectedAssetId: imageAsset?.id || null,
+    assets,
     pal: flow === "personalize_template" ? "gold" : "rose",
     glyph: title.slice(0, 1).toUpperCase() || "S",
     song: hasAssetType(assets, "song"),
@@ -448,7 +454,10 @@ function MyCardsApp({ user, full = true }: MyCardsAppProps) {
     router.push(href);
   }
 
-  function mailCard() {
+  function mailCard(card: McsCard) {
+    if (card.selectedAssetId) {
+      rememberSelectedAsset(card.id, card.selectedAssetId, card.assets || []);
+    }
     router.push("/delivery");
   }
 

@@ -59,7 +59,7 @@ type BmcHeadProps = {
 type BmcFootProps = {
   costLabel: React.ReactNode;
   onBack?: () => void;
-  onNext?: () => void;
+  onNext?: () => void | Promise<void>;
   nextLabel?: string;
   secondary?: React.ReactNode;
   disabled?: boolean;

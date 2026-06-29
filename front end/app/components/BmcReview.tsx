@@ -3,7 +3,9 @@
 import * as React from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { BmcIcon } from "./BmcShared";
+import { BmcIcon, bmcError } from "./BmcShared";
+import type { CardDraftAsset } from "../lib/api";
+import { findGeneratedImageAsset, hasGeneratedAsset } from "../lib/mockMvpFlow";
 import { GENRE_GROUPS } from "./BmcSteps";
 
 // BmcReview.tsx - Build My Card Review page.
@@ -51,12 +53,16 @@ type BmcInviteModalProps = ModalProps & {
 
 type BmcReviewProps = {
   onStartOver?: () => void;
-  onApproveAll?: () => void;
+  onApproveAll?: (selectedAssetId?: string) => void;
   onTopUp?: () => void;
   onRegenerateAsset?: () => boolean | Promise<boolean>;
   credits?: number;
   generating?: boolean;
   includeSong?: boolean;
+  cardDraftId?: string | null;
+  assets?: CardDraftAsset[];
+  assetsStatus?: "idle" | "loading" | "ready" | "error";
+  assetsError?: string | null;
 };
 
 type EditingState = {
@@ -475,7 +481,23 @@ function BmcInviteModal({ open, onClose, includeSong = true }: BmcInviteModalPro
   return createPortal(ui, document.body);
 }
 
-function BmcReview({ onStartOver, onApproveAll, onTopUp, onRegenerateAsset, credits = 0, generating = false, includeSong = true }: BmcReviewProps) {
+function shortAssetId(asset?: CardDraftAsset | null) {
+  return asset?.id ? asset.id.slice(0, 8) : "";
+}
+
+function BmcReview({
+  onStartOver,
+  onApproveAll,
+  onTopUp,
+  onRegenerateAsset,
+  credits = 0,
+  generating = false,
+  includeSong = true,
+  cardDraftId = null,
+  assets = [],
+  assetsStatus = "idle",
+  assetsError = null,
+}: BmcReviewProps) {
   const router = useRouter();
   const [imgApproved, setImgApproved] = React.useState(false);
   const [songApproved, setSongApproved] = React.useState(false);
@@ -483,6 +505,11 @@ function BmcReview({ onStartOver, onApproveAll, onTopUp, onRegenerateAsset, cred
   const [editing, setEditing] = React.useState<EditingState>({ image: false, song: false, message: false });
   const [confirm, setConfirm] = React.useState(false);
   const [inviteOpen, setInviteOpen] = React.useState(false);
+  const generatedImageAsset = React.useMemo(() => findGeneratedImageAsset(assets), [assets]);
+  const hasSongAsset = React.useMemo(() => hasGeneratedAsset(assets, "song"), [assets]);
+  const hasMessageAsset = React.useMemo(() => hasGeneratedAsset(assets, "message"), [assets]);
+  const assetsLoading = assetsStatus === "loading";
+  const assetsUnavailable = assetsStatus === "error";
 
   // Open the "while you wait" invite modal as soon as generation kicks off.
   React.useEffect(() => { if (generating) setInviteOpen(true); }, [generating]);
@@ -504,11 +531,21 @@ function BmcReview({ onStartOver, onApproveAll, onTopUp, onRegenerateAsset, cred
     return await (onRegenerateAsset?.() ?? true);
   };
   const handleApproveAll = () => {
-    if (generating) return;
+    if (generating || assetsLoading) return;
+    if (!generatedImageAsset?.id) {
+      bmcError(
+        assetsUnavailable
+          ? `We could not load generated assets from the backend. ${assetsError || ""}`.trim()
+          : "The backend has not returned a generated image asset for this draft yet.",
+        "Generated image needed",
+      );
+      return;
+    }
+
     setImgApproved(true);
     if (includeSong) setSongApproved(true);
     setMsgApproved(true);
-    approveAll();
+    approveAll(generatedImageAsset.id);
   };
 
   return (
@@ -527,12 +564,23 @@ function BmcReview({ onStartOver, onApproveAll, onTopUp, onRegenerateAsset, cred
             ? 'Front, QR song, and inside message, each independently editable. Approve each piece, then send the bundle to Delivery.'
             : 'Front and inside message, each independently editable. Approve both pieces, then send the card to Delivery.'}
         </p>
+        {cardDraftId && (
+          <p className="bmc-help" style={{ margin: '14px auto 0', maxWidth: 680 }}>
+            {assetsLoading
+              ? 'Loading generated assets from the local backend...'
+              : assetsUnavailable
+                ? `Generated assets could not be loaded. ${assetsError || ''}`.trim()
+                : generatedImageAsset
+                  ? `Generated image asset ${shortAssetId(generatedImageAsset)} is selected for order creation.`
+                  : 'Waiting for a generated image asset from the local backend.'}
+          </p>
+        )}
       </div>
 
       <div className="bmc-review-grid">
         <BmcReviewFront
           approved={imgApproved}
-          generating={generating}
+          generating={generating || assetsLoading}
           onApprove={() => setImgApproved(true)}
           onInvalidate={() => setImgApproved(false)}
           onRegenerate={async () => {
@@ -547,7 +595,7 @@ function BmcReview({ onStartOver, onApproveAll, onTopUp, onRegenerateAsset, cred
           {includeSong && (
             <BmcReviewSong
               approved={songApproved}
-              generating={generating}
+              generating={generating || assetsLoading}
               onApprove={() => setSongApproved(true)}
               onInvalidate={() => setSongApproved(false)}
               onRegenerate={async () => {
@@ -561,11 +609,21 @@ function BmcReview({ onStartOver, onApproveAll, onTopUp, onRegenerateAsset, cred
           )}
           <BmcReviewMessage
             approved={msgApproved}
-            generating={generating}
+            generating={generating || assetsLoading}
             onApprove={() => setMsgApproved(true)}
             editing={editing.message}
             setEditing={(v) => setEditing(s => ({ ...s, message: v }))}
           />
+        </div>
+      </div>
+
+      <div className="bmc-review-actions" style={{ marginTop: 18 }}>
+        <div className="bmc-review-left">
+          <span className="bmc-help" style={{ margin: 0 }}>
+            Backend assets: image {generatedImageAsset ? 'ready' : 'pending'}
+            {includeSong ? `, song ${hasSongAsset ? 'ready' : 'pending'}` : ''}
+            , message {hasMessageAsset ? 'ready' : 'pending'}
+          </span>
         </div>
       </div>
 
@@ -584,8 +642,8 @@ function BmcReview({ onStartOver, onApproveAll, onTopUp, onRegenerateAsset, cred
               ? <span style={{ color: 'var(--gold-hi)' }}>All set · ready to deliver</span>
               : <>{approvedCount} / {requiredApprovalCount} approved</>}
           </span>
-          <button type="button" className="bmc-cta" onClick={handleApproveAll} disabled={generating}>
-            Approve All <BmcIcon name="arrow" w={16} />
+          <button type="button" className="bmc-cta" onClick={handleApproveAll} disabled={generating || assetsLoading}>
+            {assetsLoading ? 'Loading assets...' : 'Approve All'} <BmcIcon name="arrow" w={16} />
           </button>
         </div>
       </div>
