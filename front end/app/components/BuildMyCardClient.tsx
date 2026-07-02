@@ -7,10 +7,11 @@ import { Footer } from "./Footer";
 import { PageChrome } from "./PageChrome";
 import { BmcWizard } from "./BmcWizard";
 import { demoUser } from "./DemoUser";
-import { getTotalDemoCredits, useDemoBalance, ZERO_DEMO_BALANCE } from "./DemoBalance";
 import { useCreditBalance } from "../lib/creditBalance";
 import { MIN_GENERATION_CREDITS } from "./createFlowRules";
 import { goToPricingAfterPurchase } from "./PricingReturn";
+import { useAuth } from "./AuthProvider";
+import { AuthGatePrompt } from "./AuthGatePrompt";
 
 type BuildStep = "photo" | "basics" | "image" | "message" | "song" | "review";
 
@@ -22,13 +23,14 @@ function isBuildStep(value: string): value is BuildStep {
 
 export function BuildMyCardClient() {
   const router = useRouter();
+  const auth = useAuth();
   const [initialStep, setInitialStep] = React.useState<BuildStep>("photo");
   const [resumeDraftId, setResumeDraftId] = React.useState<string | null>(null);
   const [balanceReady, setBalanceReady] = React.useState(false);
+  const [authPromptOpen, setAuthPromptOpen] = React.useState(false);
   const entryGateChecked = React.useRef(false);
-  const demoBalance = useDemoBalance(ZERO_DEMO_BALANCE);
-  const demoCreditTotal = getTotalDemoCredits(demoBalance);
-  const creditBalance = useCreditBalance({ fallbackBalance: demoCreditTotal });
+  const isAuthenticated = auth.status === "authenticated";
+  const creditBalance = useCreditBalance({ enabled: isAuthenticated, fallbackBalance: 0, userId: auth.user?.id });
 
   React.useEffect(() => {
     const syncHashStep = () => {
@@ -46,19 +48,19 @@ export function BuildMyCardClient() {
   }, []);
 
   React.useEffect(() => {
-    if (!balanceReady || entryGateChecked.current || resumeDraftId) return;
+    if (!isAuthenticated || !balanceReady || entryGateChecked.current || resumeDraftId) return;
     if (creditBalance.status !== "ready") return;
     entryGateChecked.current = true;
     if (creditBalance.balance < MIN_GENERATION_CREDITS) {
       router.replace(goToPricingAfterPurchase("/create/build-my-card"));
     }
-  }, [balanceReady, creditBalance.balance, creditBalance.status, resumeDraftId, router]);
+  }, [balanceReady, creditBalance.balance, creditBalance.status, isAuthenticated, resumeDraftId, router]);
 
   return (
     <div className="souv-route-page">
       <PageChrome variant="bmc" />
       <div className="bmc-page">
-        <Navbar loggedIn user={demoUser} credits={{ images: creditBalance.balance, songs: 0 }} cardBank={demoBalance.cardBank} cartCount={0} />
+        <Navbar loggedIn={isAuthenticated} user={demoUser} credits={{ images: creditBalance.balance, songs: 0 }} cardBank={0} cartCount={0} />
         <main>
           <BmcWizard
             initialStep={initialStep}
@@ -66,6 +68,16 @@ export function BuildMyCardClient() {
             credits={creditBalance.balance}
             creditStatus={creditBalance.status}
             refreshCredits={creditBalance.refresh}
+            requireAuthToContinue={!isAuthenticated}
+            onAuthRequired={() => setAuthPromptOpen(true)}
+          />
+          <AuthGatePrompt
+            open={authPromptOpen}
+            onClose={() => setAuthPromptOpen(false)}
+            returnTo="/create/build-my-card"
+            title="Save your card before step two"
+            body="Build My Card lets you preview the first step, but saving drafts, purchasing cards, and spending generation credits require a Souvenote account."
+            primaryLabel="Sign up and continue"
           />
         </main>
         <Footer />

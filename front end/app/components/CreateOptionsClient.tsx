@@ -5,14 +5,14 @@ import { Footer } from "./Footer";
 import { Navbar } from "./Navbar";
 import { BackButton, OptionsHeader, TileGrid } from "./Options";
 import { PageChrome } from "./PageChrome";
+import { useAuth } from "./AuthProvider";
 import { useCreditBalance } from "../lib/creditBalance";
-import { useDemoBalance, ZERO_DEMO_BALANCE } from "./DemoBalance";
 import {
   getCreateFlowGate,
 } from "./createFlowRules";
 import { goToPricingAfterPurchase } from "./PricingReturn";
 
-const user = { name: "Cameron Wilson", email: "cameron@souvenote.com", initials: "CW" };
+const fallbackUser = { name: "Souvenote User", email: "user@souvenote.com", initials: "SU" };
 
 type CreateTile = {
   href: string;
@@ -22,15 +22,22 @@ type CreateTile = {
 
 export function CreateOptionsClient() {
   const router = useRouter();
-  const demoBalance = useDemoBalance(ZERO_DEMO_BALANCE);
-  const creditBalance = useCreditBalance({ fallbackBalance: 0 });
+  const auth = useAuth();
+  const isAuthenticated = auth.status === "authenticated";
+  const creditBalance = useCreditBalance({ enabled: isAuthenticated, fallbackBalance: 0, userId: auth.user?.id });
+  const user = auth.displayUser || fallbackUser;
   const accountBalance = {
     credits: { images: creditBalance.balance, songs: 0 },
-    cardBank: demoBalance.cardBank,
+    cardBank: 0,
   };
   const totalCredits = creditBalance.balance;
 
   function handleTileSelect(tile: CreateTile) {
+    if (!isAuthenticated) {
+      router.push(tile.href);
+      return;
+    }
+
     if (tile.requiresCredits) {
       const gate = getCreateFlowGate(accountBalance, "generation");
 
@@ -48,17 +55,17 @@ export function CreateOptionsClient() {
       <PageChrome variant="options" />
       <div className="opt-page">
         <Navbar
-          loggedIn
+          loggedIn={isAuthenticated}
           user={user}
           credits={accountBalance.credits}
-          cardBank={demoBalance.cardBank}
+          cardBank={0}
           cartCount={0}
         />
         <main>
           <OptionsHeader user={user} credits={totalCredits} lowBalance={totalCredits < 1} />
           <TileGrid
             credits={totalCredits}
-            cardBank={demoBalance.cardBank}
+            cardBank={0}
             onSelect={handleTileSelect}
           />
           <BackButton href="/home" label="Back to home" />

@@ -38,14 +38,14 @@ async function main() {
     throw new Error('DATABASE_URL is required to apply the Phase 1 migration.');
   }
 
-  const migrationPath = path.resolve(
-    serverRoot,
-    '..',
-    'database',
-    'migrations',
+  const migrationDir = path.resolve(serverRoot, '..', 'database', 'migrations');
+  const migrationFiles = [
     '002_phase1_mock_backend.sql',
-  );
-  const sql = fs.readFileSync(migrationPath, 'utf8');
+    '003_account_profile_payments.sql',
+  ];
+  const sql = migrationFiles
+    .map((fileName) => fs.readFileSync(path.join(migrationDir, fileName), 'utf8'))
+    .join('\n\n');
   const pool = new Pool({ connectionString: env.DATABASE_URL });
 
   try {

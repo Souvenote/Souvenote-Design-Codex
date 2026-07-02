@@ -3,8 +3,22 @@
 import * as React from "react";
 import Link from "next/link";
 import type { DemoUser } from "./DemoUser";
+import { useAuth } from "./AuthProvider";
+import {
+  createPaymentMethod,
+  deletePaymentMethod,
+  fetchPaymentMethods,
+  updateAuthenticatedUser,
+  updatePaymentMethod,
+  type PaymentMethod,
+  type SavePaymentMethodRequest,
+} from "../lib/api";
 
 type AccountUserProps = {
+  user?: DemoUser;
+};
+
+type RequiredAccountUserProps = {
   user: DemoUser;
 };
 
@@ -16,6 +30,7 @@ type RedeemGiftPageProps = {
 
 type AccToggleProps = {
   on?: boolean;
+  onChange?: (value: boolean) => void;
 };
 
 type SettingsTabId = "personal" | "security" | "notifs" | "payments" | "prefs" | "danger";
@@ -56,6 +71,31 @@ const GiftIco = {
   send:  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M21 4 3 11l7 3 3 7 8-17z"/><path d="M10 14l4-4"/></svg>,
 };
 
+function useAccountDisplayUser(fallback?: DemoUser) {
+  const auth = useAuth();
+  return auth.displayUser || fallback || { name: "Souvenote User", email: "user@souvenote.com", initials: "SU" };
+}
+
+function splitDisplayName(name: string) {
+  const pieces = name.trim().split(/\s+/).filter(Boolean);
+  return {
+    firstName: pieces[0] || "",
+    lastName: pieces.slice(1).join(" "),
+  };
+}
+
+function cleanLast4(value: string) {
+  return value.replace(/\D/g, "").slice(0, 4);
+}
+
+function paymentMethodLabel(method: PaymentMethod) {
+  return `${method.brand.toUpperCase()} ending in ${method.last4}`;
+}
+
+function paymentMethodExpiry(method: PaymentMethod) {
+  return `${String(method.exp_month).padStart(2, "0")} / ${method.exp_year}`;
+}
+
 // ============================================================
 // GIFT A SOUVENOTE
 // The signed-in user buys a $6.99 gift and sends a redemption link.
@@ -63,6 +103,7 @@ const GiftIco = {
 // physical send) and creates a card for someone *they* love.
 // ============================================================
 function GiftSouvenotePage({ user }: AccountUserProps) {
+  const accountUser = useAccountDisplayUser(user);
   const [via, setVia] = React.useState<GiftDeliveryMethod>('email');
   const [name, setName] = React.useState('');
   const [sent, setSent] = React.useState(false);
@@ -125,7 +166,7 @@ function GiftSouvenotePage({ user }: AccountUserProps) {
             <div className="acc-gift-meta">
               <div className="acc-summary-row"><span className="k">Includes</span><span className="v">10 credits · 1 physical send</span></div>
               <div className="acc-summary-row"><span className="k">Delivery</span><span className="v">{via === 'email' ? 'Email link · instant' : 'Text link · instant'}</span></div>
-              <div className="acc-summary-row"><span className="k">From</span><span className="v">{user.name}</span></div>
+              <div className="acc-summary-row"><span className="k">From</span><span className="v">{accountUser.name}</span></div>
             </div>
             <button type="submit" className={`bmc-cta acc-gift-cta ${sent ? 'is-sent' : ''}`}>
               {sent ? <>Gift on its way ✓</> : <>{GiftIco.send} Send gift · $6.99</>}
@@ -183,9 +224,23 @@ function RedeemGiftPage({ sender = 'A friend' }: RedeemGiftPageProps) {
 // ============================================================
 // ACCOUNT SETTINGS
 // ============================================================
-function AccToggle({ on: initial = false }: AccToggleProps) {
+function AccToggle({ on: initial = false, onChange }: AccToggleProps) {
   const [on, setOn] = React.useState(initial);
-  return <button type="button" className={`acc-switch ${on ? 'is-on' : ''}`} aria-pressed={on} onClick={() => setOn(o => !o)} />;
+  React.useEffect(() => {
+    setOn(initial);
+  }, [initial]);
+  return (
+    <button
+      type="button"
+      className={`acc-switch ${on ? 'is-on' : ''}`}
+      aria-pressed={on}
+      onClick={() => {
+        const next = !on;
+        setOn(next);
+        onChange?.(next);
+      }}
+    />
+  );
 }
 
 const SETTINGS_TABS: SettingsTab[] = [
@@ -197,29 +252,115 @@ const SETTINGS_TABS: SettingsTab[] = [
   { id: 'danger',   label: 'Danger zone', ico: AfIco.trash, danger: true },
 ];
 
-function SettingsPersonal({ user }: AccountUserProps) {
+function SettingsPersonal({ user }: RequiredAccountUserProps) {
+  const auth = useAuth();
+  const fallbackName = splitDisplayName(user.name);
+  const profile = auth.user;
+  const [firstName, setFirstName] = React.useState(profile?.first_name || fallbackName.firstName);
+  const [lastName, setLastName] = React.useState(profile?.last_name || fallbackName.lastName);
+  const [phone, setPhone] = React.useState(profile?.phone || "");
+  const [birthday, setBirthday] = React.useState(profile?.birthday?.slice(0, 10) || "");
+  const [country, setCountry] = React.useState(profile?.country || "CA");
+  const [currency, setCurrency] = React.useState(profile?.currency || "CAD");
+  const [language, setLanguage] = React.useState(profile?.language || "English");
+  const [marketingOptIn, setMarketingOptIn] = React.useState(profile?.marketing_opt_in ?? true);
+  const [saving, setSaving] = React.useState(false);
+  const [message, setMessage] = React.useState<string | null>(null);
+  const [error, setError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    const nextFallback = splitDisplayName(user.name);
+    setFirstName(profile?.first_name || nextFallback.firstName);
+    setLastName(profile?.last_name || nextFallback.lastName);
+    setPhone(profile?.phone || "");
+    setBirthday(profile?.birthday?.slice(0, 10) || "");
+    setCountry(profile?.country || "CA");
+    setCurrency(profile?.currency || "CAD");
+    setLanguage(profile?.language || "English");
+    setMarketingOptIn(profile?.marketing_opt_in ?? true);
+  }, [profile, user.name]);
+
+  async function saveProfile() {
+    setSaving(true);
+    setError(null);
+    setMessage(null);
+
+    try {
+      await updateAuthenticatedUser({
+        firstName,
+        lastName,
+        phone,
+        birthday,
+        country,
+        currency,
+        language,
+        marketingOptIn,
+      });
+      await auth.refreshUser();
+      setMessage("Profile saved.");
+    } catch (unknownError) {
+      setError(unknownError instanceof Error ? unknownError.message : "Profile could not be saved.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
     <div className="acc-set-group">
       <h2 className="acc-set-h">Personal info</h2>
-      <p className="acc-set-sub">This is how you'll appear across Souvenote.</p>
+      <p className="acc-set-sub">This is how your account, cards, receipts, and reminders are personalized.</p>
       <div className="acc-row" style={{ paddingTop: 0 }}>
         <div className="acc-row-info" style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           <div className="acc-avatar" style={{ width: 60, height: 60, fontSize: 22 }}>{user.initials}</div>
           <div>
             <div className="acc-row-label">Profile photo</div>
-            <div className="acc-row-desc">PNG or JPG, up to 4MB.</div>
+            <div className="acc-row-desc">Photo upload is saved for the account UI. Card reference photos are managed inside each card flow.</div>
           </div>
         </div>
         <button type="button" className="bmc-cta-secondary">Upload</button>
       </div>
       <div style={{ paddingTop: 22 }}>
         <div className="acc-field-row">
-          <div className="acc-field"><span className="acc-flabel">First name</span><input className="input-dark" defaultValue={user.name.split(' ')[0]} /></div>
-          <div className="acc-field"><span className="acc-flabel">Last name</span><input className="input-dark" defaultValue={user.name.split(' ').slice(1).join(' ')} /></div>
+          <div className="acc-field"><span className="acc-flabel">First name</span><input className="input-dark" value={firstName} onChange={(event) => setFirstName(event.target.value)} /></div>
+          <div className="acc-field"><span className="acc-flabel">Last name</span><input className="input-dark" value={lastName} onChange={(event) => setLastName(event.target.value)} /></div>
         </div>
-        <div className="acc-field"><span className="acc-flabel">Email</span><input className="input-dark" defaultValue={user.email} /></div>
-        <div className="acc-field"><span className="acc-flabel">Phone (optional)</span><input className="input-dark" placeholder="(555) 012-3456" /></div>
-        <button type="button" className="bmc-cta" style={{ marginTop: 4 }}>Save changes</button>
+        <div className="acc-field"><span className="acc-flabel">Login email</span><input className="input-dark" value={profile?.email || user.email} readOnly /></div>
+        <div className="acc-field-row">
+          <div className="acc-field"><span className="acc-flabel">Phone</span><input className="input-dark" placeholder="(555) 012-3456" value={phone} onChange={(event) => setPhone(event.target.value)} /></div>
+          <div className="acc-field"><span className="acc-flabel">Birthday</span><input className="input-dark" type="date" value={birthday} onChange={(event) => setBirthday(event.target.value)} /></div>
+        </div>
+        <div className="acc-field-row">
+          <div className="acc-field">
+            <span className="acc-flabel">Country</span>
+            <select className="input-dark" value={country} onChange={(event) => setCountry(event.target.value)}>
+              <option value="CA">Canada</option>
+              <option value="US">United States</option>
+            </select>
+          </div>
+          <div className="acc-field">
+            <span className="acc-flabel">Currency</span>
+            <select className="input-dark" value={currency} onChange={(event) => setCurrency(event.target.value)}>
+              <option value="CAD">CAD</option>
+              <option value="USD">USD</option>
+            </select>
+          </div>
+        </div>
+        <div className="acc-field">
+          <span className="acc-flabel">Language</span>
+          <select className="input-dark" value={language} onChange={(event) => setLanguage(event.target.value)}>
+            <option value="English">English</option>
+            <option value="Francais">Francais</option>
+          </select>
+        </div>
+        <div className="acc-row">
+          <div className="acc-row-info"><div className="acc-row-label">Seasonal ideas and reminders</div><div className="acc-row-desc">Occasional emails for gifts, birthdays, and new card styles.</div></div>
+          <AccToggle on={marketingOptIn} onChange={setMarketingOptIn} />
+        </div>
+        {message && <p className="acc-save-state is-success">{message}</p>}
+        {error && <p className="acc-save-state is-error">{error}</p>}
+        <button type="button" className="bmc-cta" style={{ marginTop: 4 }} onClick={saveProfile} disabled={saving}>
+          {saving ? "Saving..." : "Save changes"}
+        </button>
       </div>
     </div>
   );
@@ -269,7 +410,7 @@ function SettingsNotifs() {
   );
 }
 
-function SettingsPayments() {
+function LegacySettingsPayments() {
   return (
     <div className="acc-set-group">
       <h2 className="acc-set-h">Payment methods</h2>
@@ -285,6 +426,204 @@ function SettingsPayments() {
         <button type="button" className="bmc-cta-secondary">Edit</button>
       </div>
       <button type="button" className="bmc-cta" style={{ marginTop: 8 }}>+ Add payment method</button>
+    </div>
+  );
+}
+
+function SettingsPayments() {
+  const [methods, setMethods] = React.useState<PaymentMethod[]>([]);
+  const [status, setStatus] = React.useState<"loading" | "ready" | "error">("loading");
+  const [editingId, setEditingId] = React.useState<string | null>(null);
+  const [brand, setBrand] = React.useState("Visa");
+  const [last4, setLast4] = React.useState("");
+  const [expMonth, setExpMonth] = React.useState("01");
+  const [expYear, setExpYear] = React.useState(String(new Date().getFullYear() + 1));
+  const [billingName, setBillingName] = React.useState("");
+  const [billingPostalCode, setBillingPostalCode] = React.useState("");
+  const [isDefault, setIsDefault] = React.useState(true);
+  const [saving, setSaving] = React.useState(false);
+  const [message, setMessage] = React.useState<string | null>(null);
+  const [error, setError] = React.useState<string | null>(null);
+
+  const resetForm = React.useCallback(() => {
+    setEditingId(null);
+    setBrand("Visa");
+    setLast4("");
+    setExpMonth("01");
+    setExpYear(String(new Date().getFullYear() + 1));
+    setBillingName("");
+    setBillingPostalCode("");
+    setIsDefault(methods.length === 0);
+  }, [methods.length]);
+
+  const loadMethods = React.useCallback(async () => {
+    setStatus("loading");
+    setError(null);
+
+    try {
+      const next = await fetchPaymentMethods();
+      setMethods(next);
+      setStatus("ready");
+    } catch (unknownError) {
+      setStatus("error");
+      setError(unknownError instanceof Error ? unknownError.message : "Payment methods could not be loaded.");
+    }
+  }, []);
+
+  React.useEffect(() => {
+    void loadMethods();
+  }, [loadMethods]);
+
+  function editMethod(method: PaymentMethod) {
+    setEditingId(method.id);
+    setBrand(method.brand);
+    setLast4(method.last4);
+    setExpMonth(String(method.exp_month).padStart(2, "0"));
+    setExpYear(String(method.exp_year));
+    setBillingName(method.billing_name || "");
+    setBillingPostalCode(method.billing_postal_code || "");
+    setIsDefault(method.is_default);
+    setMessage(null);
+    setError(null);
+  }
+
+  async function saveMethod() {
+    const cleanDigits = cleanLast4(last4);
+    if (cleanDigits.length !== 4) {
+      setError("Enter the last four digits from the card.");
+      return;
+    }
+
+    const payload: SavePaymentMethodRequest = {
+      brand,
+      last4: cleanDigits,
+      expMonth: Number(expMonth),
+      expYear: Number(expYear),
+      billingName,
+      billingPostalCode,
+      isDefault,
+    };
+
+    setSaving(true);
+    setError(null);
+    setMessage(null);
+
+    try {
+      if (editingId) {
+        await updatePaymentMethod(editingId, payload);
+        setMessage("Payment method updated.");
+      } else {
+        await createPaymentMethod(payload);
+        setMessage("Payment method saved.");
+      }
+      await loadMethods();
+      resetForm();
+    } catch (unknownError) {
+      setError(unknownError instanceof Error ? unknownError.message : "Payment method could not be saved.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function removeMethod(method: PaymentMethod) {
+    setSaving(true);
+    setError(null);
+    setMessage(null);
+
+    try {
+      await deletePaymentMethod(method.id);
+      await loadMethods();
+      setMessage(`${paymentMethodLabel(method)} removed.`);
+      if (editingId === method.id) resetForm();
+    } catch (unknownError) {
+      setError(unknownError instanceof Error ? unknownError.message : "Payment method could not be removed.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="acc-set-group">
+      <h2 className="acc-set-h">Payment methods</h2>
+      <p className="acc-set-sub">Saved payment methods use vault metadata only. Full card numbers are handled by the payment provider at checkout.</p>
+
+      {status === "loading" && <p className="acc-save-state">Loading payment methods...</p>}
+      {status === "error" && <p className="acc-save-state is-error">{error || "Payment methods could not be loaded."}</p>}
+
+      {status === "ready" && methods.length === 0 && (
+        <div className="acc-pay-empty">
+          <div className="acc-pay-empty-title">No saved payment methods yet</div>
+          <p>Add a card summary now, or save a vaulted payment method after checkout once Stripe is connected.</p>
+        </div>
+      )}
+
+      {methods.map((method) => (
+        <div className="acc-pay" key={method.id}>
+          <div className="acc-pay-brand">{method.brand.slice(0, 4).toUpperCase()}</div>
+          <div className="acc-pay-info">
+            <div className="acc-pay-num">Card ending in {method.last4}</div>
+            <div className="acc-pay-exp">
+              Expires {paymentMethodExpiry(method)}
+              {method.is_default ? " - Default" : ""}
+            </div>
+            {method.billing_name && <div className="acc-pay-exp">Billing name: {method.billing_name}</div>}
+          </div>
+          <div className="acc-pay-actions">
+            <button type="button" className="bmc-cta-secondary" onClick={() => editMethod(method)}>Edit</button>
+            <button type="button" className="acc-pay-remove" onClick={() => void removeMethod(method)} disabled={saving}>Remove</button>
+          </div>
+        </div>
+      ))}
+
+      <div className="acc-pay-form">
+        <div className="acc-panel-title">{editingId ? "Edit payment method" : "Add payment method"}</div>
+        <div className="acc-field-row">
+          <div className="acc-field">
+            <span className="acc-flabel">Brand</span>
+            <select className="input-dark" value={brand} onChange={(event) => setBrand(event.target.value)}>
+              <option>Visa</option>
+              <option>Mastercard</option>
+              <option>Amex</option>
+              <option>Discover</option>
+              <option>Other</option>
+            </select>
+          </div>
+          <div className="acc-field">
+            <span className="acc-flabel">Last four digits</span>
+            <input className="input-dark" inputMode="numeric" maxLength={4} value={last4} onChange={(event) => setLast4(cleanLast4(event.target.value))} placeholder="1234" />
+          </div>
+        </div>
+        <div className="acc-field-row">
+          <div className="acc-field">
+            <span className="acc-flabel">Expiry month</span>
+            <select className="input-dark" value={expMonth} onChange={(event) => setExpMonth(event.target.value)}>
+              {Array.from({ length: 12 }, (_, index) => String(index + 1).padStart(2, "0")).map((month) => <option key={month} value={month}>{month}</option>)}
+            </select>
+          </div>
+          <div className="acc-field">
+            <span className="acc-flabel">Expiry year</span>
+            <select className="input-dark" value={expYear} onChange={(event) => setExpYear(event.target.value)}>
+              {Array.from({ length: 12 }, (_, index) => String(new Date().getFullYear() + index)).map((year) => <option key={year} value={year}>{year}</option>)}
+            </select>
+          </div>
+        </div>
+        <div className="acc-field-row">
+          <div className="acc-field"><span className="acc-flabel">Billing name</span><input className="input-dark" value={billingName} onChange={(event) => setBillingName(event.target.value)} /></div>
+          <div className="acc-field"><span className="acc-flabel">Postal / ZIP</span><input className="input-dark" value={billingPostalCode} onChange={(event) => setBillingPostalCode(event.target.value)} /></div>
+        </div>
+        <div className="acc-row">
+          <div className="acc-row-info"><div className="acc-row-label">Default payment method</div><div className="acc-row-desc">Use this first for card packs, credits, and shipped cards.</div></div>
+          <AccToggle on={isDefault} onChange={setIsDefault} />
+        </div>
+        {message && <p className="acc-save-state is-success">{message}</p>}
+        {error && <p className="acc-save-state is-error">{error}</p>}
+        <div className="acc-pay-form-actions">
+          <button type="button" className="bmc-cta" onClick={saveMethod} disabled={saving}>
+            {saving ? "Saving..." : editingId ? "Save payment method" : "Add payment method"}
+          </button>
+          {editingId && <button type="button" className="bmc-cta-secondary" onClick={resetForm} disabled={saving}>Cancel edit</button>}
+        </div>
+      </div>
     </div>
   );
 }
@@ -336,6 +675,7 @@ function SettingsDanger() {
 }
 
 function SettingsPage({ user }: AccountUserProps) {
+  const accountUser = useAccountDisplayUser(user);
   const [tab, setTab] = React.useState<SettingsTabId>('personal');
   return (
     <div className="bmc-shell" data-screen-label="Account Settings">
@@ -356,7 +696,7 @@ function SettingsPage({ user }: AccountUserProps) {
           ))}
         </nav>
         <div className="acc-panel">
-          {tab === 'personal' && <SettingsPersonal user={user} />}
+          {tab === 'personal' && <SettingsPersonal user={accountUser} />}
           {tab === 'security' && <SettingsSecurity />}
           {tab === 'notifs'   && <SettingsNotifs />}
           {tab === 'payments' && <SettingsPayments />}

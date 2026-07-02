@@ -57,6 +57,52 @@ export class CreditsService {
     };
   }
 
+  async grantOnce(
+    userId: string,
+    amount: number,
+    source: string,
+    idempotencyKey: string,
+    eventType = 'manual_grant',
+  ) {
+    if (amount <= 0) {
+      throw new BadRequestException('Grant amount must be greater than 0.');
+    }
+
+    const result = await this.databaseService.query(
+      `
+        INSERT INTO credit_ledger (
+          user_id,
+          event_type,
+          amount,
+          source,
+          idempotency_key,
+          metadata
+        )
+        VALUES ($1, $2, $3, $4, $5, $6)
+        ON CONFLICT (idempotency_key) DO NOTHING
+        RETURNING id, user_id, event_type, amount, source, idempotency_key, created_at;
+      `,
+      [userId, eventType, amount, source, idempotencyKey, null],
+    );
+
+    const ledgerEntry = result.rows[0] ?? (await this.databaseService.query(
+      `
+        SELECT id, user_id, event_type, amount, source, idempotency_key, created_at
+        FROM credit_ledger
+        WHERE idempotency_key = $1;
+      `,
+      [idempotencyKey],
+    )).rows[0];
+
+    const updatedBalance = await this.findBalance(userId);
+
+    return {
+      granted: result.rows.length > 0,
+      ledgerEntry,
+      balance: updatedBalance,
+    };
+  }
+
   async deduct(
     userId: string,
     amount: number,

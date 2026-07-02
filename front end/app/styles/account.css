@@ -300,6 +300,40 @@ a.bmc-cta, a.bmc-cta-secondary, a.acc-quicklink, a.acc-activity-row { text-decor
 .acc-pay-info { flex: 1; }
 .acc-pay-num { font-family: var(--font-num); font-size: 0.98rem; color: var(--text-primary); letter-spacing: 0.04em; }
 .acc-pay-exp { font-family: var(--font-sans); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); margin-top: 2px; }
+.acc-pay-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+.acc-pay-remove {
+  font-family: var(--font-sans); font-weight: 700; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
+  color: #e6a3a3; background: rgba(200,100,100,0.07); border: 1px solid rgba(200,100,100,0.25);
+  border-radius: var(--r-pill); padding: 10px 14px; cursor: pointer; transition: all .25s var(--ease-brand);
+}
+.acc-pay-remove:hover { color: #f0bcbc; background: rgba(200,100,100,0.14); }
+.acc-pay-empty {
+  border: 1px dashed rgba(212,175,55,0.28);
+  border-radius: var(--r-xl);
+  padding: 24px;
+  margin-bottom: 16px;
+  background: rgba(212,175,55,0.035);
+}
+.acc-pay-empty-title {
+  font-family: var(--font-sans); font-weight: 700; font-size: 15px; color: var(--platinum-hi); margin-bottom: 6px;
+}
+.acc-pay-empty p {
+  font-family: var(--font-sans); font-size: 0.93rem; line-height: 1.5; color: var(--text-muted); margin: 0;
+}
+.acc-pay-form {
+  margin-top: 18px;
+  padding-top: 20px;
+  border-top: 1px solid var(--divider);
+}
+.acc-pay-form-actions { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-top: 10px; }
+.acc-save-state {
+  font-family: var(--font-sans);
+  font-size: 0.92rem;
+  color: var(--text-muted);
+  margin: 0 0 14px;
+}
+.acc-save-state.is-success { color: var(--gold-hi); }
+.acc-save-state.is-error { color: #e6a3a3; }
 
 .acc-danger { border: 1px solid rgba(200,100,100,0.28); border-radius: var(--r-xl); padding: 22px 26px; background: rgba(200,100,100,0.035); }
 .acc-danger .acc-row { border-color: rgba(200,100,100,0.16); }

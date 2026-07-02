@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { fetchPricingOffers, type PricingOffer } from "../lib/api";
 import { StampCorners } from "./Ornaments";
+import { useAuth } from "./AuthProvider";
 import {
   BIG_SENDER_TIERS,
   type BigSenderTier,
@@ -821,10 +822,15 @@ function souvAddToCart(item: CartItem) {
 
 function useSouvBuyAndGo() {
   const router = useRouter();
+  const auth = useAuth();
   return React.useCallback((item: CartItem) => {
+    if (auth.status !== "authenticated") {
+      router.push(`/signup?returnTo=${encodeURIComponent("/pricing")}`);
+      return;
+    }
     souvAddToCart(item);
     router.push('/cart');
-  }, [router]);
+  }, [auth.status, router]);
 }
 
 function PackCard({ pack, kind, compact, wide }: PackCardProps) {

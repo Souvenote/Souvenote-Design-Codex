@@ -2,6 +2,8 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useAuth } from "./AuthProvider";
 import { useCreditBalance } from "../lib/creditBalance";
 import type { CreditBalanceStatus } from "../lib/creditBalance";
 import type { DemoCredits, DemoUser } from "./DemoUser";
@@ -10,6 +12,7 @@ type NavLink = {
   label: string;
   stackedLabel?: [string, string];
   sub: string;
+  signedOutSub?: string;
   href: string;
 };
 
@@ -60,10 +63,10 @@ type NavbarProps = {
 };
 
 const NAV_LINKS: NavLink[] = [
-  { label: "Personalize a Template", stackedLabel: ["Personalize", "a Template"], sub: "Curated designs, ready to make yours.", href: "/create/personalize-a-template" },
-  { label: "Build My Card", stackedLabel: ["Build", "My Card"], sub: "Start from scratch: photo, moment, optional QR song.", href: "/create/build-my-card" },
-  { label: "Saved Cards & Songs", stackedLabel: ["Saved", "Cards & Songs"], sub: "Saved cards, drafts, songs, and send-ready creations.", href: "/create/my-cards-and-songs" },
-  { label: "Pricing", sub: "Card packs, credits, and what shipping covers.", href: "/pricing" },
+  { label: "Personalize a Template", stackedLabel: ["Personalize", "a Template"], sub: "Curated designs, ready to make yours.", signedOutSub: "Browse card styles, then sign up to save, purchase credits, and generate.", href: "/create/personalize-a-template" },
+  { label: "Build My Card", stackedLabel: ["Build", "My Card"], sub: "Start from scratch: photo, moment, optional QR song.", signedOutSub: "Preview step one, then sign up and purchase credits to continue.", href: "/create/build-my-card" },
+  { label: "Saved Cards & Songs", stackedLabel: ["Saved", "Cards & Songs"], sub: "Saved cards, drafts, songs, and send-ready creations.", signedOutSub: "Sign up or log in to purchase cards and tokens, then save everything you make.", href: "/create/my-cards-and-songs" },
+  { label: "Pricing", sub: "Card packs, credits, and what shipping covers.", signedOutSub: "Pricing is public. Purchase buttons ask you to sign up or log in first.", href: "/pricing" },
 ];
 
 const CURRENCIES: CurrencyOption[] = [
@@ -104,7 +107,7 @@ function CreditsTicker({ credits = 0, cardBank = 0, status = "idle" }: CreditsTi
   const creditLabel = loading ? "Loading" : error ? "Offline" : "Credits";
   const creditValue = loading ? "..." : credits;
   const linkTitle = error
-    ? "Credit balance unavailable. Showing local mock balance."
+    ? "Credit balance unavailable."
     : "View Saved Cards & Songs";
 
   return (
@@ -195,6 +198,9 @@ function NavRight({
   currencyOpen,
   setCurrencyOpen,
 }: NavRightProps) {
+  const router = useRouter();
+  const { logout } = useAuth();
+
   if (!loggedIn) {
     return (
       <div className="souv-nav-right">
@@ -255,7 +261,17 @@ function NavRight({
               <Link href="/refer" className="souv-popmenu-item">Refer a Friend</Link>
               <Link href="/account/settings" className="souv-popmenu-item">Account Settings</Link>
               <div className="souv-popmenu-sep" />
-              <Link href="/" className="souv-popmenu-logout">Sign Out</Link>
+              <button
+                type="button"
+                className="souv-popmenu-logout"
+                onClick={() => {
+                  const redirectingToHostedLogout = logout({ hostedUi: true });
+                  setProfileOpen(false);
+                  if (!redirectingToHostedLogout) router.push("/");
+                }}
+              >
+                Sign Out
+              </button>
             </div>
           </>
         )}
@@ -300,28 +316,31 @@ function NavRight({
 }
 
 function Navbar({
-  loggedIn = false,
+  loggedIn: _loggedIn = false,
   user = { name: "Amelia Hart", email: "amelia@souvenote.com", initials: "AH" },
   credits = { images: 0, songs: 0 },
-  cardBank = 1,
+  cardBank = 0,
   cartCount = 0,
   followUserOnScroll = false,
 }: NavbarProps) {
+  const auth = useAuth();
   const [hovered, setHovered] = React.useState<string | null>(null);
   const [menuOpen, setMenuOpen] = React.useState(false);
   const [profileOpen, setProfileOpen] = React.useState(false);
   const [currency, setCurrency] = React.useState<CurrencyCode>("CAD");
   const [currencyOpen, setCurrencyOpen] = React.useState(false);
-  const logoSrc = loggedIn ? "/assets/LogoMark.png" : "/assets/WordmarkLobster.png";
+  const resolvedLoggedIn = auth.status === "authenticated";
+  const resolvedUser = auth.displayUser || user;
+  const logoSrc = resolvedLoggedIn ? "/assets/LogoMark.png" : "/assets/WordmarkLobster.png";
   const localCreditBalance = (credits.images ?? 0) + (credits.songs ?? 0);
   const creditBalance = useCreditBalance({
-    enabled: loggedIn,
+    enabled: resolvedLoggedIn,
     fallbackBalance: localCreditBalance,
   });
 
   return (
-    <header className={`souv-nav ${followUserOnScroll ? "is-follow-user-on-scroll" : ""}`}>
-      <Link href="/" className={`souv-nav-logo ${loggedIn ? "is-mark" : "is-wordmark"}`} aria-label="Souvenote home">
+    <header className={`souv-nav ${resolvedLoggedIn ? "is-signed-in" : "is-signed-out"} ${followUserOnScroll ? "is-follow-user-on-scroll" : ""}`}>
+      <Link href="/" className={`souv-nav-logo ${resolvedLoggedIn ? "is-mark" : "is-wordmark"}`} aria-label="Souvenote home">
         <img src={logoSrc} alt="Souvenote" />
       </Link>
 
@@ -352,7 +371,7 @@ function Navbar({
                   <div className="souv-nav-popover-body">
                     <div className="souv-nav-popover-title">{link.label}</div>
                     <div className="souv-nav-popover-rule" />
-                    <div className="souv-nav-popover-sub">{link.sub}</div>
+                    <div className="souv-nav-popover-sub">{resolvedLoggedIn ? link.sub : link.signedOutSub || link.sub}</div>
                   </div>
                 </div>
               )}
@@ -362,10 +381,10 @@ function Navbar({
       </nav>
 
       <NavRight
-        loggedIn={loggedIn}
-        user={user}
+        loggedIn={resolvedLoggedIn}
+        user={resolvedUser}
         creditBalance={creditBalance.balance}
-        creditStatus={loggedIn && creditBalance.status === "idle" ? "loading" : creditBalance.status}
+        creditStatus={resolvedLoggedIn && creditBalance.status === "idle" ? "loading" : creditBalance.status}
         cardBank={cardBank}
         cartCount={cartCount}
         profileOpen={profileOpen}

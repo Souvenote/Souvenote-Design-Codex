@@ -2,9 +2,14 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { writeDemoBalance } from "./DemoBalance";
-import type { DemoBalance } from "./DemoBalance";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useAuth } from "./AuthProvider";
+import {
+  CognitoClientError,
+  consumeHostedUiError,
+  type CognitoSocialProvider,
+  type HostedUiError,
+} from "../lib/cognitoAuth";
 
 // Auth.tsx - Souvenote auth surface.
 // 7 state components: signup, login, welcome (post-signup modal), forgot, reset, verify, recover.
@@ -43,7 +48,7 @@ type AuthCheckboxProps = {
 
 type SocialButtonsProps = {
   verb?: string;
-  onContinue?: () => void;
+  onProvider?: (provider: CognitoSocialProvider) => void;
 };
 
 type WelcomeModalProps = {
@@ -71,15 +76,6 @@ type AuthAppProps = {
 // ============================================================
 // SHARED ICONS
 // ============================================================
-const STARTER_SIGNUP_BALANCE: DemoBalance = {
-  credits: { images: 1, songs: 1 },
-  cardBank: 0,
-};
-
-function issueStarterSignupTokens() {
-  writeDemoBalance(STARTER_SIGNUP_BALANCE);
-}
-
 function AuthIcon({ name, w = 18 }: AuthIconProps) {
   const props: React.SVGProps<SVGSVGElement> = { width: w, height: w, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.6, strokeLinecap: 'round', strokeLinejoin: 'round' };
   switch (name) {
@@ -171,18 +167,18 @@ function AuthCheckbox({ checked, onChange, children }: AuthCheckboxProps) {
   );
 }
 
-function SocialButtons({ verb = 'Continue', onContinue }: SocialButtonsProps) {
+function SocialButtons({ verb = 'Continue', onProvider }: SocialButtonsProps) {
   return (
     <div className="auth-socials">
-      <button type="button" className="auth-social" onClick={onContinue}>
+      <button type="button" className="auth-social" onClick={() => onProvider?.("Google")}>
         <span className="auth-social-icon"><GoogleG /></span>
         <span>{verb} with Google</span>
       </button>
-      <button type="button" className="auth-social" onClick={onContinue}>
+      <button type="button" className="auth-social" onClick={() => onProvider?.("SignInWithApple")}>
         <span className="auth-social-icon" style={{ color: 'var(--platinum-hi)' }}><AppleA /></span>
         <span>{verb} with Apple</span>
       </button>
-      <button type="button" className="auth-social" onClick={onContinue}>
+      <button type="button" className="auth-social" onClick={() => onProvider?.("Facebook")}>
         <span className="auth-social-icon"><FacebookF /></span>
         <span>{verb} with Facebook</span>
       </button>
@@ -204,24 +200,167 @@ function strengthLabel(s: number) {
   return ['Too short', 'Weak', 'Okay', 'Strong', 'Solid'][s] || 'Strong';
 }
 
+function friendlyAuthError(error: unknown) {
+  if (error instanceof CognitoClientError) {
+    if (error.code === "UserNotConfirmedException") return "Confirm your email before logging in.";
+    if (error.code === "NotAuthorizedException") return "That email and password did not match.";
+    if (error.code === "UsernameExistsException") return "An account already exists for that email. Try logging in.";
+    if (error.code === "InvalidPasswordException") return error.message;
+    if (error.code === "CodeMismatchException") return "That confirmation code did not match.";
+    if (error.code === "ExpiredCodeException") return "That confirmation code expired. Request a new code in Cognito or sign up again.";
+  }
+
+  return error instanceof Error ? error.message : "Authentication failed. Please try again.";
+}
+
+function socialProviderLabel(provider?: CognitoSocialProvider) {
+  if (provider === "Google") return "Google";
+  if (provider === "Facebook") return "Facebook";
+  if (provider === "SignInWithApple") return "Apple";
+  return "that social provider";
+}
+
+function socialAuthFailureMessage(error: HostedUiError) {
+  const provider = socialProviderLabel(error.provider);
+  if (error.code === "access_denied") {
+    return `${provider} sign-in was cancelled or blocked. Choose a ${provider} account that can sign in, then try again below, or use email and password.`;
+  }
+
+  if (error.code === "HostedUiAccountSyncError") {
+    const detail = error.message ? ` ${error.message}` : "";
+    return `${provider} signed in, but Souvenote could not connect that login to your account.${detail} You can try again below.`;
+  }
+
+  return `${provider} could not finish sign-in. If that email is not connected to ${provider}, choose a different ${provider} account or use email and password. You can try again below.`;
+}
+
+function cleanReturnTo(value: string | null, fallback: string) {
+  if (!value || !value.startsWith("/") || value.startsWith("//")) return fallback;
+  return value;
+}
+
+function loginHrefAfterSignup(email: string, returnTo: string, reason: "created" | "exists") {
+  const params = new URLSearchParams({
+    returnTo,
+    signup: reason,
+  });
+  const normalizedEmail = email.trim().toLowerCase();
+  if (normalizedEmail) params.set("email", normalizedEmail);
+  return `/login?${params.toString()}`;
+}
+
+function signupLoginMessage(reason: string | null) {
+  if (reason === "created") return "Account created. Log in with your email and password to continue.";
+  if (reason === "exists") return "That email already has an account. Log in with your email and password instead.";
+  return null;
+}
+
 // ============================================================
 // SIGN UP (00a)
 // ============================================================
 function SignUpView() {
   const router = useRouter();
-  const [email, setEmail] = React.useState('cameron@souvenote.com');
-  const [pw, setPw] = React.useState('Moonlight2026!');
-  const [pw2, setPw2] = React.useState('Moonlight2026!');
+  const searchParams = useSearchParams();
+  const { signup, confirmSignup, startSocialSignIn, error: authContextError } = useAuth();
+  const [email, setEmail] = React.useState('');
+  const [pw, setPw] = React.useState('');
+  const [pw2, setPw2] = React.useState('');
   const [show, setShow] = React.useState(false);
-  const [dob, setDob] = React.useState('1992-03-04');
+  const [dob, setDob] = React.useState('');
   const [country, setCountry] = React.useState('CA');
   const [marketing, setMarketing] = React.useState(true);
   const [terms, setTerms] = React.useState(true);
+  const [confirmationCode, setConfirmationCode] = React.useState('');
+  const [needsConfirmation, setNeedsConfirmation] = React.useState(false);
+  const [authMessage, setAuthMessage] = React.useState<string | null>(null);
+  const [authError, setAuthError] = React.useState<string | null>(null);
+  const [submitting, setSubmitting] = React.useState(false);
   const s = strength(pw);
-  const continueToWelcome = React.useCallback(() => {
-    issueStarterSignupTokens();
-    router.push('/welcome');
-  }, [router]);
+  const returnTo = cleanReturnTo(searchParams.get("returnTo"), "/welcome");
+
+  React.useEffect(() => {
+    const hostedUiError = consumeHostedUiError();
+    if (!hostedUiError) return;
+    setSubmitting(false);
+    setAuthMessage(null);
+    setAuthError(socialAuthFailureMessage(hostedUiError));
+  }, [authContextError]);
+
+  const handleSignup = React.useCallback(async () => {
+    setAuthError(null);
+    setAuthMessage(null);
+
+    if (!email.trim() || !pw) {
+      setAuthError("Enter an email and password to create your account.");
+      return;
+    }
+
+    if (pw !== pw2) {
+      setAuthError("Passwords don't match yet.");
+      return;
+    }
+
+    if (!terms) {
+      setAuthError("Accept the terms before creating your account.");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const result = await signup(email, pw);
+      if (result.needsConfirmation) {
+        setNeedsConfirmation(true);
+        setAuthMessage("Check your email for a Cognito confirmation code, then enter it below.");
+        return;
+      }
+
+      router.push(loginHrefAfterSignup(email, returnTo, "created"));
+    } catch (error) {
+      if (error instanceof CognitoClientError && error.code === "UsernameExistsException") {
+        router.push(loginHrefAfterSignup(email, returnTo, "exists"));
+        return;
+      }
+      setAuthError(friendlyAuthError(error));
+    } finally {
+      setSubmitting(false);
+    }
+  }, [email, pw, pw2, returnTo, router, signup, terms]);
+
+  const handleConfirm = React.useCallback(async () => {
+    setAuthError(null);
+    setAuthMessage(null);
+
+    if (!confirmationCode.trim()) {
+      setAuthError("Enter the confirmation code from your email.");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      await confirmSignup(email, confirmationCode, pw);
+      router.push(loginHrefAfterSignup(email, returnTo, "created"));
+    } catch (error) {
+      if (error instanceof CognitoClientError && error.code === "UsernameExistsException") {
+        router.push(loginHrefAfterSignup(email, returnTo, "exists"));
+        return;
+      }
+      setAuthError(friendlyAuthError(error));
+    } finally {
+      setSubmitting(false);
+    }
+  }, [confirmSignup, confirmationCode, email, pw, returnTo, router]);
+
+  const handleSocialSignUp = React.useCallback(async (provider: CognitoSocialProvider) => {
+    setAuthError(null);
+    setAuthMessage(null);
+    setSubmitting(true);
+    try {
+      await startSocialSignIn(provider, returnTo);
+    } catch (error) {
+      setSubmitting(false);
+      setAuthError(friendlyAuthError(error));
+    }
+  }, [returnTo, startSocialSignIn]);
 
   return (
     <div className="auth-stage">
@@ -239,7 +378,7 @@ function SignUpView() {
             <div className="auth-method-kicker">Fastest</div>
             <h2 className="auth-method-title">Sign up with social</h2>
             <p className="auth-method-sub">Use an existing account and we&apos;ll open your welcome credits right away.</p>
-            <SocialButtons verb="Continue" onContinue={continueToWelcome} />
+            <SocialButtons verb="Continue" onProvider={handleSocialSignUp} />
           </section>
 
           <section className="auth-method-panel auth-method-panel-email">
@@ -298,9 +437,25 @@ function SignUpView() {
             I agree to the <Link href="/legal/terms-of-service">Terms of Service</Link> and the <Link href="/legal/privacy-policy">Privacy Policy</Link>.
           </AuthCheckbox>
 
-          <Link href="/welcome" className="auth-submit" onClick={issueStarterSignupTokens}>
-            Create Account <AuthIcon name="arrow" w={16} />
-          </Link>
+          {authMessage && <p className="auth-hint" style={{ color: 'var(--gold)' }}>{authMessage}</p>}
+          {authError && <p className="auth-hint is-error">{authError}</p>}
+
+          {needsConfirmation && (
+            <div className="auth-field">
+              <label className="auth-label">Confirmation code</label>
+              <input className="auth-input" placeholder="123456" value={confirmationCode} onChange={(e) => setConfirmationCode(e.target.value)} />
+            </div>
+          )}
+
+          {needsConfirmation ? (
+            <button type="button" className="auth-submit" onClick={handleConfirm} disabled={submitting}>
+              {submitting ? "Confirming..." : "Confirm & Go to Login"} <AuthIcon name="arrow" w={16} />
+            </button>
+          ) : (
+            <button type="button" className="auth-submit" onClick={handleSignup} disabled={submitting}>
+              {submitting ? "Creating..." : "Create Account"} <AuthIcon name="arrow" w={16} />
+            </button>
+          )}
 
           <div className="auth-cardfoot">
             Already have an account?{' '}
@@ -320,10 +475,82 @@ function SignUpView() {
 // ============================================================
 function LoginView() {
   const router = useRouter();
-  const [email, setEmail] = React.useState('cameron@souvenote.com');
+  const searchParams = useSearchParams();
+  const { login, confirmSignup, startSocialSignIn, error: authContextError } = useAuth();
+  const [email, setEmail] = React.useState(() => searchParams.get("email") || '');
   const [pw, setPw] = React.useState('');
   const [show, setShow] = React.useState(false);
   const [remember, setRemember] = React.useState(true);
+  const [confirmationCode, setConfirmationCode] = React.useState('');
+  const [needsConfirmation, setNeedsConfirmation] = React.useState(false);
+  const [authMessage, setAuthMessage] = React.useState<string | null>(() => signupLoginMessage(searchParams.get("signup")));
+  const [authError, setAuthError] = React.useState<string | null>(null);
+  const [submitting, setSubmitting] = React.useState(false);
+  const returnTo = cleanReturnTo(searchParams.get("returnTo"), "/create");
+
+  React.useEffect(() => {
+    const hostedUiError = consumeHostedUiError();
+    if (!hostedUiError) return;
+    setSubmitting(false);
+    setAuthMessage(null);
+    setAuthError(socialAuthFailureMessage(hostedUiError));
+  }, [authContextError]);
+
+  const handleLogin = React.useCallback(async () => {
+    setAuthError(null);
+    setAuthMessage(null);
+
+    if (!email.trim() || !pw) {
+      setAuthError("Enter your email and password.");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      await login(email, pw);
+      router.push(returnTo);
+    } catch (error) {
+      if (error instanceof CognitoClientError && error.code === "UserNotConfirmedException") {
+        setNeedsConfirmation(true);
+      }
+      setAuthError(friendlyAuthError(error));
+    } finally {
+      setSubmitting(false);
+    }
+  }, [email, login, pw, returnTo, router]);
+
+  const handleConfirm = React.useCallback(async () => {
+    setAuthError(null);
+    setAuthMessage(null);
+
+    if (!confirmationCode.trim()) {
+      setAuthError("Enter the confirmation code from your email.");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      await confirmSignup(email, confirmationCode, pw);
+      await login(email, pw);
+      router.push(returnTo);
+    } catch (error) {
+      setAuthError(friendlyAuthError(error));
+    } finally {
+      setSubmitting(false);
+    }
+  }, [confirmSignup, confirmationCode, email, login, pw, returnTo, router]);
+
+  const handleSocialLogin = React.useCallback(async (provider: CognitoSocialProvider) => {
+    setAuthError(null);
+    setAuthMessage(null);
+    setSubmitting(true);
+    try {
+      await startSocialSignIn(provider, returnTo);
+    } catch (error) {
+      setSubmitting(false);
+      setAuthError(friendlyAuthError(error));
+    }
+  }, [returnTo, startSocialSignIn]);
 
   return (
     <div className="auth-stage">
@@ -343,7 +570,7 @@ function LoginView() {
           <div className="auth-method-kicker">Social</div>
           <h2 className="auth-method-title">Log in with social</h2>
           <p className="auth-method-sub">Continue with the same provider you used to create your Souvenote account.</p>
-          <SocialButtons verb="Continue" onContinue={() => router.push('/create')} />
+          <SocialButtons verb="Continue" onProvider={handleSocialLogin} />
         </section>
 
         <section className="auth-method-panel auth-method-panel-email">
@@ -374,9 +601,25 @@ function LoginView() {
           Remember me on this device · 30-day rolling session
         </AuthCheckbox>
 
-        <Link href="/create" className="auth-submit">
-          Log In <AuthIcon name="arrow" w={16} />
-        </Link>
+        {authMessage && <p className="auth-hint" style={{ color: 'var(--gold)' }}>{authMessage}</p>}
+        {authError && <p className="auth-hint is-error">{authError}</p>}
+
+        {needsConfirmation && (
+          <div className="auth-field">
+            <label className="auth-label">Confirmation code</label>
+            <input className="auth-input" placeholder="123456" value={confirmationCode} onChange={(e) => setConfirmationCode(e.target.value)} />
+          </div>
+        )}
+
+        {needsConfirmation ? (
+          <button type="button" className="auth-submit" onClick={handleConfirm} disabled={submitting}>
+            {submitting ? "Confirming..." : "Confirm & Log In"} <AuthIcon name="arrow" w={16} />
+          </button>
+        ) : (
+          <button type="button" className="auth-submit" onClick={handleLogin} disabled={submitting}>
+            {submitting ? "Logging in..." : "Log In"} <AuthIcon name="arrow" w={16} />
+          </button>
+        )}
 
         <div className="auth-cardfoot">
           Don't have an account?{' '}

@@ -414,7 +414,6 @@ function DeliveryApp({ user, initialCards = 0, initialCredits = DELIVERY_DEFAULT
   const [date, setDate] = React.useState("");
   const [shipping, setShipping] = React.useState("standard");
   const [cardBank, setCardBank] = React.useState(demoBalance.cardBank);
-  const credits = demoBalance.credits;
   const [song, setSong] = React.useState(false);
   const [flowState, setFlowState] = React.useState(() => readMockMvpFlowState());
   const [backendOrder, setBackendOrder] = React.useState<Order | null>(null);
@@ -720,7 +719,7 @@ function DeliveryApp({ user, initialCards = 0, initialCredits = DELIVERY_DEFAULT
 
   return (
     <>
-      <Navbar loggedIn user={user} credits={credits} cardBank={cardBank} cartCount={0} />
+      <Navbar user={user} credits={{ images: 0, songs: 0 }} cardBank={0} cartCount={0} />
 
       <div className="bmc-shell" data-screen-label="06 Delivery">
         <div className="bmc-head" style={{ textAlign: "center", margin: "0 auto 40px", maxWidth: 780 }}>

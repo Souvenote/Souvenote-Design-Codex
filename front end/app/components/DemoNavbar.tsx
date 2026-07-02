@@ -2,7 +2,7 @@
 
 import { Navbar } from "./Navbar";
 import { demoUser } from "./DemoUser";
-import { useDemoBalance } from "./DemoBalance";
+import { useAuth } from "./AuthProvider";
 import type { NavbarProps } from "./Navbar";
 
 type DemoNavbarProps = Pick<NavbarProps, "followUserOnScroll"> & {
@@ -13,14 +13,14 @@ type DemoNavbarProps = Pick<NavbarProps, "followUserOnScroll"> & {
 };
 
 function DemoNavbar({ cartCount = 0, ...props }: DemoNavbarProps) {
-  const demoBalance = useDemoBalance();
+  const auth = useAuth();
 
   return (
     <Navbar
-      loggedIn
+      loggedIn={auth.status === "authenticated"}
       user={demoUser}
-      credits={demoBalance.credits}
-      cardBank={demoBalance.cardBank}
+      credits={{ images: 0, songs: 0 }}
+      cardBank={0}
       cartCount={cartCount}
       {...props}
     />

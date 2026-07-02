@@ -22,6 +22,8 @@ type BmcWizardProps = {
   credits?: number;
   creditStatus?: CreditBalanceStatus;
   refreshCredits?: () => Promise<unknown> | unknown;
+  requireAuthToContinue?: boolean;
+  onAuthRequired?: () => void;
 };
 
 type BmcDraftInput = {
@@ -106,6 +108,8 @@ function BmcWizard({
   credits = 0,
   creditStatus = "idle",
   refreshCredits,
+  requireAuthToContinue = false,
+  onAuthRequired,
 }: BmcWizardProps) {
   const router = useRouter();
   const [step, setStep] = React.useState<BmcWizardStep>(initialStep);
@@ -190,6 +194,10 @@ function BmcWizard({
   const goNext = async () => {
     const nextStep = STEPS[idx + 1]?.id;
     if (idx >= 0 && idx < STEPS.length - 1 && isBmcWizardStep(nextStep)) {
+      if (requireAuthToContinue && step === "photo") {
+        onAuthRequired?.();
+        return;
+      }
       if (step === "photo") {
         try {
           const cardDraftId = await ensureDraftSaved();

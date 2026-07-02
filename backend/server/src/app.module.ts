@@ -11,6 +11,7 @@ import { CheckoutModule } from './checkout/checkout.module';
 import { FulfillmentModule } from './fulfillment/fulfillment.module';
 import { OrdersModule } from './orders/orders.module';
 import { UploadModule } from './uploads/upload.module';
+import { AuthModule } from './auth/auth.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { UploadModule } from './uploads/upload.module';
     CardDraftsModule,
     AssetModule,
     UploadModule,
+    AuthModule,
     OrdersModule,
     CheckoutModule,
     FulfillmentModule,

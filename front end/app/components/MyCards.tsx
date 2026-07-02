@@ -7,11 +7,12 @@ import { Navbar } from "./Navbar";
 import { Footer } from "./Footer";
 import { BmcIcon } from "./BmcShared";
 import { CardArt } from "./CardArt";
-import { useDemoBalance, ZERO_DEMO_BALANCE } from "./DemoBalance";
 import { CARD_DRAFTS_UPDATED_EVENT, fetchCardDraftAssets, fetchUserCardDrafts } from "../lib/api";
 import type { CardDraft, CardDraftAsset } from "../lib/api";
 import { rememberSelectedAsset } from "../lib/mockMvpFlow";
 import type { DemoUser } from "./DemoUser";
+import { useAuth } from "./AuthProvider";
+import { AuthGatePrompt } from "./AuthGatePrompt";
 
 type MyCardsAppProps = {
   user: DemoUser;
@@ -377,18 +378,22 @@ function McsSongRow({ s }: McsSongRowProps) {
 
 function MyCardsApp({ user, full = true }: MyCardsAppProps) {
   const router = useRouter();
+  const auth = useAuth();
   const [mode, setMode] = React.useState(full);
-  const demoBalance = useDemoBalance(ZERO_DEMO_BALANCE);
+  const [authPromptOpen, setAuthPromptOpen] = React.useState(false);
   const [backendDrafts, setBackendDrafts] = React.useState<CardDraftWithAssets[]>([]);
   const [draftsStatus, setDraftsStatus] = React.useState<"loading" | "ready" | "error">("loading");
   const [draftsError, setDraftsError] = React.useState<string | null>(null);
+  const isAuthenticated = auth.status === "authenticated";
+  const localUserId = auth.user?.id;
 
   React.useEffect(() => {
     window.__mcsSetMode = (value) => setMode(value);
   }, []);
 
   const loadDraftsAndAssets = React.useCallback(async () => {
-    const draftsFromBackend = await fetchUserCardDrafts();
+    if (!isAuthenticated || !localUserId) return [];
+    const draftsFromBackend = await fetchUserCardDrafts(localUserId);
     const draftsWithAssets = await Promise.all(
       draftsFromBackend.map(async (draft) => ({
         draft,
@@ -397,9 +402,15 @@ function MyCardsApp({ user, full = true }: MyCardsAppProps) {
     );
 
     return draftsWithAssets;
-  }, []);
+  }, [isAuthenticated, localUserId]);
 
   React.useEffect(() => {
+    if (!isAuthenticated || !localUserId) {
+      setBackendDrafts([]);
+      setDraftsStatus(auth.status === "loading" ? "loading" : "ready");
+      return;
+    }
+
     let active = true;
     setDraftsStatus("loading");
 
@@ -420,9 +431,11 @@ function MyCardsApp({ user, full = true }: MyCardsAppProps) {
     return () => {
       active = false;
     };
-  }, [loadDraftsAndAssets]);
+  }, [auth.status, isAuthenticated, loadDraftsAndAssets]);
 
   React.useEffect(() => {
+    if (!isAuthenticated) return;
+
     const sync = () => {
       loadDraftsAndAssets()
         .then((draftsWithAssets) => {
@@ -439,7 +452,7 @@ function MyCardsApp({ user, full = true }: MyCardsAppProps) {
 
     window.addEventListener(CARD_DRAFTS_UPDATED_EVENT, sync);
     return () => window.removeEventListener(CARD_DRAFTS_UPDATED_EVENT, sync);
-  }, [loadDraftsAndAssets]);
+  }, [isAuthenticated, loadDraftsAndAssets]);
 
   const draftRows = mode
     ? backendDrafts.filter(({ assets }) => !hasAssetType(assets, "image")).map(({ draft }) => mapDraftToMcsDraft(draft))
@@ -461,9 +474,75 @@ function MyCardsApp({ user, full = true }: MyCardsAppProps) {
     router.push("/delivery");
   }
 
+  if (!isAuthenticated) {
+    return (
+      <>
+        <Navbar loggedIn={false} user={user} credits={{ images: 0, songs: 0 }} cardBank={0} cartCount={0} />
+
+        <div className="bmc-shell" data-screen-label="05a Saved Cards & Songs">
+          <div className="bmc-head" style={{ margin: "0 0 40px", maxWidth: 820 }}>
+            <div className="bmc-eyebrow" style={{ whiteSpace: "nowrap" }}>
+              <span>Saved Cards &amp; Songs</span>
+            </div>
+            <h1 className="bmc-title">
+              Everything you&apos;ve{" "}
+              <span className="souv-hero-italic text-metallic-rose-gold">made</span>
+            </h1>
+            <p className="bmc-lede">
+              Sign up or log in to purchase cards and credits, then every draft, card, song, and token you make will live here.
+            </p>
+          </div>
+
+          <div className="mcs-section" data-screen-label="Section - Account required">
+            <McsSectionHead title="Your library" />
+            <div className="mcs-empty mcs-auth-lock">
+              <span className="mcs-empty-ico"><BmcIcon name="lock" w={30} /></span>
+              <div className="mcs-empty-title">Sign up or log in to unlock Saved Cards &amp; Songs</div>
+              <div className="mcs-empty-sub">Purchase cards and credits, save drafts, and keep your generated songs attached to your account.</div>
+              <div className="mcs-auth-actions">
+                <Link className="bmc-cta" href="/signup?returnTo=/create/my-cards-and-songs">Sign up</Link>
+                <Link className="bmc-cta-secondary" href="/login?returnTo=/create/my-cards-and-songs">Log in</Link>
+                <button type="button" className="bmc-cta-secondary" onClick={() => setAuthPromptOpen(true)}>What unlocks?</button>
+              </div>
+            </div>
+          </div>
+
+          <div className="mcs-section" data-screen-label="Section - Cards">
+            <McsSectionHead title="Saved cards" />
+            <McsEmpty
+              icon={<BmcIcon name="image" w={30} />}
+              title="Cards save after sign-up"
+              sub="Once you purchase cards or credits and generate a design, finished cards appear here ready to mail."
+            />
+          </div>
+
+          <div className="mcs-section" data-screen-label="Section - Songs">
+            <McsSectionHead title="Songs" />
+            <McsEmpty
+              icon={<BmcIcon name="note" w={30} />}
+              title="Songs attach to your account"
+              sub="QR-code songs are private to your account until you choose to mail or share a card."
+            />
+          </div>
+
+          <AuthGatePrompt
+            open={authPromptOpen}
+            onClose={() => setAuthPromptOpen(false)}
+            returnTo="/create/my-cards-and-songs"
+            title="Save every card and token in one place"
+            body="Create an account or log in to purchase card packs and credits, resume drafts, keep generated songs, and send finished cards when you're ready."
+            primaryLabel="Sign up"
+          />
+        </div>
+
+        <Footer />
+      </>
+    );
+  }
+
   return (
     <>
-      <Navbar loggedIn user={user} credits={demoBalance.credits} cardBank={demoBalance.cardBank} cartCount={0} />
+      <Navbar loggedIn={isAuthenticated} user={user} credits={{ images: 0, songs: 0 }} cardBank={0} cartCount={0} />
 
       <div className="bmc-shell" data-screen-label="05a Saved Cards & Songs">
         <div className="bmc-head" style={{ margin: "0 0 40px", maxWidth: 820 }}>
@@ -475,8 +554,9 @@ function MyCardsApp({ user, full = true }: MyCardsAppProps) {
             <span className="souv-hero-italic text-metallic-rose-gold">made</span>
           </h1>
           <p className="bmc-lede">
-            Drafts, finished cards, and songs all live here for 30 days. Pick up where you left off,
-            mail a card whenever you&apos;re ready, or play a song anytime before it clears.
+            {isAuthenticated
+              ? "Drafts, finished cards, and songs all live here for 30 days. Pick up where you left off, mail a card whenever you're ready, or play a song anytime before it clears."
+              : "Sign up or log in to purchase cards and credits, then every draft, card, song, and token you make will live here."}
           </p>
         </div>
 

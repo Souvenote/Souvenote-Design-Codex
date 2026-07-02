@@ -3,13 +3,13 @@
 import * as React from "react";
 import Link from "next/link";
 import type { DemoUser } from "./DemoUser";
-import { getTotalDemoCredits, useDemoBalance } from "./DemoBalance";
 import { useCreditBalance } from "../lib/creditBalance";
 import { fetchCardDraftAssets, fetchUserCardDrafts } from "../lib/api";
 import { useBlankSouvenoteGiftCount } from "./GiftAddon";
+import { useAuth } from "./AuthProvider";
 
 type AccountPageProps = {
-  user: DemoUser;
+  user?: DemoUser;
 };
 
 type ProfileStat = {
@@ -71,8 +71,11 @@ const PROFILE_LINKS: ProfileLink[] = [
 ];
 
 function ProfilePage({ user }: AccountPageProps) {
-  const demoBalance = useDemoBalance();
-  const creditBalance = useCreditBalance({ fallbackBalance: getTotalDemoCredits(demoBalance) });
+  const auth = useAuth();
+  const accountUser = auth.displayUser || user || { name: "Souvenote User", email: "user@souvenote.com", initials: "SU" };
+  const isAuthenticated = auth.status === "authenticated";
+  const localUserId = auth.user?.id;
+  const creditBalance = useCreditBalance({ enabled: isAuthenticated, fallbackBalance: 0, userId: auth.user?.id });
   const blankGiftCount = useBlankSouvenoteGiftCount();
   const [cardDraftCount, setCardDraftCount] = React.useState(0);
   const [draftCountStatus, setDraftCountStatus] = React.useState<"loading" | "ready" | "error">("loading");
@@ -80,8 +83,23 @@ function ProfilePage({ user }: AccountPageProps) {
   React.useEffect(() => {
     let active = true;
 
+    if (auth.status === "loading") {
+      setDraftCountStatus("loading");
+      return () => {
+        active = false;
+      };
+    }
+
+    if (!isAuthenticated || !localUserId) {
+      setCardDraftCount(0);
+      setDraftCountStatus("ready");
+      return () => {
+        active = false;
+      };
+    }
+
     setDraftCountStatus("loading");
-    fetchUserCardDrafts()
+    fetchUserCardDrafts(localUserId)
       .then(async (drafts) => {
         const assetGroups = await Promise.all(drafts.map((draft) => fetchCardDraftAssets(draft.id)));
         const completedCount = assetGroups.filter((assets) => (
@@ -100,13 +118,13 @@ function ProfilePage({ user }: AccountPageProps) {
     return () => {
       active = false;
     };
-  }, []);
+  }, [auth.status, isAuthenticated, localUserId]);
 
   const profileStats: ProfileStat[] = [
     { num: creditBalance.status === "loading" ? "..." : String(creditBalance.balance), label: creditBalance.status === "error" ? "Credits offline" : "Credits", gold: true },
     { num: draftCountStatus === "loading" ? "..." : String(cardDraftCount), label: draftCountStatus === "error" ? "Cards offline" : "Cards made" },
     { num: "0", label: "Songs made" },
-    { num: String(demoBalance.cardBank), label: "Cards in bank" },
+    { num: "0", label: "Cards in bank" },
     ...(blankGiftCount > 0 ? [{ num: String(blankGiftCount), label: "Blank gifts", gold: true }] : []),
   ];
   const profileActivity: ProfileActivity[] = [
@@ -117,6 +135,10 @@ function ProfilePage({ user }: AccountPageProps) {
     }] : []),
     ...PROFILE_ACTIVITY,
   ];
+  const joinedAt = auth.user?.created_at ? new Date(auth.user.created_at) : null;
+  const memberSince = joinedAt && !Number.isNaN(joinedAt.getTime())
+    ? joinedAt.toLocaleDateString(undefined, { month: "long", year: "numeric" })
+    : "Today";
 
   return (
     <div className="bmc-shell" data-screen-label="Profile">
@@ -127,14 +149,14 @@ function ProfilePage({ user }: AccountPageProps) {
       </div>
 
       <div className="acc-hero">
-        <div className="acc-avatar">{user.initials}</div>
+        <div className="acc-avatar">{accountUser.initials}</div>
         <div className="acc-hero-info">
-          <h2 className="acc-hero-name">{user.name}</h2>
+          <h2 className="acc-hero-name">{accountUser.name}</h2>
           <div className="acc-hero-meta">
-            <span>{user.email}</span>
+            <span>{accountUser.email}</span>
             <span className="dot" />
-            <span>Member since 2025</span>
-            <span className="acc-hero-badge">{"\u2605 Founding member"}</span>
+            <span>Member since {memberSince}</span>
+            <span className="acc-hero-badge">{"\u2605 Profile synced"}</span>
           </div>
         </div>
         <div className="acc-hero-actions">
@@ -229,8 +251,17 @@ const REFER_SHARE: ReferShare[] = [
 ];
 
 function ReferPage({ user }: AccountPageProps) {
+  const auth = useAuth();
+  const accountUser = auth.displayUser || user || { name: "Souvenote User", email: "user@souvenote.com", initials: "SU" };
   const [copied, setCopied] = React.useState(false);
-  const link = "souvenote.com/r/CAMERON10";
+  const referralSeed = auth.user?.id || accountUser.email || accountUser.name;
+  const referralSlug = referralSeed
+    .toLowerCase()
+    .replace(/@.*/, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 24) || "souvenote";
+  const link = `souvenote.com/r/${referralSlug}`;
 
   function copy() {
     navigator.clipboard?.writeText("https://" + link).catch(() => {});

@@ -1,3 +1,6 @@
+import { getActiveCognitoSession, getStoredLocalUser } from "./cognitoAuth";
+import type { LocalUser } from "./cognitoAuth";
+
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:4000/api";
 
@@ -232,7 +235,79 @@ export type GrantCreditsResponse = {
   balance?: CreditBalance;
 };
 
+export type AuthMeResponse = {
+  user: LocalUser;
+  paymentMethods?: PaymentMethod[];
+  starterCredits?: {
+    granted?: boolean;
+    balance?: CreditBalance;
+  };
+};
+
+export type UserProfileUpdate = {
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+  birthday?: string;
+  country?: string;
+  currency?: string;
+  language?: string;
+  marketingOptIn?: boolean;
+  preferences?: Record<string, unknown>;
+};
+
+export type PaymentMethod = {
+  id: string;
+  user_id: string;
+  stripe_payment_method_id?: string | null;
+  brand: string;
+  last4: string;
+  exp_month: number;
+  exp_year: number;
+  billing_name?: string | null;
+  billing_postal_code?: string | null;
+  is_default: boolean;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type SavePaymentMethodRequest = {
+  brand: string;
+  last4: string;
+  expMonth: number;
+  expYear: number;
+  billingName?: string;
+  billingPostalCode?: string;
+  stripePaymentMethodId?: string;
+  isDefault?: boolean;
+};
+
+type PaymentMethodsResponse = {
+  paymentMethods: PaymentMethod[];
+};
+
+type PaymentMethodResponse = {
+  paymentMethod: PaymentMethod;
+};
+
 export const CARD_DRAFTS_UPDATED_EVENT = "souv-card-drafts-updated";
+
+export function getApiUserId(userId?: string) {
+  return userId || getStoredLocalUser()?.id || LOCAL_MOCK_USER_ID;
+}
+
+async function buildApiHeaders(headers?: HeadersInit, json = false) {
+  const nextHeaders = new Headers(headers);
+  if (!nextHeaders.has("Accept")) nextHeaders.set("Accept", "application/json");
+  if (json && !nextHeaders.has("Content-Type")) nextHeaders.set("Content-Type", "application/json");
+
+  const session = await getActiveCognitoSession();
+  if (session?.idToken) {
+    nextHeaders.set("Authorization", `Bearer ${session.idToken}`);
+  }
+
+  return nextHeaders;
+}
 
 async function readErrorMessage(response: Response, fallback: string) {
   try {
@@ -249,9 +324,7 @@ async function readErrorMessage(response: Response, fallback: string) {
 
 export async function fetchPricingOffers(): Promise<PricingOffer[]> {
   const response = await fetch(`${API_BASE_URL}/pricing`, {
-    headers: {
-      Accept: "application/json",
-    },
+    headers: await buildApiHeaders(),
   });
 
   if (!response.ok) {
@@ -267,11 +340,118 @@ export async function fetchPricingOffers(): Promise<PricingOffer[]> {
   return payload.data;
 }
 
-export async function fetchCreditBalance(userId = LOCAL_MOCK_USER_ID): Promise<CreditBalance> {
-  const response = await fetch(`${API_BASE_URL}/credits/balance/${encodeURIComponent(userId)}`, {
-    headers: {
-      Accept: "application/json",
-    },
+export async function fetchAuthenticatedUser(): Promise<LocalUser> {
+  const response = await fetch(`${API_BASE_URL}/auth/me`, {
+    headers: await buildApiHeaders(),
+  });
+
+  if (!response.ok) {
+    const message = await readErrorMessage(response, `Authenticated user request failed with status ${response.status}.`);
+    throw new Error(message);
+  }
+
+  const payload = (await response.json()) as Partial<AuthMeResponse>;
+  if (typeof payload.user?.id !== "string" || typeof payload.user.email !== "string") {
+    throw new Error("Authenticated user response did not include a local user id.");
+  }
+
+  return payload.user;
+}
+
+export async function updateAuthenticatedUser(input: UserProfileUpdate): Promise<LocalUser> {
+  const response = await fetch(`${API_BASE_URL}/auth/me`, {
+    method: "PATCH",
+    headers: await buildApiHeaders(undefined, true),
+    body: JSON.stringify(input),
+  });
+
+  if (!response.ok) {
+    const message = await readErrorMessage(response, `Profile update failed with status ${response.status}.`);
+    throw new Error(message);
+  }
+
+  const payload = (await response.json()) as Partial<AuthMeResponse>;
+  if (typeof payload.user?.id !== "string" || typeof payload.user.email !== "string") {
+    throw new Error("Profile update response did not include a local user.");
+  }
+
+  return payload.user;
+}
+
+export async function fetchPaymentMethods(): Promise<PaymentMethod[]> {
+  const response = await fetch(`${API_BASE_URL}/auth/payment-methods`, {
+    headers: await buildApiHeaders(),
+  });
+
+  if (!response.ok) {
+    const message = await readErrorMessage(response, `Payment methods request failed with status ${response.status}.`);
+    throw new Error(message);
+  }
+
+  const payload = (await response.json()) as Partial<PaymentMethodsResponse>;
+  if (!Array.isArray(payload.paymentMethods)) {
+    throw new Error("Payment methods response did not include a paymentMethods array.");
+  }
+
+  return payload.paymentMethods;
+}
+
+export async function createPaymentMethod(input: SavePaymentMethodRequest): Promise<PaymentMethod> {
+  const response = await fetch(`${API_BASE_URL}/auth/payment-methods`, {
+    method: "POST",
+    headers: await buildApiHeaders(undefined, true),
+    body: JSON.stringify(input),
+  });
+
+  if (!response.ok) {
+    const message = await readErrorMessage(response, `Payment method save failed with status ${response.status}.`);
+    throw new Error(message);
+  }
+
+  const payload = (await response.json()) as Partial<PaymentMethodResponse>;
+  if (!payload.paymentMethod?.id) {
+    throw new Error("Payment method response did not include a saved method.");
+  }
+
+  return payload.paymentMethod;
+}
+
+export async function updatePaymentMethod(paymentMethodId: string, input: SavePaymentMethodRequest): Promise<PaymentMethod> {
+  const response = await fetch(`${API_BASE_URL}/auth/payment-methods/${encodeURIComponent(paymentMethodId)}`, {
+    method: "PATCH",
+    headers: await buildApiHeaders(undefined, true),
+    body: JSON.stringify(input),
+  });
+
+  if (!response.ok) {
+    const message = await readErrorMessage(response, `Payment method update failed with status ${response.status}.`);
+    throw new Error(message);
+  }
+
+  const payload = (await response.json()) as Partial<PaymentMethodResponse>;
+  if (!payload.paymentMethod?.id) {
+    throw new Error("Payment method response did not include an updated method.");
+  }
+
+  return payload.paymentMethod;
+}
+
+export async function deletePaymentMethod(paymentMethodId: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/auth/payment-methods/${encodeURIComponent(paymentMethodId)}`, {
+    method: "DELETE",
+    headers: await buildApiHeaders(),
+  });
+
+  if (!response.ok) {
+    const message = await readErrorMessage(response, `Payment method delete failed with status ${response.status}.`);
+    throw new Error(message);
+  }
+}
+
+export async function fetchCreditBalance(userId?: string): Promise<CreditBalance> {
+  const resolvedUserId = getApiUserId(userId);
+  const response = await fetch(`${API_BASE_URL}/credits/balance/${encodeURIComponent(resolvedUserId)}`, {
+    headers: await buildApiHeaders(),
   });
 
   if (!response.ok) {
@@ -291,19 +471,17 @@ export async function fetchCreditBalance(userId = LOCAL_MOCK_USER_ID): Promise<C
 }
 
 export async function createCardDraft({
-  userId = LOCAL_MOCK_USER_ID,
+  userId,
   occasion,
   relationship,
   creativeBrief,
 }: CreateCardDraftRequest): Promise<CardDraft> {
+  const resolvedUserId = getApiUserId(userId);
   const response = await fetch(`${API_BASE_URL}/card-drafts`, {
     method: "POST",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-    },
+    headers: await buildApiHeaders(undefined, true),
     body: JSON.stringify({
-      userId,
+      userId: resolvedUserId,
       ...(occasion ? { occasion } : {}),
       ...(relationship ? { relationship } : {}),
       creativeBrief: creativeBrief ?? {},
@@ -325,9 +503,7 @@ export async function createCardDraft({
 
 export async function fetchCardDraftById(cardDraftId: string): Promise<CardDraft> {
   const response = await fetch(`${API_BASE_URL}/card-drafts/${encodeURIComponent(cardDraftId)}`, {
-    headers: {
-      Accept: "application/json",
-    },
+    headers: await buildApiHeaders(),
   });
 
   if (!response.ok) {
@@ -349,10 +525,7 @@ export async function updateCardDraft(
 ): Promise<CardDraft> {
   const response = await fetch(`${API_BASE_URL}/card-drafts/${encodeURIComponent(cardDraftId)}`, {
     method: "PATCH",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-    },
+    headers: await buildApiHeaders(undefined, true),
     body: JSON.stringify({
       ...(occasion ? { occasion } : {}),
       ...(relationship ? { relationship } : {}),
@@ -373,11 +546,10 @@ export async function updateCardDraft(
   return payload.cardDraft;
 }
 
-export async function fetchUserCardDrafts(userId = LOCAL_MOCK_USER_ID): Promise<CardDraft[]> {
-  const response = await fetch(`${API_BASE_URL}/card-drafts/user/${encodeURIComponent(userId)}`, {
-    headers: {
-      Accept: "application/json",
-    },
+export async function fetchUserCardDrafts(userId?: string): Promise<CardDraft[]> {
+  const resolvedUserId = getApiUserId(userId);
+  const response = await fetch(`${API_BASE_URL}/card-drafts/user/${encodeURIComponent(resolvedUserId)}`, {
+    headers: await buildApiHeaders(),
   });
 
   if (!response.ok) {
@@ -395,9 +567,7 @@ export async function fetchUserCardDrafts(userId = LOCAL_MOCK_USER_ID): Promise<
 
 export async function fetchCardDraftAssets(cardDraftId: string): Promise<CardDraftAsset[]> {
   const response = await fetch(`${API_BASE_URL}/assets/card-draft/${encodeURIComponent(cardDraftId)}`, {
-    headers: {
-      Accept: "application/json",
-    },
+    headers: await buildApiHeaders(),
   });
 
   if (!response.ok) {
@@ -414,20 +584,18 @@ export async function fetchCardDraftAssets(cardDraftId: string): Promise<CardDra
 }
 
 export async function mockUpload({
-  userId = LOCAL_MOCK_USER_ID,
+  userId,
   cardDraftId,
   filename,
   mimeType,
   size,
 }: MockUploadRequest): Promise<MockUploadResponse> {
+  const resolvedUserId = getApiUserId(userId);
   const response = await fetch(`${API_BASE_URL}/uploads/mock`, {
     method: "POST",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-    },
+    headers: await buildApiHeaders(undefined, true),
     body: JSON.stringify({
-      userId,
+      userId: resolvedUserId,
       cardDraftId,
       filename,
       mimeType,
@@ -443,15 +611,16 @@ export async function mockUpload({
   return (await response.json()) as MockUploadResponse;
 }
 
-export async function refreshCardDraftBackendState(cardDraftId: string, userId = LOCAL_MOCK_USER_ID) {
+export async function refreshCardDraftBackendState(cardDraftId: string, userId?: string) {
+  const resolvedUserId = getApiUserId(userId);
   const [cardDrafts, assets] = await Promise.all([
-    fetchUserCardDrafts(userId),
+    fetchUserCardDrafts(resolvedUserId),
     fetchCardDraftAssets(cardDraftId),
   ]);
 
   if (typeof window !== "undefined") {
     window.dispatchEvent(new CustomEvent(CARD_DRAFTS_UPDATED_EVENT, {
-      detail: { userId, cardDraftId, cardDrafts, assets },
+      detail: { userId: resolvedUserId, cardDraftId, cardDrafts, assets },
     }));
   }
 
@@ -459,18 +628,16 @@ export async function refreshCardDraftBackendState(cardDraftId: string, userId =
 }
 
 export async function startGeneration({
-  userId = LOCAL_MOCK_USER_ID,
+  userId,
   cardDraftId,
   idempotencyKey,
 }: StartGenerationRequest): Promise<GenerationStartResponse> {
+  const resolvedUserId = getApiUserId(userId);
   const response = await fetch(`${API_BASE_URL}/generation/start`, {
     method: "POST",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-    },
+    headers: await buildApiHeaders(undefined, true),
     body: JSON.stringify({
-      userId,
+      userId: resolvedUserId,
       ...(cardDraftId ? { cardDraftId } : {}),
       idempotencyKey,
     }),
@@ -485,20 +652,18 @@ export async function startGeneration({
 }
 
 export async function createOrder({
-  userId = LOCAL_MOCK_USER_ID,
+  userId,
   cardDraftId,
   selectedAssetId,
   recipientAddress,
   senderAddress,
 }: CreateOrderRequest): Promise<Order> {
+  const resolvedUserId = getApiUserId(userId);
   const response = await fetch(`${API_BASE_URL}/orders`, {
     method: "POST",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-    },
+    headers: await buildApiHeaders(undefined, true),
     body: JSON.stringify({
-      userId,
+      userId: resolvedUserId,
       cardDraftId,
       selectedAssetId,
       recipientAddress,
@@ -522,10 +687,7 @@ export async function createOrder({
 export async function startCheckout(orderId: string): Promise<CheckoutResponse> {
   const response = await fetch(`${API_BASE_URL}/checkout/start`, {
     method: "POST",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-    },
+    headers: await buildApiHeaders(undefined, true),
     body: JSON.stringify({ orderId }),
   });
 
@@ -548,10 +710,7 @@ export async function startCheckout(orderId: string): Promise<CheckoutResponse> 
 export async function completeMockCheckout(orderId: string): Promise<CheckoutResponse> {
   const response = await fetch(`${API_BASE_URL}/checkout/mock-success`, {
     method: "POST",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-    },
+    headers: await buildApiHeaders(undefined, true),
     body: JSON.stringify({ orderId }),
   });
 
@@ -574,10 +733,7 @@ export async function completeMockCheckout(orderId: string): Promise<CheckoutRes
 export async function submitFulfillment(orderId: string): Promise<FulfillmentSubmitResponse> {
   const response = await fetch(`${API_BASE_URL}/fulfillment/submit`, {
     method: "POST",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-    },
+    headers: await buildApiHeaders(undefined, true),
     body: JSON.stringify({ orderId }),
   });
 
@@ -598,19 +754,17 @@ export async function submitFulfillment(orderId: string): Promise<FulfillmentSub
 }
 
 export async function grantCredits({
-  userId = LOCAL_MOCK_USER_ID,
+  userId,
   amount,
   source,
   idempotencyKey,
 }: GrantCreditsRequest): Promise<GrantCreditsResponse> {
+  const resolvedUserId = getApiUserId(userId);
   const response = await fetch(`${API_BASE_URL}/credits/grant`, {
     method: "POST",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-    },
+    headers: await buildApiHeaders(undefined, true),
     body: JSON.stringify({
-      userId,
+      userId: resolvedUserId,
       amount,
       source,
       idempotencyKey,

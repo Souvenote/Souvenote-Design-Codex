@@ -15,6 +15,7 @@ import { getTotalDemoCredits } from "./DemoBalance";
 import type { DemoBalance } from "./DemoBalance";
 import { CARD_WITH_QR_SONG_CREDITS, MIN_GENERATION_CREDITS } from "./createFlowRules";
 import { goToPricingAfterPurchase } from "./PricingReturn";
+import { AuthGatePrompt } from "./AuthGatePrompt";
 
 // Personalize.tsx - Page 3: Personalize a Template (marketplace + modal + chatbot).
 
@@ -103,6 +104,8 @@ type PtPersonalizeModalProps = {
   initialStep?: ModalStepId;
   initialDraftInput?: PersonalizeDraftInput | null;
   generating?: boolean;
+  requireAuthToContinue?: boolean;
+  onAuthRequired?: () => void;
 };
 
 type ChatPreset = "Caption" | "Personal Message" | "Vibe Check" | "Custom";
@@ -126,6 +129,7 @@ type PersonalizeAppProps = {
   accountBalance?: DemoBalance;
   creditStatus?: CreditBalanceStatus;
   refreshCredits?: () => Promise<unknown> | unknown;
+  requireAuthToContinue?: boolean;
 };
 
 type PersonalizeDraftInput = {
@@ -1027,7 +1031,17 @@ const MODAL_STEPS: ModalStep[] = [
   { id: 'caption',   label: 'Caption & Message' },
 ];
 
-function PtPersonalizeModal({ tmpl, open, onClose, onCreate, initialStep = 'photo', initialDraftInput = null, generating = false }: PtPersonalizeModalProps) {
+function PtPersonalizeModal({
+  tmpl,
+  open,
+  onClose,
+  onCreate,
+  initialStep = 'photo',
+  initialDraftInput = null,
+  generating = false,
+  requireAuthToContinue = false,
+  onAuthRequired,
+}: PtPersonalizeModalProps) {
   const initialBrief = asRecord(initialDraftInput?.creativeBrief);
   const initialPhoto = nestedRecord(initialBrief, "photo");
   const [step, setStep] = React.useState<ModalStepId>(initialStep);
@@ -1075,6 +1089,7 @@ function PtPersonalizeModal({ tmpl, open, onClose, onCreate, initialStep = 'phot
   const goNext = () => {
     if (needsDescribe) { setDescribeError(true); return; }
     if (needsAttest) { setGateOpen(true); return; }
+    if (requireAuthToContinue && step === 'photo') { onAuthRequired?.(); return; }
     if (idx < MODAL_STEPS.length - 1) setStep(MODAL_STEPS[idx + 1].id);
   };
   const goBack = () => { if (idx > 0) setStep(MODAL_STEPS[idx - 1].id); };
@@ -1554,6 +1569,7 @@ function PersonalizeApp({
   accountBalance = PERSONALIZE_DEFAULT_BALANCE,
   creditStatus = "idle",
   refreshCredits,
+  requireAuthToContinue = false,
 }: PersonalizeAppProps) {
   const router = useRouter();
   const [chosen, setChosen] = React.useState<Template | null>(openModal ? TEMPLATES[0] : null);
@@ -1569,6 +1585,7 @@ function PersonalizeApp({
   const [reviewAssetsError, setReviewAssetsError] = React.useState<string | null>(null);
   const [currentDraftId, setCurrentDraftId] = React.useState<string | null>(null);
   const [resumeDraftInput, setResumeDraftInput] = React.useState<PersonalizeDraftInput | null>(null);
+  const [authPromptOpen, setAuthPromptOpen] = React.useState(false);
   const currentDraftIdRef = React.useRef<string | null>(null);
   const draftSavePromiseRef = React.useRef<Promise<string> | null>(null);
   const draftSaveVersionRef = React.useRef(0);
@@ -1696,10 +1713,12 @@ function PersonalizeApp({
     setChosen(template);
     setModalOpen(true);
 
+    if (requireAuthToContinue) return;
+
     ensureDraftSaved(buildTemplateDraftInput(template)).catch(() => {
       // The create action will surface backend save errors if the user continues.
     });
-  }, [ensureDraftSaved, rememberDraftId]);
+  }, [ensureDraftSaved, rememberDraftId, requireAuthToContinue]);
 
   React.useEffect(() => {
     if (!openModal) return;
@@ -1764,6 +1783,10 @@ function PersonalizeApp({
   // Create my Card → close modal, jump to the Review page (which auto-opens the invite modal while generating).
   const onCreate = async (includeSong = true, draftInput: PersonalizeDraftInput = { creativeBrief: {} }) => {
     if (generationPending || uploadPending) return;
+    if (requireAuthToContinue) {
+      setAuthPromptOpen(true);
+      return;
+    }
     const generationCost = includeSong ? CARD_WITH_QR_SONG_CREDITS : MIN_GENERATION_CREDITS;
 
     if (creditStatus === "loading") {
@@ -1917,6 +1940,16 @@ function PersonalizeApp({
         initialStep={openModal ? initialModalStep : 'photo'}
         initialDraftInput={resumeDraftInput}
         generating={generationPending || uploadPending}
+        requireAuthToContinue={requireAuthToContinue}
+        onAuthRequired={() => setAuthPromptOpen(true)}
+      />
+      <AuthGatePrompt
+        open={authPromptOpen}
+        onClose={() => setAuthPromptOpen(false)}
+        returnTo="/create/personalize-a-template"
+        title="Create an account to save this card"
+        body="You can browse styles and start the first step, but saving drafts, purchasing cards, and spending generation credits require a Souvenote account."
+        primaryLabel="Sign up and continue"
       />
       <BmcErrorModal />
     </div>

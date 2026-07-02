@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { CheckoutModal } from "./Checkout";
 import type { CheckoutPack } from "./Checkout";
 import { CardArt } from "./CardArt";
+import { AuthGatePrompt } from "./AuthGatePrompt";
+import { useAuth } from "./AuthProvider";
 import { createLocalIdempotencyKey, fetchCreditBalance, grantCredits } from "../lib/api";
 import { publishCreditBalance } from "../lib/creditBalance";
 import { makeBigSenderCartItem, makeTryRiskFreeCartItem } from "./pricingCatalog";
@@ -401,13 +403,16 @@ function CartPaid() {
 
 function CartPage() {
   const router = useRouter();
+  const auth = useAuth();
   const [items, setItems] = React.useState<CartItem[]>(CART_SEED);
   const [hydrated, setHydrated] = React.useState(false);
   const [promo, setPromo] = React.useState("");
   const [promoApplied, setPromoApplied] = React.useState(false);
   const [checkoutOpen, setCheckoutOpen] = React.useState(false);
+  const [authPromptOpen, setAuthPromptOpen] = React.useState(false);
   const [giftOfferOpen, setGiftOfferOpen] = React.useState(false);
   const [confirmed, setConfirmed] = React.useState(false);
+  const isAuthenticated = auth.status === "authenticated" && Boolean(auth.user?.id);
 
   React.useEffect(() => {
     setItems(loadCart());
@@ -435,9 +440,17 @@ function CartPage() {
 
   async function handlePaid() {
     const topUpDelta = getCartTopUpDelta(items);
+    const userId = auth.user?.id;
 
     if (topUpDelta.credits > 0) {
+      if (!userId) {
+        setCheckoutOpen(false);
+        setAuthPromptOpen(true);
+        return;
+      }
+
       const grant = await grantCredits({
+        userId,
         amount: topUpDelta.credits,
         source: "mock_checkout_purchase",
         idempotencyKey: createLocalIdempotencyKey(`cart-credit-grant-${topUpDelta.credits}`),
@@ -446,7 +459,7 @@ function CartPage() {
       if (grant.balance) {
         publishCreditBalance(grant.balance);
       } else {
-        publishCreditBalance(await fetchCreditBalance());
+        publishCreditBalance(await fetchCreditBalance(userId));
       }
     }
 
@@ -484,6 +497,11 @@ function CartPage() {
   }
 
   function handleCheckoutClick() {
+    if (!isAuthenticated) {
+      setAuthPromptOpen(true);
+      return;
+    }
+
     if (items.some((item) => isBlankSouvenoteGiftId(item.id))) {
       continueToCheckout();
       return;
@@ -619,6 +637,15 @@ function CartPage() {
         onClose={() => setGiftOfferOpen(false)}
         onDecline={continueToCheckout}
         onAdd={addBlankSouvenoteGift}
+      />
+      <AuthGatePrompt
+        open={authPromptOpen}
+        onClose={() => setAuthPromptOpen(false)}
+        returnTo="/cart"
+        title="Log in before checkout"
+        body="Sign up or log in to purchase cards and credits so everything is added to your account, not a temporary demo profile."
+        primaryLabel="Sign up"
+        secondaryLabel="Log in"
       />
     </>
   );

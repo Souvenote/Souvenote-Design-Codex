@@ -7,7 +7,6 @@ import { Footer } from "./Footer";
 import { PageChrome } from "./PageChrome";
 import { BmcIcon } from "./BmcShared";
 import { demoUser } from "./DemoUser";
-import { useDemoBalance, ZERO_DEMO_BALANCE } from "./DemoBalance";
 import { MOCK_MVP_FLOW_UPDATED_EVENT, readMockMvpFlowState } from "../lib/mockMvpFlow";
 
 function shortId(value: string | null | undefined) {
@@ -15,7 +14,6 @@ function shortId(value: string | null | undefined) {
 }
 
 function DeliveryConfirmationApp() {
-  const demoBalance = useDemoBalance(ZERO_DEMO_BALANCE);
   const [flowState, setFlowState] = React.useState(() => readMockMvpFlowState());
 
   React.useEffect(() => {
@@ -36,7 +34,7 @@ function DeliveryConfirmationApp() {
     <div className="souv-route-page">
       <PageChrome variant="bmc" />
       <div className="bmc-page">
-        <Navbar loggedIn user={demoUser} credits={demoBalance.credits} cardBank={demoBalance.cardBank} cartCount={0} />
+        <Navbar user={demoUser} credits={{ images: 0, songs: 0 }} cardBank={0} cartCount={0} />
         <main className="bmc-shell" data-screen-label="08 Delivery Confirmation">
           <div className="bmc-head" style={{ textAlign: "center", margin: "0 auto 36px", maxWidth: 760 }}>
             <div className="bmc-eyebrow" style={{ justifyContent: "center" }}>
