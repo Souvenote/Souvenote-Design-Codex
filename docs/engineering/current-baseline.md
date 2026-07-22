@@ -94,7 +94,7 @@ Results:
 - Prettier check passed for every governed file.
 - ESLint passed with zero warnings for root scripts, API, web, and worker.
 - TypeScript passed for API, web, worker, and contracts.
-- Tests passed after the completion audit: 20 API, 8 worker, and 11 supervisor/governance tests; 39 total.
+- Tests passed after the completion audit: 20 API, 8 worker, and 12 supervisor/governance tests; 40 total.
 - Builds passed for API, web, worker, and contracts.
 - The Next.js build generated all 34 pages plus the `/api/health` route.
 - The production dependency audit reported zero vulnerabilities at the high-severity gate.

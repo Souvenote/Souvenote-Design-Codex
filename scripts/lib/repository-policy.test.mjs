@@ -48,3 +48,11 @@ test('governed text has no trailing whitespace or obvious committed credentials'
 
   assert.deepEqual(findings, []);
 });
+
+test('GitHub Actions dependencies are pinned to exact commit SHAs', () => {
+  const workflow = readFileSync(path.join(repositoryRoot, '.github/workflows/ci.yml'), 'utf8');
+  const actionReferences = [...workflow.matchAll(/^\s*uses:\s*([^\s#]+)/gm)].map((match) => match[1]);
+
+  assert.notEqual(actionReferences.length, 0);
+  actionReferences.forEach((reference) => assert.match(reference, /@[0-9a-f]{40}$/));
+});
