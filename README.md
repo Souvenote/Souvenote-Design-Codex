@@ -2,7 +2,7 @@
 
 Souvenote is a Canada-first physical-card MVP. This repository is a TypeScript npm-workspace modular monolith with a Next.js web app, NestJS API, idle NestJS worker boundary, PostgreSQL, shared contracts, and non-deploying local tooling.
 
-Before changing implementation code, read [AGENTS.md](./AGENTS.md), the [MVP specification](./docs/product/mvp-spec.md), the [decision register](./docs/product/decision-register.md), and the relevant [architecture](./docs/engineering/architecture.md) section.
+Before changing implementation code, read [AGENTS.md](./AGENTS.md), the [complete build plan](./docs/engineering/build-plan.md), the [MVP specification](./docs/product/mvp-spec.md), the [decision register](./docs/product/decision-register.md), and the relevant [architecture](./docs/engineering/architecture.md) section.
 
 ## Workspace
 
@@ -21,7 +21,7 @@ infra/          Reserved for separately approved infrastructure work
 
 ## Local start
 
-Prerequisites are Node.js 22, npm 10, and Docker Desktop with Linux containers. From the repository root:
+Prerequisites are Node.js 22, npm 10.9.8, and Docker Desktop with Linux containers. Confirm `node --version` begins with `v22.` and `npm --version` reports `10.9.8` before running the root commands.
 
 ```powershell
 npm.cmd ci

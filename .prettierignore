@@ -5,7 +5,7 @@
 .npm-cache/
 apps/web/app/styles/
 apps/web/public/
-database/
+/database/
 docs/legacy/
 *.jpg
 *.pdf

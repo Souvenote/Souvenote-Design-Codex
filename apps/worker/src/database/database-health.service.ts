@@ -1,19 +1,15 @@
-import { Inject, Injectable, OnModuleDestroy } from "@nestjs/common";
-import { Pool } from "pg";
-import {
-  WORKER_RUNTIME_CONFIG,
-} from "../runtime/runtime.module";
-import type { WorkerRuntimeConfig } from "../runtime/runtime-config";
+import { Inject, Injectable, OnModuleDestroy } from '@nestjs/common';
+import { Pool } from 'pg';
+import { WORKER_RUNTIME_CONFIG } from '../runtime/runtime.module';
+import type { WorkerRuntimeConfig } from '../runtime/runtime-config';
 
 @Injectable()
 export class DatabaseHealthService implements OnModuleDestroy {
   private readonly pool: Pool;
 
-  constructor(
-    @Inject(WORKER_RUNTIME_CONFIG) config: WorkerRuntimeConfig,
-  ) {
+  constructor(@Inject(WORKER_RUNTIME_CONFIG) config: WorkerRuntimeConfig) {
     this.pool = new Pool({
-      application_name: "souvenote-worker",
+      application_name: 'souvenote-worker',
       connectionString: config.databaseUrl,
       connectionTimeoutMillis: 2_000,
       idleTimeoutMillis: 10_000,
@@ -23,7 +19,7 @@ export class DatabaseHealthService implements OnModuleDestroy {
   }
 
   async ping(): Promise<void> {
-    await this.pool.query("SELECT 1");
+    await this.pool.query('SELECT 1');
   }
 
   async onModuleDestroy(): Promise<void> {

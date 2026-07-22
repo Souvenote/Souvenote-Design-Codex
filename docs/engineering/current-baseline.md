@@ -63,7 +63,7 @@ These conflicts are superseded by `docs/product/decision-register.md`. Their rem
 
 ## Section 1 workspace status
 
-Status: implementation and local verification completed on `codex/section-1-workspace` on 2026-07-21. GitHub CI remains the independent Node.js 22 merge gate.
+Status: implementation and local verification completed on `codex/section-1-workspace` on 2026-07-21. The completion re-audit and corrections are recorded in `docs/engineering/section-1-audit.md`. GitHub CI remains the independent Node.js 22 merge gate.
 
 Implemented baseline:
 
@@ -94,7 +94,7 @@ Results:
 - Prettier check passed for every governed file.
 - ESLint passed with zero warnings for root scripts, API, web, and worker.
 - TypeScript passed for API, web, worker, and contracts.
-- Tests passed: 20 API, 8 worker, and 4 supervisor tests; 32 total.
+- Tests passed after the completion audit: 20 API, 8 worker, and 11 supervisor/governance tests; 39 total.
 - Builds passed for API, web, worker, and contracts.
 - The Next.js build generated all 34 pages plus the `/api/health` route.
 - The production dependency audit reported zero vulnerabilities at the high-severity gate.

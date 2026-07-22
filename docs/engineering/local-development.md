@@ -7,10 +7,21 @@ This guide covers the credential-free local workspace only. It does not authoriz
 ## Prerequisites
 
 - Windows PowerShell.
-- Node.js 22 and its bundled npm.
+- Node.js 22 and npm 10.9.8.
 - Docker Desktop running with Linux containers available.
 - The canonical clone at `C:\Users\wilso\Desktop\Souvenote_Design_Codex`.
 - Required loopback ports available: `3000`, `4000`, `4001`, and `55432`.
+
+Confirm the canonical toolchain from the repository root:
+
+```powershell
+node --version
+npm.cmd --version
+```
+
+The versions must report `v22.x` and `10.9.8`. Switch toolchains before
+continuing if they do not; the root verification and supervisor fail closed on a
+different major/version.
 
 Install the exact workspace dependency graph from the repository root:
 
@@ -85,6 +96,10 @@ npm.cmd run audit:prod
 ```
 
 These checks must not deploy, mutate AWS, call paid providers, require production credentials, or rewrite source. The verified Section 1 evidence is recorded in `current-baseline.md`; every later section must produce fresh evidence for its own branch.
+
+The build-plan and repository-policy tests run inside `npm.cmd run verify`. They
+protect the Sections 0-8 plan, canonical entry-point links, single lockfile,
+untracked-secret boundary, and governed-text hygiene.
 
 ## Port ownership and collisions
 

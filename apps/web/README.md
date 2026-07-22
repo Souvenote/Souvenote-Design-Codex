@@ -1,59 +1,33 @@
-# Souvenote Next.js Frontend
+# Souvenote web
 
-Production-ready Next.js App Router conversion of the Souvenote design handoff. The app uses imported React components, local assets in `public/assets`, and the original handoff CSS as global styles.
+This package is the Next.js 15/React 19 customer application. It preserves the
+approved Souvenote design handoff and route journey while later sections replace
+prototype authorities with secured backend contracts.
 
-## Setup
+Use it through the root npm workspace. Do not install a second dependency graph or
+create another lockfile in this directory.
+
+## Section 1 boundary
+
+- `/api/health` is the web process health route used by the local supervisor.
+- The visual system remains custom CSS; Tailwind is not approved.
+- Existing demo balances, libraries, payments, and future-feature actions remain
+  documented debt for Sections 3-5 and are not evidence of production behavior.
+- Section 2 introduces the generated `/api/v1` client and secure BFF session
+  boundary. Section 4 replaces demo workflow authority with persisted drafts and
+  deterministic provider jobs.
+
+## Commands
+
+Run from the repository root with Node.js 22 and npm 10.9.8:
 
 ```powershell
-npm install
-npm run dev
-npm run build
+npm.cmd run dev:web
+npm.cmd run lint --workspace=@souvenote/web
+npm.cmd run typecheck --workspace=@souvenote/web
+npm.cmd run build --workspace=@souvenote/web
 ```
 
-The included `.npmrc` keeps npm's cache local to this project at `.npm-cache/`, which avoids Windows user-cache permission issues. On this Windows machine, `npm.cmd` is also safe to use if PowerShell blocks the npm shim:
-
-```powershell
-npm.cmd install
-npm.cmd run dev
-npm.cmd run build
-```
-
-## Converted Routes
-
-- `/` from `landing-logged-out.html`
-- `/home` from `landing-logged-in.html`
-- `/signup` from `auth-signup.html`
-- `/login` from `auth-login.html`
-- `/welcome` from `auth-welcome.html`
-- `/forgot` from `auth-forgot.html`
-- `/reset` from `auth-reset.html`
-- `/verify` from `auth-verify.html`
-- `/verify/expired` from `auth-verify-expired.html`
-- `/recover` from `auth-recover.html`
-- `/create` from `create-options.html`
-- `/pricing` from `pricing.html`
-- `/create/build-my-card` from `build-my-card.html`
-- `/create/personalize-a-template` from `personalize-template.html`
-- `/create/my-cards-and-songs` and `/my-cards` from `my-cards.html`
-- `/cart` from `cart.html`
-- `/delivery` from `delivery.html`
-- `/account/profile` from `profile.html`
-- `/account/settings` from `account-settings.html`
-- `/account/top-up` points to the pricing/top-up surface
-- `/gift` from `gift-a-souvenote.html`
-- `/gift/redeem` from `gift-redeem.html`
-- `/refer` from `refer-a-friend.html`
-- `/faq` from `faq.html`
-- `/contact` from `contact-us.html`
-- `/legal/privacy-policy` from `privacy-policy.html`
-- `/legal/terms-of-service` from `terms-of-service.html`
-- `/legal/refund-policy` from `refund-policy.html`
-- `/legal/cookie-policy` from `cookie-policy.html`
-
-## Remaining TODOs
-
-- Wire auth forms to the real authentication provider and validation rules.
-- Replace demo user, credits, cart, card-bank, and currency data with app state/API data.
-- Connect card packs, credit packs, referral invites, checkout, delivery, and saved-card data to product APIs.
-- Version 2: build Community Cards. The current create tile and footer mention are intentionally static and do not route to a missing page.
-- Build future pages such as About and standalone community card detail pages once final UI source is provided.
+The accepted whole-repository gate is `npm.cmd run verify`. Use
+`npm.cmd run smoke:stack` to verify the web route, native Next.js image optimizer,
+API, worker, and PostgreSQL together without credentials or paid traffic.

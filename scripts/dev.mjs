@@ -10,6 +10,9 @@ import {
   workspaceEnvironment,
 } from './lib/local-runtime.mjs';
 import { waitForReadiness } from './lib/health.mjs';
+import { assertCanonicalToolchain } from './lib/toolchain.mjs';
+
+assertCanonicalToolchain();
 
 const smokeMode = process.argv.slice(2).includes('--smoke');
 const ownedChildren = [];

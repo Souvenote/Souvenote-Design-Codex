@@ -8,10 +8,11 @@ When sources disagree, use this order:
 
 1. Explicit user decisions recorded in `docs/product/decision-register.md`.
 2. The reconciled specification in `docs/product/mvp-spec.md`.
-3. The product PRD for scope and intent. The confidential source PDF is not stored in Git.
-4. The current application for approved visual design and route journey.
-5. `docs/engineering/architecture.md` and security rules for implementation decisions.
-6. Legacy repository documentation only where it does not conflict with the sources above.
+3. The mandatory execution sequence and gates in `docs/engineering/build-plan.md`.
+4. The product PRD for scope and intent. The confidential source PDF is not stored in Git.
+5. The current application for approved visual design and route journey.
+6. `docs/engineering/architecture.md` and security rules for implementation decisions.
+7. Legacy repository documentation only where it does not conflict with the sources above.
 
 Do not silently choose between conflicting requirements. Record the conflict and obtain a decision before implementing it.
 
@@ -27,6 +28,11 @@ Do not silently choose between conflicting requirements. Record the conflict and
 
 The canonical local clone is `C:\Users\wilso\Desktop\Souvenote_Design_Codex`.
 
+On the user's Windows computer, stop before editing if `git rev-parse --show-toplevel`
+does not resolve to that exact clone. The stale Documents clone is not a fallback.
+GitHub CI and purpose-created isolated review worktrees are exempt from the absolute
+Windows path, but they must point to this repository and the intended commit.
+
 The canonical npm-workspace layout is:
 
 - `apps/web/`: Next.js 15 and React 19 frontend.
@@ -38,7 +44,7 @@ The canonical npm-workspace layout is:
 - `infra/`: infrastructure boundary and documentation placeholder. Its presence is not deployment approval.
 - `docs/`: authoritative product, engineering, and operational guidance plus explicitly non-authoritative legacy material.
 
-Use Node.js 22 as the canonical local and CI runtime. Local PostgreSQL is version 16 and binds only to `127.0.0.1:55432`. See `docs/engineering/local-development.md` before starting or stopping the stack.
+Use Node.js 22 and npm 10.9.8 as the canonical local and CI toolchain. Local PostgreSQL is version 16 and binds only to `127.0.0.1:55432`. See `docs/engineering/local-development.md` before starting or stopping the stack.
 
 ## Locked MVP rules
 
@@ -88,13 +94,19 @@ Section 1 is local-only and has no AWS or paid-provider cost. Authentication is 
 Each PR-sized task must begin by:
 
 1. Confirming this Desktop repository, current branch, commit, and clean/dirty status.
-2. Reading this file, the MVP specification, decision register, and relevant architecture section.
+2. Reading this file, the complete build plan, MVP specification, decision register, and relevant architecture/operations sections.
 3. Inspecting the implementation before making claims.
 4. Running relevant baseline checks.
 5. Restating goal, scope, evidence, risks, affected interfaces, and done conditions.
 6. Asking about unresolved product decisions instead of guessing.
 
 Use a fresh task for each PR-sized change. Stay in the same task for testing, debugging, and review of that same change.
+
+`docs/engineering/build-plan.md` governs Sections 0 through 8, their order, scope,
+approval boundaries, and gates. Do not skip a gate, pull later-section functionality
+into an earlier section, or claim completion from older evidence. Use GPT-5.6 Sol
+when available, with one lead and no more than three non-overlapping workers. Never
+parallel-edit migrations, shared contracts, lockfiles, or infrastructure interfaces.
 
 ## Current workspace commands
 

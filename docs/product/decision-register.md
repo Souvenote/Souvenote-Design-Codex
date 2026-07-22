@@ -150,3 +150,11 @@ Approval reference:
 - Decision: Any question an agent asks is blocking until the user explicitly answers every question. Questions never expire, auto-resolve, or acquire a default answer because the user has not replied.
 - Consequence: Agents ask only necessary questions, group related questions where practical, and pause all task actions while any question remains unanswered, no matter how long the wait lasts. Silence never authorizes progress.
 - Approval reference: Direct user instruction in the Section 1 task.
+
+### MVP-020 - Complete build plan is mandatory
+
+- Date: 2026-07-21
+- Status: approved
+- Decision: `docs/engineering/build-plan.md` is the mandatory execution plan for the entire MVP build, including Sections 0-8, task protocol, model/concurrency rules, approval boundaries, section gates, and the final MVP completion contract.
+- Consequence: Every fresh task and PR must read and comply with the plan. A section cannot skip its gate, borrow completion evidence from an older branch, or silently pull later-section scope forward. CI repository-policy tests protect the plan's required structure and entry-point links.
+- Approval reference: Direct user request to make the full outlined build plan a rule for the entire build.
