@@ -6,7 +6,7 @@ Branch: `codex/section-3-pricing-credits-entitlements`
 
 Base: `fdf2c14b61250120ee3359379f67a61fcc5399c1`
 
-Status: implementation and local acceptance complete. The final commit, stacked draft PR, and exact-head CI evidence are added at publication time.
+Status: implementation and local acceptance complete. Draft PR #4 remains unmerged and stacked on the Section 2 branch; exact-head CI is the final publication gate.
 
 ## Scope and authority
 

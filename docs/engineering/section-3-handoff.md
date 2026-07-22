@@ -1,12 +1,12 @@
 # Section 3 task handoff
 
 ```text
-Milestone and PR: Section 3 - Pricing, credits, and entitlements; stacked draft PR to be recorded after publication
+Milestone and PR: Section 3 - Pricing, credits, and entitlements; draft PR #4 (https://github.com/Souvenote/Souvenote-Design-Codex/pull/4)
 Build-plan section and gate: Section 3; ledger, pricing, reservations, refunds, state resolution, and idempotency pass concurrent integration tests
 Goal: Implement the Canada-first catalog and deterministic local credit/entitlement state machines without paid traffic.
 Canonical repository: C:\Users\wilso\Desktop\Souvenote_Design_Codex
 Branch: codex/section-3-pricing-credits-entitlements
-Commit: recorded after final publication
+Implementation commit: 85d46d7887f6c6cec2b3a2b12fef7e666b95139f
 Base commit: fdf2c14b61250120ee3359379f67a61fcc5399c1
 
 Behavior completed:
