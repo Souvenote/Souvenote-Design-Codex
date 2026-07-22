@@ -1,6 +1,6 @@
 # Local development
 
-Status: verified Section 2 local lifecycle and security contract.
+Status: verified Section 3 local pricing, credit, entitlement, and security contract.
 
 This guide covers the credential-free local workspace only. It does not authorize AWS deployment, paid-provider traffic, live payments, email, or physical fulfillment.
 
@@ -45,7 +45,7 @@ For later starts when the journal is current:
 npm.cmd run dev
 ```
 
-`dev` performs preflight checks, starts PostgreSQL, verifies that no migration is pending, starts the owned local processes, and polls their health. It never applies a migration automatically. `dev:setup` is the explicit migration action. The worker is intentionally idle except for health behavior until later sections add real jobs.
+`dev` performs preflight checks, starts PostgreSQL, verifies that no migration is pending, starts the owned local processes, and polls their health. It never applies a migration automatically. `dev:setup` is the explicit migration action. The default worker remains idle. The Section 3 Try Risk-Free deadline resolver is deterministic and database-owned; it can run only when `WORKER_MODE=schedules`, `PAYMENT_PROVIDER_MODE=mock`, and `TRY_RISK_FREE_RESOLVER_ENABLED=true` are explicitly set in development or test.
 
 Check an already-running stack:
 
@@ -146,7 +146,7 @@ Use the API liveness and readiness URLs above. Product routes authenticate by de
 
 ### Worker is healthy but no jobs run
 
-The worker is still an idle process boundary. Generation, payment resolution, and fulfillment job handling are later deliverables.
+The normal local supervisor intentionally starts the worker in idle mode. Section 3 includes only a mock Try Risk-Free deadline resolver, disabled by default. Generation provider and fulfillment job handling remain later deliverables.
 
 ### Authentication appears unavailable
 

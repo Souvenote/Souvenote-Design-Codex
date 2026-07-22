@@ -7,6 +7,7 @@ import request, { type Response } from 'supertest';
 import { configureApi } from '../src/api-configuration';
 import { AppModule } from '../src/app.module';
 import type { AccessTokenClaims } from '../src/auth/auth.types';
+import { GenerationService } from '../src/generation/generation.service';
 
 type UserPayload = { user: { id: string; email: string } };
 type DraftPayload = { cardDraft: { id: string; status: string } };
@@ -219,7 +220,7 @@ describe('Section 2 API security boundary (integration)', () => {
       await one
         .post('/api/v1/generation-jobs')
         .set('Idempotency-Key', generationKey)
-        .send({ cardDraftId: draftOne.id })
+        .send({ cardDraftId: draftOne.id, actionType: 'initial_image_song' })
         .expect(201),
     );
     expect(firstGeneration.balance).toBe(0);
@@ -227,7 +228,7 @@ describe('Section 2 API security boundary (integration)', () => {
       await one
         .post('/api/v1/generation-jobs')
         .set('Idempotency-Key', generationKey)
-        .send({ cardDraftId: draftOne.id })
+        .send({ cardDraftId: draftOne.id, actionType: 'initial_image_song' })
         .expect(201),
     );
     expect(retryGeneration.generationJob.id).toBe(firstGeneration.generationJob.id);
@@ -235,7 +236,7 @@ describe('Section 2 API security boundary (integration)', () => {
     await one
       .post('/api/v1/generation-jobs')
       .set('Idempotency-Key', generationKey)
-      .send({ cardDraftId: draftTwo.id })
+      .send({ cardDraftId: draftTwo.id, actionType: 'initial_image_song' })
       .expect(409);
     await two.get(`/api/v1/generation-jobs/${firstGeneration.generationJob.id}`).expect(404);
     await request(server)
@@ -334,6 +335,233 @@ describe('Section 2 API security boundary (integration)', () => {
       .set('Idempotency-Key', `fulfillment-${randomUUID()}`)
       .send({ orderId: orderOne.id })
       .expect(409);
+  });
+
+  it('enforces the Section 3 catalog, credit, reservation, and mock authorization contracts concurrently', async () => {
+    const catalog = responseBody<{
+      data: Array<{
+        id: string;
+        unitAmountMinor: number;
+        minimumQuantity: number;
+        maximumQuantity: number;
+        currency: string;
+        checkoutEnabled: boolean;
+      }>;
+    }>(await request(server).get('/api/v1/pricing').expect(200)).data;
+    expect(
+      catalog.map((offer) => ({
+        code: offer.id,
+        currency: offer.currency,
+        enabled: offer.checkoutEnabled,
+        max: offer.maximumQuantity,
+        min: offer.minimumQuantity,
+        price: offer.unitAmountMinor,
+      })),
+    ).toEqual([
+      { code: 'try_risk_free_one_card', currency: 'CAD', enabled: false, max: 1, min: 1, price: 999 },
+      { code: 'big_sender_2_10', currency: 'CAD', enabled: false, max: 10, min: 2, price: 899 },
+      { code: 'big_sender_11_20', currency: 'CAD', enabled: false, max: 20, min: 11, price: 799 },
+      { code: 'big_sender_21_30', currency: 'CAD', enabled: false, max: 30, min: 21, price: 699 },
+    ]);
+
+    const primaryToken = token(randomUUID(), `section-three-primary-${randomUUID()}@example.test`);
+    const primary = authenticated(server, primaryToken);
+    const primaryUser = responseBody<UserPayload>(await primary.get('/api/v1/me').expect(200)).user;
+    const draft = responseBody<DraftPayload>(
+      await primary.post('/api/v1/card-drafts').send({ creationRoute: 'build_my_card' }).expect(201),
+    ).cardDraft;
+
+    const initialKey = `section-three-initial-${randomUUID()}`;
+    const initialResponses = await Promise.all(
+      Array.from({ length: 8 }, () =>
+        primary
+          .post('/api/v1/generation-jobs')
+          .set('Idempotency-Key', initialKey)
+          .send({ cardDraftId: draft.id, actionType: 'initial_image_song' })
+          .expect(201),
+      ),
+    );
+    const initialJobs = initialResponses.map((response) => responseBody<GenerationPayload>(response));
+    expect(new Set(initialJobs.map((response) => response.generationJob.id)).size).toBe(1);
+    expect(initialJobs.every((response) => response.balance === 0)).toBe(true);
+    const initialJobId = initialJobs[0]?.generationJob.id;
+    expect(initialJobId).toBeDefined();
+    expect(
+      (
+        await pool.query<{ count: string }>(
+          `SELECT count(*)::text AS count FROM credit_ledger
+           WHERE user_id = $1 AND event_type = 'generation_reservation' AND amount = -2;`,
+          [primaryUser.id],
+        )
+      ).rows[0]?.count,
+    ).toBe('1');
+
+    const generationService = app.get(GenerationService);
+    const refunds = await Promise.all(
+      Array.from({ length: 8 }, () => generationService.failAndRefund(primaryUser.id, initialJobId, 'timed_out')),
+    );
+    expect(refunds.every((refund) => refund.balance === 2 && refund.generationJob.status === 'refunded')).toBe(true);
+    expect(
+      (
+        await pool.query<{ count: string }>(
+          `SELECT count(*)::text AS count FROM credit_ledger
+           WHERE user_id = $1 AND event_type = 'generation_refund' AND amount = 2;`,
+          [primaryUser.id],
+        )
+      ).rows[0]?.count,
+    ).toBe('1');
+
+    const imageRegeneration = responseBody<GenerationPayload>(
+      await primary
+        .post('/api/v1/generation-jobs')
+        .set('Idempotency-Key', `section-three-image-${randomUUID()}`)
+        .send({ cardDraftId: draft.id, actionType: 'regenerate_image' })
+        .expect(201),
+    );
+    expect(imageRegeneration.balance).toBe(1);
+    const insideMessage = responseBody<GenerationPayload>(
+      await primary
+        .post('/api/v1/generation-jobs')
+        .set('Idempotency-Key', `section-three-message-${randomUUID()}`)
+        .send({ cardDraftId: draft.id, actionType: 'inside_message' })
+        .expect(201),
+    );
+    expect(insideMessage.balance).toBe(1);
+    await primary
+      .post('/api/v1/generation-jobs')
+      .set('Idempotency-Key', `section-three-song-${randomUUID()}`)
+      .send({ cardDraftId: draft.id, actionType: 'regenerate_song' })
+      .expect(201);
+    await primary
+      .post('/api/v1/generation-jobs')
+      .set('Idempotency-Key', `section-three-overdraw-${randomUUID()}`)
+      .send({ cardDraftId: draft.id, actionType: 'regenerate_image' })
+      .expect(409);
+
+    await primary
+      .post('/api/v1/card-entitlements/reservations')
+      .set('Idempotency-Key', `section-three-invalid-${randomUUID()}`)
+      .send({ quantity: 1 })
+      .expect(400);
+    const reservationKey = `section-three-reservation-${randomUUID()}`;
+    const reservationResponses = await Promise.all(
+      Array.from({ length: 8 }, () =>
+        primary
+          .post('/api/v1/card-entitlements/reservations')
+          .set('Idempotency-Key', reservationKey)
+          .send({ quantity: 11 })
+          .expect(201),
+      ),
+    );
+    const reservations = reservationResponses.map((response) =>
+      responseBody<{
+        reservation: { id: string; quantity: number; unitAmountMinor: number; totalAmountMinor: number };
+      }>(response),
+    );
+    expect(new Set(reservations.map((response) => response.reservation.id)).size).toBe(1);
+    expect(reservations[0]?.reservation).toMatchObject({ quantity: 11, unitAmountMinor: 799, totalAmountMinor: 8789 });
+    await primary
+      .post('/api/v1/card-entitlements/reservations')
+      .set('Idempotency-Key', reservationKey)
+      .send({ quantity: 12 })
+      .expect(409);
+    const reservationId = reservations[0]?.reservation.id;
+    expect(reservationId).toBeDefined();
+    const releaseKey = `section-three-release-${randomUUID()}`;
+    const released = await Promise.all(
+      Array.from({ length: 8 }, () =>
+        primary
+          .post(`/api/v1/card-entitlements/reservations/${reservationId}/release`)
+          .set('Idempotency-Key', releaseKey)
+          .send({})
+          .expect(200),
+      ),
+    );
+    expect(
+      released.every(
+        (response) => responseBody<{ reservation: { status: string } }>(response).reservation.status === 'released',
+      ),
+    ).toBe(true);
+    await primary
+      .post(`/api/v1/card-entitlements/reservations/${reservationId}/release`)
+      .set('Idempotency-Key', `section-three-release-conflict-${randomUUID()}`)
+      .send({})
+      .expect(409);
+
+    const authorizationToken = token(randomUUID(), `section-three-auth-${randomUUID()}@example.test`);
+    const authorizationClient = authenticated(server, authorizationToken);
+    const authorizationUser = responseBody<UserPayload>(await authorizationClient.get('/api/v1/me').expect(200)).user;
+    const authorizationKey = `section-three-authorization-${randomUUID()}`;
+    const authorizationResponses = await Promise.all(
+      Array.from({ length: 8 }, () =>
+        authorizationClient
+          .post('/api/v1/card-entitlements/try-risk-free/authorizations')
+          .set('Idempotency-Key', authorizationKey)
+          .send({})
+          .expect(201),
+      ),
+    );
+    const authorizations = authorizationResponses.map((response) =>
+      responseBody<{
+        authorization: {
+          id: string;
+          status: string;
+          authorizedAmountMinor: number;
+          creditsGranted: number;
+          mockMode: boolean;
+          productionEnabled: boolean;
+        };
+        balance: number;
+      }>(response),
+    );
+    expect(new Set(authorizations.map((response) => response.authorization.id)).size).toBe(1);
+    expect(authorizations[0]).toMatchObject({
+      authorization: {
+        authorizedAmountMinor: 999,
+        creditsGranted: 10,
+        mockMode: true,
+        productionEnabled: false,
+        status: 'authorized',
+      },
+      balance: 12,
+    });
+    await authorizationClient
+      .post('/api/v1/card-entitlements/try-risk-free/authorizations')
+      .set('Idempotency-Key', `section-three-second-authorization-${randomUUID()}`)
+      .send({})
+      .expect(409);
+    expect(
+      (
+        await pool.query<{ count: string }>(
+          `SELECT count(*)::text AS count FROM credit_ledger
+           WHERE user_id = $1 AND event_type = 'purchase_grant' AND amount = 10;`,
+          [authorizationUser.id],
+        )
+      ).rows[0]?.count,
+    ).toBe('1');
+    const authorizationId = authorizations[0]?.authorization.id;
+    await pool.query(
+      `UPDATE try_risk_free_authorizations
+       SET authorized_at = authorized_at - INTERVAL '6 days',
+           authorization_expires_at = authorization_expires_at - INTERVAL '6 days'
+       WHERE id = $1;`,
+      [authorizationId],
+    );
+    const resolverRuns = await Promise.all(
+      Array.from({ length: 8 }, () =>
+        pool.query('SELECT authorization_id FROM resolve_due_try_risk_free_authorizations(clock_timestamp(), 100);'),
+      ),
+    );
+    expect(resolverRuns.reduce((total, run) => total + (run.rowCount ?? 0), 0)).toBe(1);
+    expect(
+      (
+        await pool.query<{ status: string; captured_amount_minor: number; released_amount_minor: number }>(
+          `SELECT status, captured_amount_minor, released_amount_minor
+           FROM try_risk_free_authorizations WHERE id = $1;`,
+          [authorizationId],
+        )
+      ).rows[0],
+    ).toEqual({ status: 'captured_no_send', captured_amount_minor: 200, released_amount_minor: 799 });
   });
 
   it('accepts only verified, idempotent webhook events and stores hashes instead of payloads', async () => {

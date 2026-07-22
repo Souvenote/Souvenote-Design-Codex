@@ -10,7 +10,12 @@ const bootstrap = async (): Promise<void> => {
 
   await app.listen(config.port, config.host);
 
-  Logger.log('Idle worker scaffold is running; no queues or provider jobs are enabled.', 'Bootstrap');
+  Logger.log(
+    config.workerMode === 'schedules'
+      ? 'Local mock schedule worker is running; no paid provider jobs are enabled.'
+      : 'Idle worker scaffold is running; no queues or provider jobs are enabled.',
+    'Bootstrap',
+  );
 };
 
 void bootstrap().catch(() => {

@@ -13,6 +13,7 @@ const validEnvironment = (): NodeJS.ProcessEnv => ({
   TEXT_PROVIDER_MODE: 'mock',
   WORKER_MODE: 'idle',
   WORKER_PORT: '4001',
+  TRY_RISK_FREE_RESOLVER_ENABLED: 'false',
 });
 
 describe('readWorkerRuntimeConfig', () => {
@@ -45,13 +46,31 @@ describe('readWorkerRuntimeConfig', () => {
     ).toThrow('DATABASE_URL must use the postgres or postgresql protocol.');
   });
 
-  it('rejects any non-idle worker mode', () => {
+  it('rejects unknown worker modes', () => {
     expect(() =>
       readWorkerRuntimeConfig({
         ...validEnvironment(),
         WORKER_MODE: 'enabled',
       }),
-    ).toThrow('WORKER_MODE must be idle in the Section 1 worker scaffold.');
+    ).toThrow('WORKER_MODE must be either idle or schedules.');
+  });
+
+  it('permits the resolver only in explicit mock schedule mode', () => {
+    expect(
+      readWorkerRuntimeConfig({
+        ...validEnvironment(),
+        PAYMENT_PROVIDER_MODE: 'mock',
+        TRY_RISK_FREE_RESOLVER_ENABLED: 'true',
+        WORKER_MODE: 'schedules',
+      }),
+    ).toEqual(expect.objectContaining({ tryRiskFreeResolverEnabled: true, workerMode: 'schedules' }));
+
+    expect(() =>
+      readWorkerRuntimeConfig({
+        ...validEnvironment(),
+        TRY_RISK_FREE_RESOLVER_ENABLED: 'true',
+      }),
+    ).toThrow('The Try Risk-Free resolver requires WORKER_MODE=schedules and PAYMENT_PROVIDER_MODE=mock.');
   });
 
   it('rejects the local-only scaffold outside development and test', () => {
@@ -60,6 +79,6 @@ describe('readWorkerRuntimeConfig', () => {
         ...validEnvironment(),
         NODE_ENV: 'production',
       }),
-    ).toThrow('The Section 1 idle worker is permitted only in development or test.');
+    ).toThrow('The Section 3 worker is permitted only in development or test.');
   });
 });

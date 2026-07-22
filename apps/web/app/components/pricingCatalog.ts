@@ -1,4 +1,4 @@
-export const MIN_BIG_SENDER_CARDS = 1;
+export const MIN_BIG_SENDER_CARDS = 2;
 export const MAX_BIG_SENDER_CARDS = 30;
 
 export type BigSenderTier = {
@@ -40,9 +40,9 @@ export type BigSenderPricing = {
 };
 
 export const BIG_SENDER_TIERS: BigSenderTier[] = [
-  { min: 1, max: 10, pricePerCard: 8.99, label: '1-10 cards' },
+  { min: 2, max: 10, pricePerCard: 8.99, label: '2-10 cards' },
   { min: 11, max: 20, pricePerCard: 7.99, label: '11-20 cards' },
-  { min: 21, max: 30, pricePerCard: 6.99, label: '21-30+ cards' },
+  { min: 21, max: 30, pricePerCard: 6.99, label: '21-30 cards' },
 ];
 
 export function clampBigSenderQuantity(
@@ -107,7 +107,7 @@ export function makeTryRiskFreeCartItem(options: TryRiskFreeCartItemOptions = {}
     type: 'pack',
     name: options.name ?? 'Try Risk-Free',
     meta: '1 card · shipping included',
-    sub: `Temporary ${holdDays}-day hold. Includes ${credits} AI credits and finalizes only if the card is sent.`,
+    sub: `Temporary ${holdDays}-day authorization. Includes ${credits} provisional AI credits; $${price.toFixed(2)} is captured if sent, otherwise a fixed $2.00 is charged.`,
     price,
     qty: 1,
     cardCount: 1,

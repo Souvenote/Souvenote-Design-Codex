@@ -6,11 +6,10 @@ import { fileURLToPath } from 'node:url';
 
 const databaseDirectory = path.dirname(fileURLToPath(import.meta.url));
 const migrationRunner = path.join(databaseDirectory, 'migrate.mjs');
-const contractTest = path.join(
-  databaseDirectory,
-  'tests',
-  '0001_mvp_baseline.test.sql',
-);
+const contractTests = [
+  path.join(databaseDirectory, 'tests', '0001_mvp_baseline.test.sql'),
+  path.join(databaseDirectory, 'tests', '0002_pricing_credits_entitlements.test.sql'),
+];
 const imageTag = 'postgres:16-alpine';
 const containerName = `souvenote-db-verify-${randomBytes(6).toString('hex')}`;
 const databaseName = 'souvenote_verify';
@@ -119,6 +118,7 @@ function runApiIntegration(databaseUrl) {
       DATABASE_URL: databaseUrl,
       DATABASE_SSL_MODE: 'disable',
       RATE_LIMIT_MAX_REQUESTS: '10000',
+      PAYMENT_PROVIDER_MODE: 'mock',
       STRIPE_WEBHOOK_SECRET: 'stripe-integration-webhook-secret',
       SCRIBELESS_WEBHOOK_SECRET: 'scribeless-integration-webhook-secret',
     },
@@ -153,27 +153,30 @@ async function main() {
     run(process.execPath, [migrationRunner, '--verify-only']);
     runMigration(databaseUrl);
     const secondRun = runMigration(databaseUrl);
-    if (!secondRun.stdout.includes('already applied 0001_mvp_baseline.sql')) {
-      throw new Error('second migration run did not prove the baseline is idempotent');
+    if (!secondRun.stdout.includes('already applied 0001_mvp_baseline.sql') ||
+        !secondRun.stdout.includes('already applied 0002_pricing_credits_entitlements.sql')) {
+      throw new Error('second migration run did not prove every migration is idempotent');
     }
 
-    const sql = await readFile(contractTest, 'utf8');
-    run(
-      'docker',
-      [
-        'exec',
-        '--interactive',
-        containerName,
-        'psql',
-        '--set',
-        'ON_ERROR_STOP=1',
-        '--username',
-        databaseUser,
-        '--dbname',
-        databaseName,
-      ],
-      { input: sql },
-    );
+    for (const contractTest of contractTests) {
+      const sql = await readFile(contractTest, 'utf8');
+      run(
+        'docker',
+        [
+          'exec',
+          '--interactive',
+          containerName,
+          'psql',
+          '--set',
+          'ON_ERROR_STOP=1',
+          '--username',
+          databaseUser,
+          '--dbname',
+          databaseName,
+        ],
+        { input: sql },
+      );
+    }
 
     runApiIntegration(databaseUrl);
 
@@ -202,7 +205,7 @@ async function main() {
       throw new Error('migration runner did not reject an altered journal checksum');
     }
 
-    console.log('database baseline verification passed');
+    console.log('database migration and contract verification passed');
   } finally {
     ensureSafeContainerName();
     run('docker', ['rm', '--force', containerName], { allowFailure: true });

@@ -567,16 +567,24 @@ function SettingsPersonal({ user }: RequiredAccountUserProps) {
         <div className="acc-field-row">
           <div className="acc-field">
             <span className="acc-flabel">Country</span>
-            <select className="input-dark" value={country} onChange={(event) => setCountry(event.target.value)}>
+            <select
+              className="input-dark"
+              value={country}
+              onChange={(event) => setCountry(event.target.value)}
+              disabled
+            >
               <option value="CA">Canada</option>
-              <option value="US">United States</option>
             </select>
           </div>
           <div className="acc-field">
             <span className="acc-flabel">Currency</span>
-            <select className="input-dark" value={currency} onChange={(event) => setCurrency(event.target.value)}>
+            <select
+              className="input-dark"
+              value={currency}
+              onChange={(event) => setCurrency(event.target.value)}
+              disabled
+            >
               <option value="CAD">CAD</option>
-              <option value="USD">USD</option>
             </select>
           </div>
         </div>
@@ -696,9 +704,8 @@ function SettingsPrefs() {
       <div className="acc-field-row">
         <div className="acc-field">
           <span className="acc-flabel">Currency</span>
-          <select className="input-dark">
+          <select className="input-dark" disabled>
             <option>CAD (Canadian Dollar)</option>
-            <option>USD (US Dollar)</option>
           </select>
         </div>
         <div className="acc-field">

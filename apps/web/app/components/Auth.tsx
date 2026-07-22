@@ -585,11 +585,15 @@ function SignUpView() {
                   </div>
                   <div className="auth-field">
                     <label className="auth-label">Country</label>
-                    <select className="auth-select" value={country} onChange={(e) => setCountry(e.target.value)}>
+                    <select
+                      className="auth-select"
+                      value={country}
+                      onChange={(e) => setCountry(e.target.value)}
+                      disabled
+                    >
                       <option value="CA">Canada (CAD)</option>
-                      <option value="US">United States (USD)</option>
                     </select>
-                    <p className="auth-hint">Sets your currency, attestation, and tax.</p>
+                    <p className="auth-hint">Canada and CAD are locked for the MVP launch.</p>
                   </div>
                 </div>
 

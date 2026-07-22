@@ -17,6 +17,10 @@ export type PricingOffer = {
   cardCountMax: number;
   creditsPerCard: number;
   shippingIncluded: boolean;
+  authorizationAmountCents: number | null;
+  noSendFeeCents: number | null;
+  authorizationDays: number | null;
+  checkoutEnabled: boolean;
   metadata: Record<string, unknown>;
 };
 
@@ -41,7 +45,11 @@ export type CardDraftAsset = Schemas['AssetViewDto'] & {
 export type MockUploadRequest = Omit<Schemas['RequestUploadDto'], 'contentSha256' | 'mimeType'> & { mimeType: string };
 export type MockUploadResponse = Schemas['UploadResponseDto'];
 
-export type StartGenerationRequest = { cardDraftId?: string; idempotencyKey: string };
+export type StartGenerationRequest = {
+  cardDraftId?: string;
+  idempotencyKey: string;
+  actionType: Schemas['StartGenerationDto']['actionType'];
+};
 export type GenerationStartResponse = Omit<Schemas['GenerationStartResponseDto'], 'balance'> & {
   balance: CreditBalance;
 };
@@ -81,7 +89,7 @@ export async function fetchPricingOffers(): Promise<PricingOffer[]> {
   return rows.map((offer) => ({
     id: offer.id,
     offerId: offer.offerId,
-    name: offer.id,
+    name: typeof offer.metadata.display_name === 'string' ? offer.metadata.display_name : offer.id,
     type: offer.type,
     priceCents: offer.unitAmountMinor,
     currency: offer.currency,
@@ -89,6 +97,10 @@ export async function fetchPricingOffers(): Promise<PricingOffer[]> {
     cardCountMax: offer.maximumQuantity,
     creditsPerCard: offer.creditsPerCard,
     shippingIncluded: offer.shippingIncluded,
+    authorizationAmountCents: offer.authorizationAmountMinor ?? null,
+    noSendFeeCents: offer.noSendFeeMinor ?? null,
+    authorizationDays: offer.authorizationDays ?? null,
+    checkoutEnabled: offer.checkoutEnabled,
     metadata: offer.metadata,
   }));
 }
@@ -206,7 +218,7 @@ export async function startGeneration(input: StartGenerationRequest): Promise<Ge
   if (!input.cardDraftId) throw new Error('Save the card draft before starting generation.');
   const result = await api.POST('/api/v1/generation-jobs', {
     params: { header: { 'Idempotency-Key': input.idempotencyKey } },
-    body: { cardDraftId: input.cardDraftId },
+    body: { cardDraftId: input.cardDraftId, actionType: input.actionType },
     headers: await mutationHeaders(input.idempotencyKey),
   });
   if (result.error) throw errorFrom(result, `Generation request failed with status ${result.response.status}.`);

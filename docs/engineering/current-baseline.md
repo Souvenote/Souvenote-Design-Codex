@@ -146,3 +146,19 @@ Section 2 replaces the transitional authority boundary with:
 - future-feature, payment, checkout, fulfillment, contact, referral, and regeneration surfaces that fail closed instead of simulating success.
 
 The Section 2 branch makes no AWS mutation and no paid provider call. Its external service cost is CAD $0 / USD $0. Real Cognito/social-provider activation, shared edge rate limiting, active pricing/credit/entitlement behavior, provider jobs, checkout, and fulfillment remain later approved gates.
+
+## Section 3 candidate baseline
+
+Status: implemented on `codex/section-3-pricing-credits-entitlements` on 2026-07-22; final stacked-PR evidence is recorded in `docs/engineering/section-3-audit.md`.
+
+Section 3 adds:
+
+- four catalog-visible Canada/CAD offers with exact approved minor-unit prices and every production checkout flag disabled;
+- one additive checksum-journaled migration, preserving the immutable Section 2 baseline;
+- exactly-once two-credit starter provisioning, action-specific generation costs, and idempotent failure refunds;
+- server-calculated Big Sender reservations for 2-30 cards with no payment or entitlement grant at quote time;
+- a one-per-account deterministic mock Try Risk-Free authorization that grants one physical-card entitlement and ten provisional credits atomically;
+- database-owned full-capture and fixed-CAD-$2 deadline resolution functions plus a local/test-only, disabled-by-default worker schedule;
+- generated OpenAPI/client contracts, concurrent PostgreSQL/API coverage, and corrected Canada-first product copy.
+
+The Section 3 branch makes no AWS mutation, Stripe request, provider call, payment, email, or fulfillment action. External service cost remains CAD $0 / USD $0. Real checkout, Stripe test components/webhooks for offers, Scribeless fulfillment, paid AI providers, and AWS staging remain separately approved later sections.

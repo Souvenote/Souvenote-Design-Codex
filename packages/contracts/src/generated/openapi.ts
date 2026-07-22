@@ -21,6 +21,21 @@ export interface paths {
   '/api/v1/card-entitlements': {
     get: operations['listCardEntitlements'];
   };
+  '/api/v1/card-entitlements/reservations': {
+    post: operations['reserveBigSenderCards'];
+  };
+  '/api/v1/card-entitlements/reservations/{reservationId}': {
+    get: operations['getCardReservation'];
+  };
+  '/api/v1/card-entitlements/reservations/{reservationId}/release': {
+    post: operations['releaseCardReservation'];
+  };
+  '/api/v1/card-entitlements/try-risk-free/authorizations': {
+    post: operations['startMockTryRiskFreeAuthorization'];
+  };
+  '/api/v1/card-entitlements/try-risk-free/authorizations/{authorizationId}': {
+    get: operations['getTryRiskFreeAuthorization'];
+  };
   '/api/v1/checkout': {
     post: operations['startCheckout'];
   };
@@ -179,6 +194,35 @@ export interface components {
       /** Format: date-time */
       updatedAt: string;
     };
+    CardReservationResponseDto: {
+      reservation: components['schemas']['CardReservationViewDto'];
+    };
+    CardReservationViewDto: {
+      /** Format: date-time */
+      createdAt: string;
+      /** @enum {string} */
+      currency: 'CAD';
+      /** @enum {boolean} */
+      entitlementGranted: false;
+      /** Format: date-time */
+      expiresAt: string;
+      /** Format: uuid */
+      id: string;
+      offerCode: string;
+      /** Format: uuid */
+      offerId: string;
+      /** @enum {string} */
+      paymentState: 'not_started';
+      quantity: number;
+      /** Format: date-time */
+      releasedAt?: string | null;
+      /** @enum {string} */
+      status: 'reserved' | 'released' | 'converted' | 'expired';
+      totalAmountMinor: number;
+      unitAmountMinor: number;
+      /** Format: date-time */
+      updatedAt: string;
+    };
     CompleteUploadDto: {
       attestationAccepted: boolean;
     };
@@ -224,6 +268,8 @@ export interface components {
       updatedAt: string;
     };
     GenerationJobViewDto: {
+      /** @enum {string} */
+      actionType: 'initial_image_song' | 'regenerate_image' | 'regenerate_song' | 'inside_message';
       /** Format: date-time */
       approvedAt?: string | null;
       /** Format: uuid */
@@ -315,6 +361,8 @@ export interface components {
     PricingOfferViewDto: {
       authorizationAmountMinor?: number | null;
       authorizationDays?: number | null;
+      /** @description Always false until the separately approved checkout activation. */
+      checkoutEnabled: boolean;
       creditsPerCard: number;
       /** @enum {string} */
       currency: 'CAD';
@@ -362,17 +410,61 @@ export interface components {
       mimeType: 'image/jpeg' | 'image/png' | 'image/webp';
       size: number;
     };
+    ReserveBigSenderDto: {
+      quantity: number;
+    };
     StartCheckoutDto: {
       /** Format: uuid */
       orderId: string;
     };
     StartGenerationDto: {
+      /** @enum {string} */
+      actionType: 'initial_image_song' | 'regenerate_image' | 'regenerate_song' | 'inside_message';
       /** Format: uuid */
       cardDraftId: string;
     };
     SubmitFulfillmentDto: {
       /** Format: uuid */
       orderId: string;
+    };
+    TryRiskFreeAuthorizationResponseDto: {
+      authorization: components['schemas']['TryRiskFreeAuthorizationViewDto'];
+    };
+    TryRiskFreeAuthorizationViewDto: {
+      /** Format: date-time */
+      authorizationExpiresAt: string;
+      /** @enum {integer} */
+      authorizedAmountMinor: 999;
+      /** Format: date-time */
+      authorizedAt: string;
+      capturedAmountMinor: number;
+      /** Format: date-time */
+      createdAt: string;
+      /** @enum {integer} */
+      creditsGranted: 10;
+      /** @enum {string} */
+      currency: 'CAD';
+      /** Format: uuid */
+      entitlementId?: Record<string, unknown> | null;
+      /** Format: date-time */
+      fulfillmentStartedAt?: string | null;
+      /** Format: uuid */
+      id: string;
+      /** @enum {boolean} */
+      mockMode: true;
+      /** @enum {boolean} */
+      productionEnabled: false;
+      releasedAmountMinor: number;
+      /** Format: date-time */
+      resolvedAt?: string | null;
+      /** @enum {string} */
+      status: 'authorized' | 'captured_full' | 'captured_no_send' | 'canceled';
+      /** Format: date-time */
+      updatedAt: string;
+    };
+    TryRiskFreeStartResponseDto: {
+      authorization: components['schemas']['TryRiskFreeAuthorizationViewDto'];
+      balance: number;
     };
     UpdateCardDraftDto: {
       creativeBrief?: {
@@ -793,6 +885,267 @@ export interface operations {
       200: {
         content: {
           'application/json': components['schemas']['CardEntitlementListResponseDto'];
+        };
+      };
+      /** @description Invalid request */
+      400: {
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Resource not found */
+      404: {
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Request conflict */
+      409: {
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Rate limit exceeded */
+      429: {
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Internal server error */
+      500: {
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+    };
+  };
+  reserveBigSenderCards: {
+    parameters: {
+      header: {
+        /** @description Unique 16-128 character retry key scoped to the authenticated operation. */
+        'Idempotency-Key': string;
+      };
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ReserveBigSenderDto'];
+      };
+    };
+    responses: {
+      201: {
+        content: {
+          'application/json': components['schemas']['CardReservationResponseDto'];
+        };
+      };
+      /** @description Invalid request */
+      400: {
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Resource not found */
+      404: {
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Request conflict */
+      409: {
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Rate limit exceeded */
+      429: {
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Internal server error */
+      500: {
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+    };
+  };
+  getCardReservation: {
+    parameters: {
+      path: {
+        reservationId: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          'application/json': components['schemas']['CardReservationResponseDto'];
+        };
+      };
+      /** @description Invalid request */
+      400: {
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Resource not found */
+      404: {
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Request conflict */
+      409: {
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Rate limit exceeded */
+      429: {
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Internal server error */
+      500: {
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+    };
+  };
+  releaseCardReservation: {
+    parameters: {
+      header: {
+        /** @description Unique 16-128 character retry key scoped to the authenticated operation. */
+        'Idempotency-Key': string;
+      };
+      path: {
+        reservationId: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          'application/json': components['schemas']['CardReservationResponseDto'];
+        };
+      };
+      /** @description Invalid request */
+      400: {
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Resource not found */
+      404: {
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Request conflict */
+      409: {
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Rate limit exceeded */
+      429: {
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Internal server error */
+      500: {
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+    };
+  };
+  startMockTryRiskFreeAuthorization: {
+    parameters: {
+      header: {
+        /** @description Unique 16-128 character retry key scoped to the authenticated operation. */
+        'Idempotency-Key': string;
+      };
+    };
+    responses: {
+      201: {
+        content: {
+          'application/json': components['schemas']['TryRiskFreeStartResponseDto'];
+        };
+      };
+      /** @description Invalid request */
+      400: {
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Resource not found */
+      404: {
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Request conflict */
+      409: {
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Rate limit exceeded */
+      429: {
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Internal server error */
+      500: {
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+    };
+  };
+  getTryRiskFreeAuthorization: {
+    parameters: {
+      path: {
+        authorizationId: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          'application/json': components['schemas']['TryRiskFreeAuthorizationResponseDto'];
         };
       };
       /** @description Invalid request */
