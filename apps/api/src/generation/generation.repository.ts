@@ -2,6 +2,7 @@ import { ConflictException, Injectable, NotFoundException } from '@nestjs/common
 import { randomUUID } from 'node:crypto';
 import type { PoolClient } from 'pg';
 import { DatabaseService } from '../database/database.service';
+import type { GenerationAction, GenerationFailureCategory } from './generation-policy';
 
 type JobRow = {
   id: string;
@@ -9,6 +10,7 @@ type JobRow = {
   revision_id: string;
   status: string;
   request_hash: string;
+  action_type: GenerationAction;
   credits_reserved: number;
   credits_refunded: number;
   approved_at: Date | string | null;
@@ -17,7 +19,7 @@ type JobRow = {
 };
 
 const JOB_COLUMNS = `
-  id, card_draft_id, revision_id, status, request_hash,
+  id, card_draft_id, revision_id, status, request_hash, action_type,
   credits_reserved, credits_refunded, approved_at, created_at, updated_at
 `;
 
@@ -25,7 +27,14 @@ const JOB_COLUMNS = `
 export class GenerationRepository {
   constructor(private readonly database: DatabaseService) {}
 
-  async start(userId: string, idempotencyKey: string, requestHash: string, cardDraftId: string) {
+  async start(
+    userId: string,
+    idempotencyKey: string,
+    requestHash: string,
+    cardDraftId: string,
+    action: GenerationAction,
+    creditCost: number,
+  ) {
     try {
       return await this.database.transaction(async (client) => {
         await client.query(`SELECT pg_advisory_xact_lock(hashtextextended($1, 0));`, [
@@ -58,17 +67,20 @@ export class GenerationRepository {
         const jobId = randomUUID();
         const inserted = await client.query<JobRow>(
           `INSERT INTO generation_jobs
-             (id, user_id, card_draft_id, revision_id, request_hash, idempotency_key, credits_reserved)
-           VALUES ($1, $2, $3, $4, $5, $6, 2)
+             (id, user_id, card_draft_id, revision_id, request_hash, idempotency_key,
+              action_type, credits_reserved)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
            RETURNING ${JOB_COLUMNS};`,
-          [jobId, userId, cardDraftId, revisionId, requestHash, idempotencyKey],
+          [jobId, userId, cardDraftId, revisionId, requestHash, idempotencyKey, action, creditCost],
         );
-        await client.query(
-          `SELECT * FROM apply_credit_ledger_entry(
-             $1, 'generation_reservation', -2, 'generation_job', $2, $3, '{}'::jsonb
-           );`,
-          [userId, jobId, `${idempotencyKey}:credits`],
-        );
+        if (creditCost > 0) {
+          await client.query(
+            `SELECT * FROM apply_credit_ledger_entry(
+               $1, 'generation_reservation', $2, 'generation_job', $3, $4, $5::jsonb
+             );`,
+            [userId, -creditCost, jobId, `${idempotencyKey}:credits`, JSON.stringify({ action })],
+          );
+        }
         return { job: this.requireRow(inserted.rows[0]), balance: await this.balance(client, userId) };
       });
     } catch (error: unknown) {
@@ -80,6 +92,55 @@ export class GenerationRepository {
       }
       throw error;
     }
+  }
+
+  async failAndRefund(userId: string, jobId: string, category: GenerationFailureCategory) {
+    return this.database.transaction(async (client) => {
+      const selected = await client.query<JobRow>(
+        `SELECT ${JOB_COLUMNS} FROM generation_jobs WHERE id = $1 AND user_id = $2 FOR UPDATE;`,
+        [jobId, userId],
+      );
+      let job = this.requireRow(selected.rows[0]);
+      if (job.status === 'refunded') return { job, balance: await this.balance(client, userId) };
+      if (job.status === 'queued' || job.status === 'running') {
+        const failed = await client.query<JobRow>(
+          `UPDATE generation_jobs
+           SET status = 'failed', failure_category = $3
+           WHERE id = $1 AND user_id = $2
+           RETURNING ${JOB_COLUMNS};`,
+          [jobId, userId, category],
+        );
+        job = this.requireRow(failed.rows[0]);
+      }
+      if (job.status !== 'failed' && job.status !== 'partially_failed') {
+        throw new ConflictException({
+          code: 'GENERATION_NOT_REFUNDABLE',
+          message: 'The generation job is not in a refundable failure state.',
+        });
+      }
+      if (job.credits_reserved > 0) {
+        await client.query(
+          `SELECT * FROM apply_credit_ledger_entry(
+             $1, 'generation_refund', $2, 'generation_job_failure', $3, $4, $5::jsonb
+           );`,
+          [
+            userId,
+            job.credits_reserved,
+            jobId,
+            `generation-refund:${jobId}`,
+            JSON.stringify({ category, action: job.action_type }),
+          ],
+        );
+      }
+      const refunded = await client.query<JobRow>(
+        `UPDATE generation_jobs
+         SET status = 'refunded', credits_refunded = credits_reserved, failure_category = $3
+         WHERE id = $1 AND user_id = $2
+         RETURNING ${JOB_COLUMNS};`,
+        [jobId, userId, category],
+      );
+      return { job: this.requireRow(refunded.rows[0]), balance: await this.balance(client, userId) };
+    });
   }
 
   async list(userId: string, limit: number, cursor?: string): Promise<JobRow[]> {
@@ -109,6 +170,7 @@ export class GenerationRepository {
       cardDraftId: row.card_draft_id,
       revisionId: row.revision_id,
       status: row.status,
+      actionType: row.action_type,
       creditsReserved: row.credits_reserved,
       creditsRefunded: row.credits_refunded,
       approvedAt: row.approved_at,

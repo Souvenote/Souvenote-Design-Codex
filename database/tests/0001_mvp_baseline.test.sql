@@ -336,6 +336,7 @@ BEGIN
         revision_id,
         request_hash,
         idempotency_key,
+        action_type,
         credits_reserved
     )
     VALUES (
@@ -344,6 +345,7 @@ BEGIN
         revision_one,
         repeat('c', 64),
         'generation-owner-one',
+        'regenerate_image',
         1
     )
     RETURNING id INTO job_one;

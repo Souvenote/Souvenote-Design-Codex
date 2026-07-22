@@ -42,6 +42,8 @@ export class PricingOfferViewDto {
   @ApiProperty({ type: 'integer', minimum: 1, maximum: 30 }) maximumQuantity!: number;
   @ApiProperty({ type: 'integer', minimum: 0 }) creditsPerCard!: number;
   @ApiProperty() shippingIncluded!: boolean;
+  @ApiProperty({ description: 'Always false until the separately approved checkout activation.' })
+  checkoutEnabled!: boolean;
   @ApiProperty({ type: 'object', additionalProperties: true }) metadata!: Record<string, unknown>;
 }
 
@@ -65,6 +67,54 @@ export class CardEntitlementViewDto {
 export class CardEntitlementListResponseDto {
   @ApiProperty({ type: [CardEntitlementViewDto] }) data!: CardEntitlementViewDto[];
   @ApiPropertyOptional({ format: 'uuid', nullable: true }) nextCursor!: string | null;
+}
+
+export class CardReservationViewDto {
+  @ApiProperty({ format: 'uuid' }) id!: string;
+  @ApiProperty({ format: 'uuid' }) offerId!: string;
+  @ApiProperty() offerCode!: string;
+  @ApiProperty({ enum: ['reserved', 'released', 'converted', 'expired'] }) status!: string;
+  @ApiProperty({ type: 'integer', minimum: 2, maximum: 30 }) quantity!: number;
+  @ApiProperty({ type: 'integer', minimum: 1 }) unitAmountMinor!: number;
+  @ApiProperty({ type: 'integer', minimum: 1 }) totalAmountMinor!: number;
+  @ApiProperty({ enum: ['CAD'] }) currency!: string;
+  @ApiProperty({ enum: ['not_started'] }) paymentState!: string;
+  @ApiProperty({ enum: [false] }) entitlementGranted!: false;
+  @ApiProperty(dateTime) expiresAt!: string;
+  @ApiPropertyOptional(nullableDateTime) releasedAt!: string | null;
+  @ApiProperty(dateTime) createdAt!: string;
+  @ApiProperty(dateTime) updatedAt!: string;
+}
+
+export class CardReservationResponseDto {
+  @ApiProperty({ type: CardReservationViewDto }) reservation!: CardReservationViewDto;
+}
+
+export class TryRiskFreeAuthorizationViewDto {
+  @ApiProperty({ format: 'uuid' }) id!: string;
+  @ApiPropertyOptional({ format: 'uuid', nullable: true }) entitlementId!: string | null;
+  @ApiProperty({ enum: ['authorized', 'captured_full', 'captured_no_send', 'canceled'] }) status!: string;
+  @ApiProperty({ enum: ['CAD'] }) currency!: string;
+  @ApiProperty({ type: 'integer', enum: [999] }) authorizedAmountMinor!: number;
+  @ApiProperty({ type: 'integer', minimum: 0, maximum: 999 }) capturedAmountMinor!: number;
+  @ApiProperty({ type: 'integer', minimum: 0, maximum: 999 }) releasedAmountMinor!: number;
+  @ApiProperty({ type: 'integer', enum: [10] }) creditsGranted!: number;
+  @ApiProperty(dateTime) authorizedAt!: string;
+  @ApiProperty(dateTime) authorizationExpiresAt!: string;
+  @ApiPropertyOptional(nullableDateTime) fulfillmentStartedAt!: string | null;
+  @ApiPropertyOptional(nullableDateTime) resolvedAt!: string | null;
+  @ApiProperty(dateTime) createdAt!: string;
+  @ApiProperty(dateTime) updatedAt!: string;
+  @ApiProperty({ enum: [true] }) mockMode!: true;
+  @ApiProperty({ enum: [false] }) productionEnabled!: false;
+}
+
+export class TryRiskFreeAuthorizationResponseDto {
+  @ApiProperty({ type: TryRiskFreeAuthorizationViewDto }) authorization!: TryRiskFreeAuthorizationViewDto;
+}
+
+export class TryRiskFreeStartResponseDto extends TryRiskFreeAuthorizationResponseDto {
+  @ApiProperty({ type: 'integer', minimum: 0 }) balance!: number;
 }
 
 export class CardDraftViewDto {
@@ -127,6 +177,8 @@ export class GenerationJobViewDto {
     enum: ['queued', 'running', 'succeeded', 'partially_failed', 'failed', 'refunded', 'canceled', 'approved'],
   })
   status!: string;
+  @ApiProperty({ enum: ['initial_image_song', 'regenerate_image', 'regenerate_song', 'inside_message'] })
+  actionType!: string;
   @ApiProperty({ type: 'integer', minimum: 0 }) creditsReserved!: number;
   @ApiProperty({ type: 'integer', minimum: 0 }) creditsRefunded!: number;
   @ApiPropertyOptional(nullableDateTime) approvedAt!: string | null;

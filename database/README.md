@@ -1,7 +1,8 @@
 # Souvenote database
 
 This directory owns the PostgreSQL 16 schema and its verification boundary. The
-Section 2 baseline is for a clean pre-launch database. It is not an upgrade from
+Section 2 baseline is for a clean pre-launch database, and Section 3 adds one
+immutable migration for the approved catalog and mock lifecycle. This is not an upgrade from
 the deleted legacy draft migrations, which were never approved or applied to a
 shared environment.
 
@@ -14,9 +15,11 @@ migration automatically. Applying a migration is always an explicit operation.
 database/
   migrations/
     0001_mvp_baseline.sql
+    0002_pricing_credits_entitlements.sql
     checksums.sha256
   tests/
     0001_mvp_baseline.test.sql
+    0002_pricing_credits_entitlements.test.sql
   migrate.mjs
   verify.mjs
 ```
@@ -27,14 +30,15 @@ database/
 - `verify.mjs` creates a uniquely named, volume-free PostgreSQL 16 container,
   applies the migration twice, runs the SQL contract tests, proves checksum drift
   is rejected, and removes the exact disposable container in a `finally` block.
-- `tests/0001_mvp_baseline.test.sql` rolls its fixture data back. It checks atomic
+- The SQL contract tests roll their fixture data back. They check atomic
   credit behavior, idempotency, ownership boundaries, state transitions, upload
-  expiry, provider/webhook uniqueness, and the absence of speculative tables.
+  expiry, provider/webhook uniqueness, exact CAD tiers, generation costs,
+  entitlement reservations, and Try Risk-Free resolution.
 
 The scripts use only the workspace's existing `pg` dependency and the local Docker
 CLI. They do not contact AWS or a paid provider.
 
-## Applying the baseline explicitly
+## Applying migrations explicitly
 
 Use the canonical Node.js 22/npm 10.9.8 workspace and set `DATABASE_URL` in the
 current process. Never put a credential or connection string in Git.
@@ -68,9 +72,9 @@ connects to the normal local database. Its container name begins with
 `souvenote-db-verify-` and includes a random suffix. Cleanup targets only the exact
 name created by that process.
 
-## Baseline scope
+## Schema scope
 
-The baseline includes only approved physical-card MVP data:
+The verified migrations include only approved physical-card MVP data:
 
 - migration journal and lifecycle transition rules;
 - users, Cognito identities, and hashed application sessions;
@@ -88,9 +92,12 @@ The baseline includes only approved physical-card MVP data:
 - notifications, append-only audit events, and feature flags.
 
 There are no Gift, Trust Circle, chatbot, calendar, community-catalog, Harte Hanks,
-digital-card, or other speculative future-feature tables. Section 3 owns activation
-of the approved CAD price catalog, so the Section 2 baseline creates no active
-offer rows.
+digital-card, or other speculative future-feature tables. Section 3 makes four
+Canada/CAD offers catalog-visible while leaving every `checkout_enabled` value
+false. It also adds 2-30-card quote reservations, action-specific generation
+credit constraints, and deterministic mock Try Risk-Free authorizations. The
+mock offer is limited to one authorization per account and resolves to either a
+999-minor-unit fulfillment capture or a fixed 200-minor-unit five-day capture.
 
 ## Database invariants
 

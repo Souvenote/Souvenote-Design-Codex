@@ -4,7 +4,7 @@ import type { WorkerRuntimeConfig } from '../runtime/runtime-config';
 import { WORKER_RUNTIME_CONFIG } from '../runtime/runtime.module';
 
 type LiveHealth = Readonly<{
-  mode: 'idle';
+  mode: 'idle' | 'schedules';
   service: 'souvenote-worker';
   status: 'ok';
 }>;

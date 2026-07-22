@@ -5,16 +5,21 @@ import {
   GenerationResponseDto,
   GenerationStartResponseDto,
 } from '../common/api-response.dto';
-import { IsUUID } from 'class-validator';
+import { IsEnum, IsUUID } from 'class-validator';
 import type { AuthenticatedRequest } from '../auth/auth.types';
 import { Idempotent } from '../common/idempotent.decorator';
 import { CursorPaginationQueryDto } from '../common/pagination.dto';
 import { GenerationService } from './generation.service';
+import { GENERATION_ACTIONS, type GenerationAction } from './generation-policy';
 
 export class StartGenerationDto {
   @ApiProperty({ format: 'uuid' })
   @IsUUID()
   cardDraftId!: string;
+
+  @ApiProperty({ enum: GENERATION_ACTIONS })
+  @IsEnum(GENERATION_ACTIONS)
+  actionType!: GenerationAction;
 }
 
 @ApiTags('generation-jobs')
@@ -28,7 +33,12 @@ export class GenerationController {
   @ApiOperation({ operationId: 'startGenerationJob' })
   @ApiCreatedResponse({ type: GenerationStartResponseDto })
   async start(@Req() request: AuthenticatedRequest, @Body() dto: StartGenerationDto) {
-    return this.generationService.start(request.user.id, request.header('idempotency-key')!, dto.cardDraftId);
+    return this.generationService.start(
+      request.user.id,
+      request.header('idempotency-key')!,
+      dto.cardDraftId,
+      dto.actionType,
+    );
   }
 
   @Get()

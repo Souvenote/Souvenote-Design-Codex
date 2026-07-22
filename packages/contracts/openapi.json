@@ -268,6 +268,92 @@
         ],
         "type": "object"
       },
+      "CardReservationResponseDto": {
+        "properties": {
+          "reservation": {
+            "$ref": "#/components/schemas/CardReservationViewDto"
+          }
+        },
+        "required": ["reservation"],
+        "type": "object"
+      },
+      "CardReservationViewDto": {
+        "properties": {
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "currency": {
+            "enum": ["CAD"],
+            "type": "string"
+          },
+          "entitlementGranted": {
+            "enum": [false],
+            "type": "boolean"
+          },
+          "expiresAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "offerCode": {
+            "type": "string"
+          },
+          "offerId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "paymentState": {
+            "enum": ["not_started"],
+            "type": "string"
+          },
+          "quantity": {
+            "maximum": 30,
+            "minimum": 2,
+            "type": "integer"
+          },
+          "releasedAt": {
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "status": {
+            "enum": ["reserved", "released", "converted", "expired"],
+            "type": "string"
+          },
+          "totalAmountMinor": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "unitAmountMinor": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "offerId",
+          "offerCode",
+          "status",
+          "quantity",
+          "unitAmountMinor",
+          "totalAmountMinor",
+          "currency",
+          "paymentState",
+          "entitlementGranted",
+          "expiresAt",
+          "createdAt",
+          "updatedAt"
+        ],
+        "type": "object"
+      },
       "CompleteUploadDto": {
         "properties": {
           "attestationAccepted": {
@@ -386,6 +472,10 @@
       },
       "GenerationJobViewDto": {
         "properties": {
+          "actionType": {
+            "enum": ["initial_image_song", "regenerate_image", "regenerate_song", "inside_message"],
+            "type": "string"
+          },
           "approvedAt": {
             "format": "date-time",
             "nullable": true,
@@ -438,6 +528,7 @@
           "cardDraftId",
           "revisionId",
           "status",
+          "actionType",
           "creditsReserved",
           "creditsRefunded",
           "createdAt",
@@ -670,6 +761,10 @@
             "nullable": true,
             "type": "integer"
           },
+          "checkoutEnabled": {
+            "description": "Always false until the separately approved checkout activation.",
+            "type": "boolean"
+          },
           "creditsPerCard": {
             "minimum": 0,
             "type": "integer"
@@ -730,6 +825,7 @@
           "maximumQuantity",
           "creditsPerCard",
           "shippingIncluded",
+          "checkoutEnabled",
           "metadata"
         ],
         "type": "object"
@@ -820,6 +916,17 @@
         "required": ["cardDraftId", "filename", "mimeType", "size", "contentSha256"],
         "type": "object"
       },
+      "ReserveBigSenderDto": {
+        "properties": {
+          "quantity": {
+            "maximum": 30,
+            "minimum": 2,
+            "type": "integer"
+          }
+        },
+        "required": ["quantity"],
+        "type": "object"
+      },
       "StartCheckoutDto": {
         "properties": {
           "orderId": {
@@ -832,12 +939,16 @@
       },
       "StartGenerationDto": {
         "properties": {
+          "actionType": {
+            "enum": ["initial_image_song", "regenerate_image", "regenerate_song", "inside_message"],
+            "type": "string"
+          },
           "cardDraftId": {
             "format": "uuid",
             "type": "string"
           }
         },
-        "required": ["cardDraftId"],
+        "required": ["cardDraftId", "actionType"],
         "type": "object"
       },
       "SubmitFulfillmentDto": {
@@ -848,6 +959,117 @@
           }
         },
         "required": ["orderId"],
+        "type": "object"
+      },
+      "TryRiskFreeAuthorizationResponseDto": {
+        "properties": {
+          "authorization": {
+            "$ref": "#/components/schemas/TryRiskFreeAuthorizationViewDto"
+          }
+        },
+        "required": ["authorization"],
+        "type": "object"
+      },
+      "TryRiskFreeAuthorizationViewDto": {
+        "properties": {
+          "authorizationExpiresAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "authorizedAmountMinor": {
+            "enum": [999],
+            "type": "integer"
+          },
+          "authorizedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "capturedAmountMinor": {
+            "maximum": 999,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "creditsGranted": {
+            "enum": [10],
+            "type": "integer"
+          },
+          "currency": {
+            "enum": ["CAD"],
+            "type": "string"
+          },
+          "entitlementId": {
+            "format": "uuid",
+            "nullable": true,
+            "type": "object"
+          },
+          "fulfillmentStartedAt": {
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "mockMode": {
+            "enum": [true],
+            "type": "boolean"
+          },
+          "productionEnabled": {
+            "enum": [false],
+            "type": "boolean"
+          },
+          "releasedAmountMinor": {
+            "maximum": 999,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "resolvedAt": {
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "status": {
+            "enum": ["authorized", "captured_full", "captured_no_send", "canceled"],
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "currency",
+          "authorizedAmountMinor",
+          "capturedAmountMinor",
+          "releasedAmountMinor",
+          "creditsGranted",
+          "authorizedAt",
+          "authorizationExpiresAt",
+          "createdAt",
+          "updatedAt",
+          "mockMode",
+          "productionEnabled"
+        ],
+        "type": "object"
+      },
+      "TryRiskFreeStartResponseDto": {
+        "properties": {
+          "authorization": {
+            "$ref": "#/components/schemas/TryRiskFreeAuthorizationViewDto"
+          },
+          "balance": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": ["authorization", "balance"],
         "type": "object"
       },
       "UpdateCardDraftDto": {
@@ -1719,6 +1941,503 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/CardEntitlementListResponseDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Request conflict"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Rate limit exceeded"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "",
+        "tags": ["card-entitlements"]
+      }
+    },
+    "/api/v1/card-entitlements/reservations": {
+      "post": {
+        "operationId": "reserveBigSenderCards",
+        "parameters": [
+          {
+            "description": "Unique 16-128 character retry key scoped to the authenticated operation.",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 128,
+              "minLength": 16,
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReserveBigSenderDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CardReservationResponseDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Request conflict"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Rate limit exceeded"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "",
+        "tags": ["card-entitlements"]
+      }
+    },
+    "/api/v1/card-entitlements/reservations/{reservationId}": {
+      "get": {
+        "operationId": "getCardReservation",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "reservationId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CardReservationResponseDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Request conflict"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Rate limit exceeded"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "",
+        "tags": ["card-entitlements"]
+      }
+    },
+    "/api/v1/card-entitlements/reservations/{reservationId}/release": {
+      "post": {
+        "operationId": "releaseCardReservation",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "reservationId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Unique 16-128 character retry key scoped to the authenticated operation.",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 128,
+              "minLength": 16,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CardReservationResponseDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Request conflict"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Rate limit exceeded"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "",
+        "tags": ["card-entitlements"]
+      }
+    },
+    "/api/v1/card-entitlements/try-risk-free/authorizations": {
+      "post": {
+        "operationId": "startMockTryRiskFreeAuthorization",
+        "parameters": [
+          {
+            "description": "Unique 16-128 character retry key scoped to the authenticated operation.",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 128,
+              "minLength": 16,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TryRiskFreeStartResponseDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Request conflict"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Rate limit exceeded"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "",
+        "tags": ["card-entitlements"]
+      }
+    },
+    "/api/v1/card-entitlements/try-risk-free/authorizations/{authorizationId}": {
+      "get": {
+        "operationId": "getTryRiskFreeAuthorization",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "authorizationId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TryRiskFreeAuthorizationResponseDto"
                 }
               }
             },

@@ -13,6 +13,7 @@ type OfferRow = {
   maximum_quantity: number;
   credits_per_card: number;
   shipping_included: boolean;
+  checkout_enabled: boolean;
   currency: string;
   market_country: string;
   metadata: Record<string, unknown>;
@@ -27,11 +28,12 @@ export class PricingRepository {
       `SELECT offer.id, offer.offer_code, offer.offer_type, offer.unit_amount_minor,
               offer.authorization_amount_minor, offer.no_send_fee_minor, offer.authorization_days,
               offer.minimum_quantity, offer.maximum_quantity, offer.credits_per_card,
-              offer.shipping_included, book.currency, book.market_country, offer.metadata
+              offer.shipping_included, offer.checkout_enabled, book.currency,
+              book.market_country, offer.metadata
        FROM price_offers offer
        JOIN price_books book ON book.id = offer.price_book_id
        WHERE book.market_country = 'CA' AND book.currency = 'CAD'
-         AND book.status = 'active' AND offer.checkout_enabled = TRUE
+         AND book.status = 'active' AND offer.catalog_visible = TRUE
          AND (book.effective_from IS NULL OR book.effective_from <= clock_timestamp())
          AND (book.effective_until IS NULL OR book.effective_until > clock_timestamp())
        ORDER BY offer.minimum_quantity, offer.unit_amount_minor;`,
@@ -54,6 +56,7 @@ export class PricingRepository {
       maximumQuantity: row.maximum_quantity,
       creditsPerCard: row.credits_per_card,
       shippingIncluded: row.shipping_included,
+      checkoutEnabled: row.checkout_enabled,
       metadata: row.metadata,
     };
   }

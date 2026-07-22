@@ -15,6 +15,8 @@ const runtimeConfig: WorkerRuntimeConfig = {
   paymentProviderMode: 'disabled',
   port: 4001,
   textProviderMode: 'mock',
+  tryRiskFreeResolverEnabled: false,
+  tryRiskFreeResolverIntervalMs: 60_000,
   workerMode: 'idle',
 };
 

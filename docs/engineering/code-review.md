@@ -50,3 +50,12 @@ Review triggers, not blind limits:
 - Migrations run from a clean database and preserve supported existing data.
 - Public contracts and decisions are updated.
 - Final diff contains no unrelated or generated noise.
+
+## Task and worktree hygiene
+
+- Exactly one correctly named visible lead task owned the section.
+- Only the lead mutated the canonical Desktop worktree.
+- Internal workers, if any, had bounded non-overlapping assignments; editing workers used isolated worktrees/branches.
+- No task or worker continued around an unanswered user question.
+- Duplicate or retired tasks reported their last mutation and were reconciled and archived.
+- The completed task is renamed with `(Complete)` and archived before the next section starts.

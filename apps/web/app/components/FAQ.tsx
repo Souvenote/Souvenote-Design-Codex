@@ -19,7 +19,7 @@ const FAQ_ITEMS: FaqItem[] = [
   },
   {
     q: 'How long does shipping take?',
-    a: 'Cards typically arrive within 5\u20137 business days across North America. International shipping times vary by destination.',
+    a: 'The MVP launches in Canada first. Delivery estimates will be confirmed at checkout after fulfillment testing is approved.',
   },
   {
     q: 'Can I save my card and finish later?',
@@ -27,7 +27,7 @@ const FAQ_ITEMS: FaqItem[] = [
   },
   {
     q: 'What payment methods do you accept?',
-    a: 'We accept all major credit cards, Apple Pay, and Google Pay. You can toggle prices between USD and CAD.',
+    a: 'Payments are not active yet. Stripe-hosted Canadian-dollar checkout will be enabled only after payment and legal review.',
   },
   {
     q: 'What happens if I don\u2019t like my card?',

@@ -4,7 +4,7 @@ Status: approved and mandatory for the entire Souvenote MVP build
 
 Approved: 2026-07-21
 
-Last reconciled: 2026-07-21
+Last reconciled: 2026-07-22
 
 This document is the durable execution plan for Sections 0 through 8. It is not a
 roadmap suggestion. Every task, branch, pull request, review, deployment proposal,
@@ -105,8 +105,16 @@ Product behavior comes from `docs/product/mvp-spec.md`; system boundaries come f
 
 ## Mandatory task workflow
 
-Use one fresh Codex task per PR-sized section. Continue within that task for testing,
-debugging, and review of the same bounded change.
+Use exactly one fresh, user-visible Codex task per PR-sized section. Its active title
+must be `Section N — <build-plan section name>`. Continue within that single task
+for planning, implementation, testing, debugging, review, publication, and handoff
+of the same bounded change.
+
+Only the active section task may mutate the canonical Desktop worktree. Do not use
+another sidebar task as a worker, handoff target, retry, or workaround, and do not
+run two visible section tasks concurrently. A replacement lead task may start only
+after the user explicitly requests it or the existing lead cannot continue; the old
+lead must stop and be archived before the replacement mutates anything.
 
 Every task begins by:
 
@@ -122,14 +130,25 @@ Every task begins by:
    implementing when a question or new decision is required.
 
 Use GPT-5.6 Sol for architecture, implementation, and review when it is available.
-Use one lead and no more than three non-overlapping workers. Workers must not edit
-the same files or jointly edit migrations, shared contracts, lockfiles, or
+Use one lead and no more than three non-overlapping internal workers. Workers are
+read-only by default and are not separate user-visible section tasks. Any editing
+worker must use a purpose-created isolated worktree/branch with an explicit file
+ownership boundary; it may never edit the canonical Desktop worktree. Workers must
+not edit the same files or jointly edit migrations, shared contracts, lockfiles, or
 infrastructure interfaces. The lead owns integration and final verification.
 
 Every task ends with the completed template in
 `docs/engineering/task-handoff.md`, including the branch, commit, behavior, changed
 files, interfaces, migrations, tests, security/privacy review, cost impact, external
 actions, unresolved risks, rollback, and exact next-task prompt.
+
+After its section gate, handoff, draft PR, and exact-head required checks are
+complete, rename the task `Section N — <build-plan section name> (Complete)` and
+archive it before starting the next section. A duplicate or misnamed task must stop
+before its next mutation, report its last mutation to the lead, be renamed
+`Retired — <original purpose>`, and be archived after reconciliation. A new visible
+task is created only on explicit user direction. A paused user question pauses the
+whole section; another task or worker may not continue around it.
 
 ## Section 0 - Governance and reconciled specification
 
@@ -307,9 +326,10 @@ The MVP is not complete until current evidence proves all of the following:
 
 Current section status:
 
-| Section | Status                            | Evidence                                          |
-| ------- | --------------------------------- | ------------------------------------------------- |
-| 0       | Merged                            | PR #1 and `docs/product/decision-register.md`     |
-| 1       | Audited; final PR checks required | PR #2 and `docs/engineering/section-1-audit.md`   |
-| 2       | Draft PR green; ready for review  | PR #3 and `docs/engineering/section-2-audit.md`   |
-| 3-8     | Not started                       | Must follow this document in fresh PR-sized tasks |
+| Section | Status                           | Evidence                                          |
+| ------- | -------------------------------- | ------------------------------------------------- |
+| 0       | Merged                           | PR #1 and `docs/product/decision-register.md`     |
+| 1       | Draft PR green; ready for review | PR #2 and `docs/engineering/section-1-audit.md`   |
+| 2       | Draft PR green; ready for review | PR #3 and `docs/engineering/section-2-audit.md`   |
+| 3       | Draft PR green; ready for review | PR #4 and `docs/engineering/section-3-audit.md`   |
+| 4-8     | Not started                      | Must follow this document in fresh PR-sized tasks |

@@ -12,7 +12,9 @@ export type WorkerRuntimeConfig = Readonly<{
   paymentProviderMode: ProviderMode;
   port: number;
   textProviderMode: ProviderMode;
-  workerMode: 'idle';
+  tryRiskFreeResolverEnabled: boolean;
+  tryRiskFreeResolverIntervalMs: number;
+  workerMode: 'idle' | 'schedules';
 }>;
 
 const parsePort = (rawValue: string | undefined): number => {
@@ -24,6 +26,14 @@ const parsePort = (rawValue: string | undefined): number => {
   }
 
   return port;
+};
+
+const parseResolverInterval = (rawValue: string | undefined): number => {
+  const value = Number(rawValue ?? '60000');
+  if (!Number.isInteger(value) || value < 1_000 || value > 3_600_000) {
+    throw new Error('TRY_RISK_FREE_RESOLVER_INTERVAL_MS must be an integer from 1000 through 3600000.');
+  }
+  return value;
 };
 
 const parseProviderMode = (name: string, rawValue: string | undefined): ProviderMode => {
@@ -55,20 +65,35 @@ const parseDatabaseUrl = (rawValue: string | undefined): string => {
   return rawValue;
 };
 
+const parseBoolean = (name: string, rawValue: string | undefined): boolean => {
+  const value = (rawValue ?? 'false').toLowerCase();
+  if (value !== 'true' && value !== 'false') throw new Error(`${name} must be either true or false.`);
+  return value === 'true';
+};
+
 export const readWorkerRuntimeConfig = (environment: NodeJS.ProcessEnv = process.env): WorkerRuntimeConfig => {
   const nodeEnvironment = (environment.NODE_ENV ?? 'development').toLowerCase();
   if (nodeEnvironment !== 'development' && nodeEnvironment !== 'test') {
-    throw new Error('The Section 1 idle worker is permitted only in development or test.');
+    throw new Error('The Section 3 worker is permitted only in development or test.');
   }
 
   const authMode = environment.AUTH_MODE ?? 'disabled';
   if (authMode !== 'disabled') {
-    throw new Error('AUTH_MODE must be disabled in the Section 1 worker scaffold.');
+    throw new Error('AUTH_MODE must be disabled in the Section 3 worker.');
   }
 
   const workerMode = environment.WORKER_MODE ?? 'idle';
-  if (workerMode !== 'idle') {
-    throw new Error('WORKER_MODE must be idle in the Section 1 worker scaffold.');
+  if (workerMode !== 'idle' && workerMode !== 'schedules') {
+    throw new Error('WORKER_MODE must be either idle or schedules.');
+  }
+
+  const paymentProviderMode = parseProviderMode('PAYMENT_PROVIDER_MODE', environment.PAYMENT_PROVIDER_MODE);
+  const tryRiskFreeResolverEnabled = parseBoolean(
+    'TRY_RISK_FREE_RESOLVER_ENABLED',
+    environment.TRY_RISK_FREE_RESOLVER_ENABLED,
+  );
+  if (tryRiskFreeResolverEnabled && (workerMode !== 'schedules' || paymentProviderMode !== 'mock')) {
+    throw new Error('The Try Risk-Free resolver requires WORKER_MODE=schedules and PAYMENT_PROVIDER_MODE=mock.');
   }
 
   return Object.freeze({
@@ -80,9 +105,11 @@ export const readWorkerRuntimeConfig = (environment: NodeJS.ProcessEnv = process
     imageProviderMode: parseProviderMode('IMAGE_PROVIDER_MODE', environment.IMAGE_PROVIDER_MODE),
     musicProviderMode: parseProviderMode('MUSIC_PROVIDER_MODE', environment.MUSIC_PROVIDER_MODE),
     notificationProviderMode: parseProviderMode('NOTIFICATION_PROVIDER_MODE', environment.NOTIFICATION_PROVIDER_MODE),
-    paymentProviderMode: parseProviderMode('PAYMENT_PROVIDER_MODE', environment.PAYMENT_PROVIDER_MODE),
+    paymentProviderMode,
     port: parsePort(environment.WORKER_PORT),
     textProviderMode: parseProviderMode('TEXT_PROVIDER_MODE', environment.TEXT_PROVIDER_MODE),
+    tryRiskFreeResolverEnabled,
+    tryRiskFreeResolverIntervalMs: parseResolverInterval(environment.TRY_RISK_FREE_RESOLVER_INTERVAL_MS),
     workerMode,
   });
 };

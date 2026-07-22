@@ -420,6 +420,7 @@ function BmcWizard({
       const response = await startGeneration({
         cardDraftId,
         idempotencyKey: `frontend-generation-${Date.now()}`,
+        actionType: 'initial_image_song',
       });
       const backendState = await refreshCardDraftBackendState(cardDraftId);
       applyReviewAssets(cardDraftId, backendState.assets);

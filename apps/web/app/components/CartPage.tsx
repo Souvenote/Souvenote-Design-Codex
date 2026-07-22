@@ -40,7 +40,7 @@ type CartItemPresentation = {
 };
 
 type CartIconName =
-  'minus' | 'plus' | 'close' | 'trash' | 'lock' | 'arrow' | 'cart' | 'tag' | 'truck' | 'card' | 'cards' | 'coin';
+  'minus' | 'plus' | 'close' | 'trash' | 'lock' | 'arrow' | 'cart' | 'truck' | 'card' | 'cards' | 'coin';
 
 type CartIcoProps = {
   name: CartIconName;
@@ -200,12 +200,6 @@ function CartIco({ name, w = 16 }: CartIcoProps) {
         <circle cx="17" cy="21" r="1.2" />
       </>
     ),
-    tag: (
-      <>
-        <path d="M3 11.5V4a1 1 0 0 1 1-1h7.5L21 12.5 12.5 21 3 11.5z" />
-        <circle cx="7.5" cy="7.5" r="1.3" />
-      </>
-    ),
     truck: (
       <>
         <path d="M3 6h11v9H3zM14 9h4l3 3v3h-7z" />
@@ -331,39 +325,11 @@ function CartEmpty() {
   );
 }
 
-function CartPaid() {
-  const order = 'SV-' + Math.floor(100000 + Math.random() * 899999);
-
-  return (
-    <div className="cart-empty cart-paid">
-      <div className="cart-empty-ico cart-paid-ico">
-        <CartIco name="lock" w={30} />
-      </div>
-      <h2 className="cart-empty-h">Payment confirmed</h2>
-      <p className="cart-empty-p">
-        Thank you - your order <b style={{ color: 'var(--gold-hi)' }}>{order}</b> is in. A receipt is on its way to your
-        inbox, and your cards, packs, and credits are now on your account.
-      </p>
-      <div className="cart-empty-cta">
-        <Link href="/create/my-cards-and-songs" className="bmc-cta">
-          Go to Saved Cards &amp; Songs <CartIco name="arrow" w={15} />
-        </Link>
-        <Link href="/create/personalize-a-template" className="bmc-cta-secondary">
-          Keep browsing
-        </Link>
-      </div>
-    </div>
-  );
-}
-
 function CartPage() {
   const auth = useAuth();
   const [items, setItems] = React.useState<CartItem[]>(CART_SEED);
   const [hydrated, setHydrated] = React.useState(false);
-  const [promo, setPromo] = React.useState('');
-  const [promoApplied, setPromoApplied] = React.useState(false);
   const [authPromptOpen, setAuthPromptOpen] = React.useState(false);
-  const [confirmed, setConfirmed] = React.useState(false);
   const isAuthenticated = auth.status === 'authenticated' && Boolean(auth.user?.id);
 
   React.useEffect(() => {
@@ -388,10 +354,6 @@ function CartPage() {
     setItems((current) => current.filter((item) => item.id !== id));
   }
 
-  function applyPromo() {
-    if (promo.trim().toUpperCase() === 'SOUVENOTE10') setPromoApplied(true);
-  }
-
   function handleCheckoutClick() {
     if (!isAuthenticated) {
       setAuthPromptOpen(true);
@@ -403,10 +365,7 @@ function CartPage() {
 
   const count = items.reduce((sum, item) => sum + item.qty, 0);
   const subtotal = items.reduce((sum, item) => sum + item.price * item.qty, 0);
-  const discount = promoApplied ? +(subtotal * 0.1).toFixed(2) : 0;
-  const taxable = subtotal - discount;
-  const tax = +(taxable * 0.05).toFixed(2);
-  const total = +(taxable + tax).toFixed(2);
+  const total = +subtotal.toFixed(2);
 
   return (
     <>
@@ -420,16 +379,14 @@ function CartPage() {
           <h1 className="bmc-title" style={{ margin: '6px 0 0' }}>
             Your <span className="souv-hero-italic text-metallic-gold">cart</span>
           </h1>
-          {!confirmed && items.length > 0 && (
+          {items.length > 0 && (
             <p className="bmc-lede" style={{ margin: '10px 0 0' }}>
               {count} {count === 1 ? 'item' : 'items'} ready to check out - cards, packs, and credits all in one go.
             </p>
           )}
         </div>
 
-        {confirmed ? (
-          <CartPaid />
-        ) : items.length === 0 ? (
+        {items.length === 0 ? (
           <CartEmpty />
         ) : (
           <div className="cart-grid">
@@ -461,42 +418,10 @@ function CartPage() {
                     </span>
                     <span className="v is-included">Included</span>
                   </div>
-                  {promoApplied && (
-                    <div className="cart-sum-row">
-                      <span className="k">Promo {'\u00b7'} SOUVENOTE10</span>
-                      <span className="v is-discount">
-                        {'\u2212'}
-                        {cartMoney(discount)}
-                      </span>
-                    </div>
-                  )}
                   <div className="cart-sum-row">
-                    <span className="k">GST (5%)</span>
-                    <span className="v">{cartMoney(tax)}</span>
+                    <span className="k">Tax</span>
+                    <span className="v">Calculated at checkout</span>
                   </div>
-                </div>
-
-                <div className="cart-promo">
-                  {promoApplied ? (
-                    <div className="cart-promo-ok">
-                      <CartIco name="tag" w={13} /> Code <b>SOUVENOTE10</b> applied {'\u00b7'} 10% off
-                    </div>
-                  ) : (
-                    <div className="cart-promo-row">
-                      <input
-                        className="input-dark"
-                        value={promo}
-                        onChange={(event) => setPromo(event.target.value.toUpperCase())}
-                        placeholder="Promo code"
-                        onKeyDown={(event) => {
-                          if (event.key === 'Enter') applyPromo();
-                        }}
-                      />
-                      <button type="button" className="btn-matte cart-promo-apply" onClick={applyPromo}>
-                        Apply
-                      </button>
-                    </div>
-                  )}
                 </div>
 
                 <div className="cart-total">
@@ -508,10 +433,10 @@ function CartPage() {
                 </div>
 
                 <button type="button" className="bmc-cta cart-checkout" onClick={handleCheckoutClick}>
-                  Proceed to checkout <CartIco name="arrow" w={15} />
+                  Checkout coming soon <CartIco name="arrow" w={15} />
                 </button>
                 <div className="cart-secure">
-                  <CartIco name="lock" w={13} /> Secure checkout {'\u00b7'} payments by <b>Stripe</b>
+                  <CartIco name="lock" w={13} /> No payment or order is created in this preview.
                 </div>
               </div>
 

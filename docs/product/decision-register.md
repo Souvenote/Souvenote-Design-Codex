@@ -158,3 +158,13 @@ Approval reference:
 - Decision: `docs/engineering/build-plan.md` is the mandatory execution plan for the entire MVP build, including Sections 0-8, task protocol, model/concurrency rules, approval boundaries, section gates, and the final MVP completion contract.
 - Consequence: Every fresh task and PR must read and comply with the plan. A section cannot skip its gate, borrow completion evidence from an older branch, or silently pull later-section scope forward. CI repository-policy tests protect the plan's required structure and entry-point links.
 - Approval reference: Direct user request to make the full outlined build plan a rule for the entire build.
+
+### MVP-021 - One visible lead task per section
+
+- Date: 2026-07-22
+- Status: approved
+- Decision: Use exactly one clearly named, user-visible Codex lead task for each PR-sized build-plan section. Only that lead may mutate the canonical Desktop worktree. Separate sidebar tasks may not act as workers, retries, handoff targets, or parallel leads. Internal workers are optional, read-only by default, bounded and non-overlapping; an editing worker requires an isolated worktree/branch and may never edit the canonical worktree. After the gate, handoff, draft PR, and exact-head checks pass, rename the lead task with `(Complete)` and archive it before starting the next section. New visible tasks require explicit user direction.
+- Reason: Concurrent Section 3 task handoffs inherited misleading titles and briefly edited the shared canonical worktree, creating an avoidable migration/checksum collision and confusing task state.
+- Supersedes: Any interpretation of the fresh-task or worker rules that permits multiple visible tasks or multiple agents to mutate the same canonical worktree concurrently.
+- Consequence: Duplicate or misnamed tasks stop before their next mutation, report their last mutation, are renamed `Retired — <original purpose>`, and are archived after the lead reconciles their work. An unanswered user question pauses the entire section and cannot be bypassed by another task or worker.
+- Approval reference: Direct user instruction after the Section 3 task-state audit.
