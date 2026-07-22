@@ -7,6 +7,7 @@ Goal: Replace legacy schema/API/browser authority with a verified, generated, de
 Canonical repository: C:\Users\wilso\Desktop\Souvenote_Design_Codex
 Branch: codex/section-2-schema-contracts-security
 Implementation commit: 3772d0809730b238bc6421cf287135ebd0fe5e53
+CI correction commit: 3e1f8a5545ec08d65f11d75913d235671a4055e0
 Base commit: 7449088f199bb6291069dfe7788668a4876eb589
 
 Behavior completed:
@@ -37,6 +38,7 @@ Tests and checks executed:
 - Contract drift, formatting, lint, type checks, 68 automated tests, all builds, and production/full audits passed.
 - Isolated PostgreSQL migration/constraint/tamper tests and the credential-free stack smoke passed.
 - Local browser checks passed for the cookie/BFF ownership boundary and inactive-feature honesty.
+- GitHub CI run 29904247290 passed both the Workspace quality gate and Credential-free local stack jobs.
 - See docs/engineering/section-2-audit.md for the exact command/result matrix.
 
 Security/privacy review:

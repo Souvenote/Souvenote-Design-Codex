@@ -6,7 +6,7 @@ Branch: `codex/section-2-schema-contracts-security`
 
 Base: `7449088f199bb6291069dfe7788668a4876eb589`
 
-Status: local implementation and every local gate pass; draft PR #3 is published and final GitHub checks must pass on its final head before this gate is closed.
+Status: complete. Every local gate and both required GitHub jobs pass; draft PR #3 remains unmerged and stacked on the Section 1 branch.
 
 ## Scope and authority
 
@@ -110,7 +110,9 @@ The local candidate passed on Windows with Node 22.22.0 and npm 10.9.8:
 | CI portability            | A clean Linux runner exposed missing contract build output and a missing local PostgreSQL image; root install now prepares contracts and CI explicitly pulls `postgres:16-alpine` before database verification, with policy tests locking both behaviors                                                    |
 | Cleanup                   | Web/API/worker ports were released and the PostgreSQL container was stopped without deleting the normal local volume                                                                                                                                                                                        |
 
-The published final head must additionally pass both required GitHub jobs:
+GitHub CI run [29904247290](https://github.com/Souvenote/Souvenote-Design-Codex/actions/runs/29904247290) passed on the implementation and CI-correction head:
 
-- Workspace quality gate.
-- Credential-free local stack.
+- Workspace quality gate: pass.
+- Credential-free local stack: pass.
+
+The documentation-only gate-closure head must retain both passing jobs before handoff.
