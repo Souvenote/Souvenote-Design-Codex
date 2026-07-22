@@ -1,90 +1,81 @@
-import { Body, Controller, Post } from '@nestjs/common';
-import { IsBoolean, IsInt, IsNotEmpty, IsString, Min } from 'class-validator';
+import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Req } from '@nestjs/common';
+import { ApiBearerAuth, ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiProperty, ApiTags } from '@nestjs/swagger';
+import { UploadResponseDto } from '../common/api-response.dto';
+import { IsBoolean, IsIn, IsInt, IsString, IsUUID, Matches, Max, MaxLength, Min, MinLength } from 'class-validator';
+import type { AuthenticatedRequest } from '../auth/auth.types';
+import { Idempotent } from '../common/idempotent.decorator';
 import { UploadService } from './upload.service';
 
-export class UploadDto {
-  @IsString()
-  @IsNotEmpty()
-  userId: string;
+export class RequestUploadDto {
+  @ApiProperty({ format: 'uuid' })
+  @IsUUID()
+  cardDraftId!: string;
 
+  @ApiProperty({ maxLength: 255 })
   @IsString()
-  @IsNotEmpty()
-  cardDraftId: string;
+  @MinLength(1)
+  @MaxLength(255)
+  filename!: string;
 
-  @IsString()
-  @IsNotEmpty()
-  filename: string;
+  @ApiProperty({ enum: ['image/jpeg', 'image/png', 'image/webp'] })
+  @IsIn(['image/jpeg', 'image/png', 'image/webp'])
+  mimeType!: string;
 
-  @IsString()
-  @IsNotEmpty()
-  contentType: string;
-
+  @ApiProperty({ minimum: 1, maximum: 10_485_760 })
   @IsInt()
   @Min(1)
-  fileSizeBytes: number;
+  @Max(10_485_760)
+  size!: number;
+
+  @ApiProperty({ pattern: '^[0-9a-f]{64}$' })
+  @Matches(/^[0-9a-f]{64}$/)
+  contentSha256!: string;
 }
 
-export class MockUploadDto {
-  @IsString()
-  @IsNotEmpty()
-  userId: string;
-
-  @IsString()
-  @IsNotEmpty()
-  cardDraftId: string;
-
-  @IsString()
-  @IsNotEmpty()
-  filename: string;
-
-  @IsString()
-  @IsNotEmpty()
-  mimeType: string;
-
-  @IsInt()
-  @Min(1)
-  size: number;
-}
-
-export class CommitDto {
-  @IsString()
-  @IsNotEmpty()
-  userId: string;
-
-  @IsString()
-  @IsNotEmpty()
-  cardDraftId: string;
-
-  @IsString()
-  @IsNotEmpty()
-  s3Key: string;
-
+export class CompleteUploadDto {
+  @ApiProperty()
   @IsBoolean()
-  attestationAccepted: boolean;
+  attestationAccepted!: boolean;
 }
 
+@ApiTags('uploads')
+@ApiBearerAuth()
 @Controller('uploads')
 export class UploadController {
   constructor(private readonly uploadService: UploadService) {}
 
-  @Post('request')
-  async uploadReq(@Body() dto: UploadDto) {
-    return this.uploadService.requestUpload(
-      dto.userId,
-      dto.cardDraftId,
-      dto.filename,
-      dto.contentType,
-      dto.fileSizeBytes,
+  @Post()
+  @Idempotent()
+  @ApiOperation({ operationId: 'requestUpload' })
+  @ApiCreatedResponse({ type: UploadResponseDto })
+  async request(@Req() request: AuthenticatedRequest, @Body() dto: RequestUploadDto) {
+    return this.uploadService.request(request.user.id, request.header('idempotency-key')!, dto);
+  }
+
+  @Get(':uploadId')
+  @ApiOperation({ operationId: 'getUpload' })
+  @ApiOkResponse({ type: UploadResponseDto })
+  async get(
+    @Req() request: AuthenticatedRequest,
+    @Param('uploadId', new ParseUUIDPipe({ version: '4' })) uploadId: string,
+  ) {
+    return this.uploadService.get(request.user.id, uploadId);
+  }
+
+  @Patch(':uploadId/complete')
+  @Idempotent()
+  @ApiOperation({ operationId: 'completeMockUpload' })
+  @ApiOkResponse({ type: UploadResponseDto })
+  async complete(
+    @Req() request: AuthenticatedRequest,
+    @Param('uploadId', new ParseUUIDPipe({ version: '4' })) uploadId: string,
+    @Body() dto: CompleteUploadDto,
+  ) {
+    return this.uploadService.complete(
+      request.user.id,
+      uploadId,
+      request.header('idempotency-key')!,
+      dto.attestationAccepted,
     );
-  }
-
-  @Post('commit')
-  async commitReq(@Body() dto: CommitDto) {
-    return this.uploadService.commitUpload(dto.userId, dto.cardDraftId, dto.s3Key, dto.attestationAccepted);
-  }
-
-  @Post('mock')
-  async mockUpload(@Body() dto: MockUploadDto) {
-    return this.uploadService.createMockUpload(dto);
   }
 }

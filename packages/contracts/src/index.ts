@@ -23,3 +23,6 @@ export type UploadStatus =
   | 'attestation_required'
   | 'attestation_done'
   | 'committed';
+
+export type { paths, components, operations } from './generated/openapi.js';
+export { createSouvenoteApiClient } from './client.js';

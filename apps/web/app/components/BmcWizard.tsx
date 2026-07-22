@@ -104,13 +104,6 @@ function referenceUploadSignature(cardDraftId: string, uploads: ReferenceImageUp
   return `${cardDraftId}:${JSON.stringify(uploads)}`;
 }
 
-declare global {
-  interface Window {
-    __bmcGoStep?: (id: BmcWizardStep) => void;
-    __bmcSetCredits?: (credits: number) => void;
-  }
-}
-
 function isBmcWizardStep(value: string): value is BmcWizardStep {
   return ['photo', 'basics', 'image', 'message', 'song', 'review'].includes(value);
 }
@@ -453,36 +446,11 @@ function BmcWizard({
   };
 
   const spendRegenerationCredit = async () => {
-    if (credits < MIN_GENERATION_CREDITS) {
-      bmcError('You need at least 1 credit to regenerate an asset.', 'Not enough credits');
-      return false;
-    }
-
-    try {
-      const response = await startGeneration({
-        ...(currentDraftId ? { cardDraftId: currentDraftId } : {}),
-        idempotencyKey: `frontend-generation-${Date.now()}`,
-      });
-      if (currentDraftId) {
-        const backendState = await refreshCardDraftBackendState(currentDraftId);
-        applyReviewAssets(currentDraftId, backendState.assets);
-      }
-
-      if (response.balance) {
-        publishCreditBalance(response.balance);
-      } else {
-        await refreshCredits?.();
-      }
-
-      return true;
-    } catch (error) {
-      bmcError(
-        error instanceof Error ? error.message : 'Regeneration could not start. Please try again.',
-        'Regeneration could not start',
-      );
-      await refreshCredits?.();
-      return false;
-    }
+    bmcError(
+      'One-credit image and song regeneration is coming in the approved creation-workflow section. No credit was charged.',
+      'Regeneration coming soon',
+    );
+    return false;
   };
 
   const startOver = () => {
@@ -500,14 +468,6 @@ function BmcWizard({
   };
 
   React.useEffect(() => {
-    window.__bmcGoStep = (id) => {
-      if (id === 'review') setGenerating(false);
-      setStep(id);
-    };
-    window.__bmcSetCredits = () => {
-      void refreshCredits?.();
-    };
-
     document.querySelectorAll<HTMLAnchorElement>('#bmc-step-toggle a[data-step]').forEach((anchor) => {
       anchor.classList.toggle('is-active', anchor.dataset.step === step && !generating);
     });

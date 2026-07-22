@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import test from 'node:test';
-import { createSafeLocalEnvironment } from './local-runtime.mjs';
+import { createSafeLocalEnvironment, workspaceEnvironment } from './local-runtime.mjs';
 
 test('local runtime overrides unsafe modes and neutralizes provider credentials', () => {
   const environment = createSafeLocalEnvironment({
@@ -14,7 +14,8 @@ test('local runtime overrides unsafe modes and neutralizes provider credentials'
     STRIPE_SECRET_KEY: 'must-not-reach-child',
   });
 
-  assert.equal(environment.AUTH_MODE, 'disabled');
+  assert.equal(environment.AUTH_MODE, 'local');
+  assert.equal(environment.DATABASE_SSL_MODE, 'disable');
   assert.equal(environment.AWS_ACCESS_KEY_ID, '');
   assert.equal(environment.FAL_KEY, '');
   assert.equal(environment.IMAGE_PROVIDER_MODE, 'mock');
@@ -39,6 +40,14 @@ test('local runtime defines every provider category as mock or disabled', () => 
   ];
 
   assert.ok(modes.every((mode) => mode === 'mock' || mode === 'disabled'));
+});
+
+test('worker keeps its explicit disabled auth boundary while web and API use local auth', () => {
+  const environment = createSafeLocalEnvironment({});
+
+  assert.equal(workspaceEnvironment('@souvenote/web', environment).AUTH_MODE, 'local');
+  assert.equal(workspaceEnvironment('@souvenote/api', environment).AUTH_MODE, 'local');
+  assert.equal(workspaceEnvironment('@souvenote/worker', environment).AUTH_MODE, 'disabled');
 });
 
 test('PostgreSQL port override is shared by Compose and DATABASE_URL', () => {

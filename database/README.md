@@ -1,258 +1,130 @@
-# Souvenote Database
+# Souvenote database
 
-This folder contains the PostgreSQL database setup for the Souvenote backend.
+This directory owns the PostgreSQL 16 schema and its verification boundary. The
+Section 2 baseline is for a clean pre-launch database. It is not an upgrade from
+the deleted legacy draft migrations, which were never approved or applied to a
+shared environment.
 
-## Structure
+No repository startup, health check, build, or ordinary test command applies a
+migration automatically. Applying a migration is always an explicit operation.
 
-- `migrations/` contains SQL files that create or update the database structure.
-- `seeds/` contains starter data, such as pricing plans.
+## Layout
 
-## First Migration
-
-`001_initial_schema.sql` will create the first version of the database schema.
-`002_phase1_mock_backend.sql` adds the Phase 1 local mock upload, checkout, and fulfillment storage needed for the end-to-end MVP flow.
-
-Planned core tables:
-- users
-- credit_ledger
-- card_drafts
-- generation_jobs
-- assets
-- orders
-- payments
-- pricing_catalog
-- audit_logs
-
-## Local Development
-
-Start with local PostgreSQL first.
-
-After the schema works locally, the same migration can later be run against AWS RDS PostgreSQL.
-
-## Important
-
-Do not commit database passwords, connection strings with real credentials, or secret keys.
-
-````md
-# Souvenote Local Database Setup
-
-This folder contains the local PostgreSQL database setup for the Souvenote backend.
-
-## Purpose
-
-The database migration and seed files allow every developer to create the same local database structure before connecting the NestJS backend.
-
-The local database is used for development and testing before the project is deployed to AWS.
-
-## Required Database Name
-
-Each developer should create a local PostgreSQL database named:
-
-```txt
-souvenote_dev
-````
-
-## Folder Structure
-
-```txt
+```text
 database/
   migrations/
-    001_initial_schema.sql
-  seeds/
-    001_pricing_catalog.sql
-  README.md
+    0001_mvp_baseline.sql
+    checksums.sha256
+  tests/
+    0001_mvp_baseline.test.sql
+  migrate.mjs
+  verify.mjs
 ```
 
-## Setup with psql
+- `migrate.mjs` is the only supported migration entry point. It verifies the
+  committed SHA-256 manifest, obtains a PostgreSQL advisory lock, validates the
+  append-only journal, and applies each pending file in its own transaction.
+- `verify.mjs` creates a uniquely named, volume-free PostgreSQL 16 container,
+  applies the migration twice, runs the SQL contract tests, proves checksum drift
+  is rejected, and removes the exact disposable container in a `finally` block.
+- `tests/0001_mvp_baseline.test.sql` rolls its fixture data back. It checks atomic
+  credit behavior, idempotency, ownership boundaries, state transitions, upload
+  expiry, provider/webhook uniqueness, and the absence of speculative tables.
 
-From the `backend/` folder, run:
+The scripts use only the workspace's existing `pg` dependency and the local Docker
+CLI. They do not contact AWS or a paid provider.
 
-```bash
-createdb -U postgres souvenote_dev
-psql -U postgres -d souvenote_dev -f database/migrations/001_initial_schema.sql
-psql -U postgres -d souvenote_dev -f database/migrations/002_phase1_mock_backend.sql
-psql -U postgres -d souvenote_dev -f database/seeds/001_pricing_catalog.sql
+## Applying the baseline explicitly
+
+Use the canonical Node.js 22/npm 10.9.8 workspace and set `DATABASE_URL` in the
+current process. Never put a credential or connection string in Git.
+
+```powershell
+$env:DATABASE_URL = '<approved PostgreSQL connection string>'
+node.exe database/migrate.mjs
 ```
 
-## Setup with pgAdmin 4
+The runner refuses to continue when:
 
-1. Open pgAdmin 4.
-2. Right-click `Databases`.
-3. Select `Create` → `Database`.
-4. Name the database `souvenote_dev`.
-5. Open the Query Tool for `souvenote_dev`.
-6. Run the contents of:
+- a migration is missing from `checksums.sha256`;
+- a file's SHA-256 differs from the committed manifest;
+- the database journal contains an unknown migration;
+- an applied checksum differs from the current verified checksum; or
+- a migration version/name conflicts with its journal entry.
 
-```txt
-database/migrations/001_initial_schema.sql
+Do not apply this clean-start baseline to a database that contains legacy
+Souvenote tables. Section 2 assumes no shared or production database exists.
+
+## Isolated verification
+
+With Docker running and no important database selected:
+
+```powershell
+node.exe database/verify.mjs
 ```
 
-7. Then run the contents of:
+The verifier never uses the normal `souvenote-local-postgres-data` volume and never
+connects to the normal local database. Its container name begins with
+`souvenote-db-verify-` and includes a random suffix. Cleanup targets only the exact
+name created by that process.
 
-```txt
-database/seeds/001_pricing_catalog.sql
-```
+## Baseline scope
 
-## Verify Setup
+The baseline includes only approved physical-card MVP data:
 
-Using `psql`, connect to the database:
+- migration journal and lifecycle transition rules;
+- users, Cognito identities, and hashed application sessions;
+- idempotency records;
+- price books and physical-card offers;
+- atomic credit accounts and append-only credit ledger;
+- physical-card entitlements;
+- drafts and append-only revisions;
+- private uploads and 24-hour uncommitted-upload expiry;
+- generation jobs, sanitized provider attempts, and assets;
+- hashed public-share/QR metadata;
+- orders and immutable order items;
+- payment records and payload-free webhook receipts;
+- fulfillment jobs and shipments;
+- notifications, append-only audit events, and feature flags.
 
-```bash
-psql -U postgres -d souvenote_dev
-```
+There are no Gift, Trust Circle, chatbot, calendar, community-catalog, Harte Hanks,
+digital-card, or other speculative future-feature tables. Section 3 owns activation
+of the approved CAD price catalog, so the Section 2 baseline creates no active
+offer rows.
 
-List tables:
+## Database invariants
 
-```sql
-\dt
-```
+- Money is an integer minor-unit amount paired with an uppercase ISO currency.
+- Customer-owned relationships use composite `(resource_id, user_id)` foreign
+  keys, preventing a valid UUID from being attached across owners.
+- `credit_ledger` inserts lock the user's `credit_accounts` row and update the
+  nonnegative balance atomically. The supported function is
+  `apply_credit_ledger_entry(...)`; an identical retry returns the original result.
+- A partial unique index permits one `signup_grant` per user.
+- Migration, credit, revision, order-item, lifecycle-rule, and audit rows are
+  append-only where business history must not be rewritten.
+- Initial lifecycle states and allowed transitions are checked by database
+  triggers for uploads, generation, assets, entitlements, orders, payments,
+  webhooks, fulfillment, shipments, and notifications.
+- Sensitive mutations carry database-unique idempotency keys. Provider request,
+  payment, fulfillment, shipment, notification, and webhook IDs are unique in
+  their provider scope.
+- Session/share tokens are stored only as SHA-256 hashes. Provider request and
+  webhook bodies are represented by hashes rather than duplicated sensitive
+  payloads.
+- Upload cleanup can use the partial `uploads_expiry_idx`; uncommitted rows cannot
+  be created with an expiry later than 24 hours.
+- Raw card numbers, CVV values, and billing vault records are not stored. Stripe-
+  hosted integration belongs to Section 5; `payments` stores provider references
+  and lifecycle amounts only.
 
-Check the pricing catalog:
+## Adding a later migration
 
-```sql
-SELECT offer_code, name, price_cents
-FROM pricing_catalog;
-```
+After this baseline has been applied anywhere shared, never edit it. Add the next
+zero-padded SQL file, regenerate `checksums.sha256` in a reviewed change, and verify
+both a clean apply and upgrade from the latest journaled schema. Applied journal
+rows and transition rules are immutable.
 
-Expected pricing rows include:
-
-```txt
-try_risk_free_one_card
-big_sender_2_10
-big_sender_11_20
-big_sender_21_30
-```
-
-## Reset Local Database
-
-If the schema changes during development and there is no important local data to keep, reset the database:
-
-```bash
-dropdb -U postgres souvenote_dev
-createdb -U postgres souvenote_dev
-psql -U postgres -d souvenote_dev -f database/migrations/001_initial_schema.sql
-psql -U postgres -d souvenote_dev -f database/migrations/002_phase1_mock_backend.sql
-psql -U postgres -d souvenote_dev -f database/seeds/001_pricing_catalog.sql
-```
-
-## Important Notes
-
-* Do not commit real database passwords.
-* Do not commit `.env` files.
-* Migration files define the database structure.
-* Seed files insert starting data needed for development.
-* AWS deployment will use the same migration concept later, but local development should be tested first.
-
-
-
-
-# Souvenote Local Database Setup
-
-This folder contains the local PostgreSQL database setup for the Souvenote backend.
-
-## Purpose
-
-The database migration and seed files allow every developer to create the same local database structure before connecting the NestJS backend.
-
-The local database is used for development and testing before the project is deployed to AWS.
-
-## Required Database Name
-
-Each developer should create a local PostgreSQL database named:
-
-```txt
-souvenote_dev
-```
-
-## Folder Structure
-
-```txt
-database/
-  migrations/
-    001_initial_schema.sql
-  seeds/
-    001_pricing_catalog.sql
-  README.md
-```
-
-## Setup with psql
-
-From the `backend/` folder, run:
-
-```bash
-createdb -U postgres souvenote_dev
-psql -U postgres -d souvenote_dev -f database/migrations/001_initial_schema.sql
-psql -U postgres -d souvenote_dev -f database/migrations/002_phase1_mock_backend.sql
-psql -U postgres -d souvenote_dev -f database/seeds/001_pricing_catalog.sql
-```
-
-## Setup with pgAdmin 4
-
-1. Open pgAdmin 4.
-2. Right-click `Databases`.
-3. Select `Create` → `Database`.
-4. Name the database `souvenote_dev`.
-5. Open the Query Tool for `souvenote_dev`.
-6. Run the contents of:
-
-```txt
-database/migrations/001_initial_schema.sql
-```
-
-7. Then run the contents of:
-
-```txt
-database/seeds/001_pricing_catalog.sql
-```
-
-## Verify Setup
-
-Using `psql`, connect to the database:
-
-```bash
-psql -U postgres -d souvenote_dev
-```
-
-List tables:
-
-```sql
-\dt
-```
-
-Check the pricing catalog:
-
-```sql
-SELECT offer_code, name, price_cents
-FROM pricing_catalog;
-```
-
-Expected pricing rows include:
-
-```txt
-try_risk_free_one_card
-big_sender_2_10
-big_sender_11_20
-big_sender_21_30
-```
-
-## Reset Local Database
-
-If the schema changes during development and there is no important local data to keep, reset the database.
-
-From the `backend/` folder, run:
-
-```bash
-dropdb -U postgres souvenote_dev
-createdb -U postgres souvenote_dev
-psql -U postgres -d souvenote_dev -f database/migrations/001_initial_schema.sql
-psql -U postgres -d souvenote_dev -f database/migrations/002_phase1_mock_backend.sql
-psql -U postgres -d souvenote_dev -f database/seeds/001_pricing_catalog.sql
-```
-
-## Important Notes
-
-* Do not commit real database passwords.
-* Do not commit `.env` files.
-* Migration files define the database structure.
-* Seed files insert starting data needed for development.
-* AWS deployment will use the same migration concept later, but local development should be tested first.
+Normal local shutdown preserves the shared development volume. Do not improvise a
+database reset or volume deletion; follow the repository's approved lifecycle
+instructions and obtain explicit direction before any destructive operation.

@@ -35,8 +35,6 @@ type GenreGroup = {
   genres: [string, string][];
 };
 
-type InviteStatus = 'form' | 'sending' | 'error';
-
 type ModalProps = {
   open: boolean;
   onClose: () => void;
@@ -70,12 +68,6 @@ type EditingState = {
   song: boolean;
   message: boolean;
 };
-
-declare global {
-  interface Window {
-    __bmcShowInvite?: () => void;
-  }
-}
 
 function PanelStatus({ generating, approved }: PanelStatusProps) {
   const cls = generating ? 'is-working' : approved ? 'is-approved' : 'is-ready';
@@ -459,45 +451,7 @@ function BmcConfirmModal({ open, onClose, onConfirm, includeSong = true }: BmcCo
 }
 
 function BmcInviteModal({ open, onClose, includeSong = true }: BmcInviteModalProps) {
-  const [status, setStatus] = React.useState<InviteStatus>('form');
-  const [email, setEmail] = React.useState('');
-  const [sent, setSent] = React.useState<string[]>([]);
-  const timer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  React.useEffect(() => {
-    if (open) {
-      setStatus('form');
-      setEmail('');
-      setSent([]);
-    }
-    return () => {
-      if (timer.current) clearTimeout(timer.current);
-    };
-  }, [open]);
-
   if (!open) return null;
-
-  const clearError = () => {
-    if (status === 'error') setStatus('form');
-  };
-  const send = () => {
-    if (status === 'sending') return;
-    // No email → surface the error state.
-    if (!email.trim()) {
-      setStatus('error');
-      return;
-    }
-    const invited = email.trim();
-    setStatus('sending');
-    timer.current = setTimeout(() => {
-      // Invite sent: record it and reveal a fresh blank field for the next friend.
-      setSent((s) => [...s, invited]);
-      setEmail('');
-      setStatus('form');
-    }, 1400);
-  };
-
-  const sending = status === 'sending';
 
   const ui = (
     <div className="bmc-modal-wrap" role="dialog" aria-modal="true" data-screen-label="Modal · Invite A Friend">
@@ -537,66 +491,21 @@ function BmcInviteModal({ open, onClose, includeSong = true }: BmcInviteModalPro
           </span>
         </div>
 
-        <p className="bmc-invite-while">
-          While you wait, invite a friend to Souvenote and earn credits for your next card.
-        </p>
+        <p className="bmc-invite-while">Referral invitations and reward credits are coming soon.</p>
 
         <div className="bmc-invite-reward">
-          <BmcIcon name="coin" w={15} /> For each friend who signs up, earn <b>10 free credits</b>.
+          <BmcIcon name="coin" w={15} /> No invitation, email, or credit reward is created in this build.
         </div>
-
-        {sent.length > 0 && (
-          <div className="bmc-invite-sent">
-            {sent.map((addr, i) => (
-              <div className="bmc-invite-sent-row" key={i}>
-                <span className="bmc-invite-sent-tick">
-                  <BmcIcon name="check" w={12} />
-                </span>
-                <span className="bmc-invite-sent-addr">{addr}</span>
-                <span className="bmc-invite-sent-tag">Invite sent</span>
-              </div>
-            ))}
-            <p className="bmc-invite-sent-note">When they sign up, your credits are added automatically.</p>
-          </div>
-        )}
 
         <div className="bmc-invite-fields">
-          <input
-            className="bmc-input"
-            type="email"
-            inputMode="email"
-            placeholder="Friend’s email address"
-            value={email}
-            disabled={sending}
-            autoFocus
-            onChange={(e) => {
-              setEmail(e.target.value);
-              clearError();
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') send();
-            }}
-          />
-          {status === 'error' && (
-            <div className="bmc-invite-error" role="alert">
-              Could not send invite. Try again.
-            </div>
-          )}
+          <input className="bmc-input" type="email" inputMode="email" placeholder="Friend’s email address" disabled />
         </div>
 
-        <button type="button" className="bmc-cta bmc-invite-cta" onClick={send} disabled={sending}>
-          {sending ? (
-            <>
-              <span className="bmc-invite-btn-spin" aria-hidden="true" /> Sending…
-            </>
-          ) : (
-            <>
-              <BmcIcon name="spark2" w={16} /> Send Invite &amp; Earn Credits
-            </>
-          )}
+        <button type="button" className="bmc-cta bmc-invite-cta" disabled>
+          <BmcIcon name="spark2" w={16} /> Coming soon
         </button>
         <button type="button" className="bmc-text-link bmc-invite-later" onClick={onClose}>
-          {sent.length > 0 ? 'Done' : 'Maybe Later'}
+          Maybe Later
         </button>
       </div>
     </div>
@@ -639,11 +548,6 @@ function BmcReview({
   React.useEffect(() => {
     if (generating) setInviteOpen(true);
   }, [generating]);
-  // Let the dev switcher preview the invite modal on demand.
-  React.useEffect(() => {
-    window.__bmcShowInvite = () => setInviteOpen(true);
-  }, []);
-
   const approvedCount = [imgApproved, msgApproved, includeSong && songApproved].filter(Boolean).length;
   const requiredApprovalCount = includeSong ? 3 : 2;
   const allApproved = imgApproved && msgApproved && (!includeSong || songApproved);

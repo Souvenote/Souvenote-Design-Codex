@@ -1,59 +1,114 @@
-import { Controller, Post, Get, Param, Body, Patch } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Query, Req } from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiCreatedResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiProperty,
+  ApiPropertyOptional,
+  ApiTags,
+} from '@nestjs/swagger';
+import { Type } from 'class-transformer';
+import { CardDraftListResponseDto, CardDraftResponseDto } from '../common/api-response.dto';
+import { IsIn, IsInt, IsObject, IsOptional, IsString, IsUUID, Max, MaxLength, Min } from 'class-validator';
+import type { AuthenticatedRequest } from '../auth/auth.types';
 import { CardDraftsService } from './card-drafts.service';
-import { IsString, IsOptional, IsObject } from 'class-validator';
 
 export class CreateCardDraftDto {
-  @IsString()
-  userId: string;
+  @ApiProperty({ enum: ['personalize_template', 'build_my_card'] })
+  @IsIn(['personalize_template', 'build_my_card'])
+  creationRoute!: 'personalize_template' | 'build_my_card';
 
+  @ApiPropertyOptional({ maxLength: 160 })
   @IsOptional()
   @IsString()
+  @MaxLength(160)
   occasion?: string;
 
+  @ApiPropertyOptional({ maxLength: 160 })
   @IsOptional()
   @IsString()
+  @MaxLength(160)
   relationship?: string;
 
+  @ApiPropertyOptional({ type: 'object', additionalProperties: true })
   @IsOptional()
   @IsObject()
   creativeBrief?: Record<string, unknown>;
 }
 
 export class UpdateCardDraftDto {
+  @ApiPropertyOptional({ maxLength: 160 })
   @IsOptional()
   @IsString()
+  @MaxLength(160)
   occasion?: string;
 
+  @ApiPropertyOptional({ maxLength: 160 })
   @IsOptional()
   @IsString()
+  @MaxLength(160)
   relationship?: string;
 
+  @ApiPropertyOptional({ type: 'object', additionalProperties: true })
   @IsOptional()
   @IsObject()
   creativeBrief?: Record<string, unknown>;
 }
 
+export class CardDraftListQueryDto {
+  @ApiPropertyOptional({ minimum: 1, maximum: 100, default: 20 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit?: number;
+
+  @ApiPropertyOptional({ format: 'uuid', description: 'Opaque owner-scoped cursor from the previous page.' })
+  @IsOptional()
+  @IsUUID()
+  cursor?: string;
+}
+
+@ApiTags('card-drafts')
+@ApiBearerAuth()
 @Controller('card-drafts')
 export class CardDraftsController {
   constructor(private readonly cardDraftsService: CardDraftsService) {}
 
-  @Get('/user/:userId')
-  async getCardDraftsByUserId(@Param('userId') userId: string) {
-    return this.cardDraftsService.getCardDraftsByUserId(userId);
+  @Get()
+  @ApiOperation({ operationId: 'listCardDrafts' })
+  @ApiOkResponse({ type: CardDraftListResponseDto })
+  async list(@Req() request: AuthenticatedRequest, @Query() query: CardDraftListQueryDto) {
+    return this.cardDraftsService.list(request.user.id, query.limit ?? 20, query.cursor);
   }
 
   @Get(':draftId')
-  async getCardDraftById(@Param('draftId') draftId: string) {
-    return this.cardDraftsService.getCardDraftById(draftId);
+  @ApiOperation({ operationId: 'getCardDraft' })
+  @ApiOkResponse({ type: CardDraftResponseDto })
+  async get(
+    @Req() request: AuthenticatedRequest,
+    @Param('draftId', new ParseUUIDPipe({ version: '4' })) draftId: string,
+  ) {
+    return this.cardDraftsService.get(request.user.id, draftId);
   }
 
   @Post()
-  async createCardDraft(@Body() dto: CreateCardDraftDto) {
-    return this.cardDraftsService.createCardDraft(dto);
+  @ApiOperation({ operationId: 'createCardDraft' })
+  @ApiCreatedResponse({ type: CardDraftResponseDto })
+  async create(@Req() request: AuthenticatedRequest, @Body() dto: CreateCardDraftDto) {
+    return this.cardDraftsService.create(request.user.id, dto);
   }
 
   @Patch(':draftId')
-  async updateCardDraft(@Param('draftId') draftId: string, @Body() dto: UpdateCardDraftDto) {
-    return this.cardDraftsService.updateCardDraft(draftId, dto);
+  @ApiOperation({ operationId: 'updateCardDraft' })
+  @ApiOkResponse({ type: CardDraftResponseDto })
+  async update(
+    @Req() request: AuthenticatedRequest,
+    @Param('draftId', new ParseUUIDPipe({ version: '4' })) draftId: string,
+    @Body() dto: UpdateCardDraftDto,
+  ) {
+    return this.cardDraftsService.update(request.user.id, draftId, dto);
   }
 }

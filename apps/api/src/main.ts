@@ -1,52 +1,29 @@
-import { Logger, ValidationPipe } from '@nestjs/common';
+import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
-import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import type { NestExpressApplication } from '@nestjs/platform-express';
+import { configureApi, mountDevelopmentApiDocs } from './api-configuration';
 import { AppModule } from './app.module';
-import { resolveCorsAllowedOrigins, resolveHost, resolvePort, runtimeEnvironment } from './config/runtime-config';
+import { resolveHost, resolvePort, resolveTrustProxyHops, runtimeEnvironment } from './config/runtime-config';
 
 const logger = new Logger('Bootstrap');
 
 async function bootstrap(): Promise<void> {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, { bodyParser: false });
   const configService = app.get(ConfigService);
   const environment = runtimeEnvironment(configService);
   const host = resolveHost(configService);
   const port = resolvePort(configService);
-
-  app.enableCors({
-    origin: resolveCorsAllowedOrigins(configService),
-    credentials: true,
-  });
-  app.setGlobalPrefix('api');
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-    }),
-  );
-  app.enableShutdownHooks();
-
-  if (environment !== 'production') {
-    const swaggerConfig = new DocumentBuilder()
-      .setTitle('Souvenote Backend API')
-      .setDescription('Backend API for Souvenote MVP')
-      .setVersion('0.1.0')
-      .build();
-    const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig);
-    SwaggerModule.setup('api/docs', app, swaggerDocument);
-  }
+  const trustProxyHops = resolveTrustProxyHops(configService);
+  if (trustProxyHops > 0) app.set('trust proxy', trustProxyHops);
+  const document = configureApi(app);
+  if (environment !== 'production') mountDevelopmentApiDocs(app, document);
 
   await app.listen(port, host);
-
-  logger.log(`Souvenote backend running on http://${host}:${port}`);
-  if (environment !== 'production') {
-    logger.log(`Swagger docs available at http://${host}:${port}/api/docs`);
-  }
+  logger.log(`Souvenote API listening on http://${host}:${port}/api/v1`);
 }
 
 void bootstrap().catch(() => {
-  logger.error('Souvenote backend failed to start.');
+  logger.error('Souvenote API failed to start.');
   process.exitCode = 1;
 });

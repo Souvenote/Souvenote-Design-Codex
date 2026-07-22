@@ -10,7 +10,7 @@ const trackedFiles = execFileSync('git', ['ls-files', '--cached', '--others', '-
   encoding: 'utf8',
 })
   .split('\0')
-  .filter(Boolean);
+  .filter((file) => file && existsSync(path.join(repositoryRoot, file)));
 
 const governedTextExtension = new Set(['.css', '.js', '.json', '.md', '.mjs', '.ts', '.tsx', '.yaml', '.yml']);
 const excludedTextPrefixes = ['apps/web/app/styles/', 'apps/web/public/', 'database/', 'docs/legacy/'];
@@ -55,4 +55,78 @@ test('GitHub Actions dependencies are pinned to exact commit SHAs', () => {
 
   assert.notEqual(actionReferences.length, 0);
   actionReferences.forEach((reference) => assert.match(reference, /@[0-9a-f]{40}$/));
+});
+
+test('API persistence and route authority boundaries remain fail closed', () => {
+  const apiSource = trackedFiles.filter((file) => file.startsWith('apps/api/src/') && file.endsWith('.ts'));
+  const findings = [];
+
+  for (const relativePath of apiSource) {
+    const contents = readFileSync(path.join(repositoryRoot, relativePath), 'utf8');
+    if (
+      contents.includes("from '../database/database.service'") &&
+      !relativePath.endsWith('.spec.ts') &&
+      !relativePath.endsWith('.repository.ts') &&
+      !relativePath.includes('/database/') &&
+      relativePath !== 'apps/api/src/health/health.controller.ts'
+    ) {
+      findings.push(`${relativePath}: DatabaseService imported outside a repository`);
+    }
+    if (
+      (relativePath.endsWith('.controller.ts') || relativePath.endsWith('.service.ts')) &&
+      /`\s*(?:SELECT|INSERT|UPDATE|DELETE)\b/i.test(contents)
+    ) {
+      findings.push(`${relativePath}: SQL found outside a repository`);
+    }
+    if (
+      relativePath.endsWith('.controller.ts') &&
+      !contents.includes('@ApiBearerAuth()') &&
+      !contents.includes('@Public()')
+    ) {
+      findings.push(`${relativePath}: controller is neither authenticated nor explicitly public`);
+    }
+    if (relativePath.endsWith('.controller.ts') && /\buserId\??\s*[!:]/.test(contents)) {
+      findings.push(`${relativePath}: customer controller accepts caller-supplied userId`);
+    }
+  }
+
+  assert.deepEqual(findings, []);
+});
+
+test('browser code contains no token authority, hardcoded customer identity, or direct Cognito SDK', () => {
+  const browserFiles = trackedFiles.filter(
+    (file) => file.startsWith('apps/web/app/') && /\.(?:ts|tsx)$/.test(file) && !file.endsWith('.spec.ts'),
+  );
+  const forbidden = [
+    ['amazon-cognito-identity-js', /amazon-cognito-identity-js/],
+    ['local mock user authority', /LOCAL_MOCK_USER_ID/],
+    ['public API base URL', /NEXT_PUBLIC_API/],
+    [
+      'browser token persistence',
+      /(?:localStorage|sessionStorage)\.(?:setItem|getItem)\([^\n]*(?:token|access|refresh)/i,
+    ],
+  ];
+  const findings = [];
+  for (const relativePath of browserFiles) {
+    const contents = readFileSync(path.join(repositoryRoot, relativePath), 'utf8');
+    for (const [label, pattern] of forbidden) {
+      if (pattern.test(contents)) findings.push(`${relativePath}: ${label}`);
+    }
+  }
+  assert.deepEqual(findings, []);
+});
+
+test('application source never accepts raw payment-card fields', () => {
+  const applicationFiles = trackedFiles.filter(
+    (file) =>
+      (file.startsWith('apps/api/src/') || file.startsWith('apps/web/app/')) &&
+      /\.(?:ts|tsx)$/.test(file) &&
+      !file.endsWith('.spec.ts'),
+  );
+  const rawCardField = /(?:cardNumber|card_number|\bcvc\b|\bcvv\b)/i;
+  const findings = applicationFiles
+    .filter((relativePath) => rawCardField.test(readFileSync(path.join(repositoryRoot, relativePath), 'utf8')))
+    .map((relativePath) => `${relativePath}: raw payment-card field`);
+
+  assert.deepEqual(findings, []);
 });

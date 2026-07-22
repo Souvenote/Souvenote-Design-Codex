@@ -39,7 +39,7 @@ export const readinessTargets = Object.freeze([
   },
   {
     name: 'api',
-    url: `http://127.0.0.1:${localPorts.api}/api/health/ready`,
+    url: `http://127.0.0.1:${localPorts.api}/api/v1/health/ready`,
     json: true,
   },
   {
@@ -97,8 +97,18 @@ export const createSafeLocalEnvironment = (sourceEnvironment = process.env) => {
     ...environment,
     ...neutralizedCredentials,
     NODE_ENV: 'development',
-    AUTH_MODE: 'disabled',
+    AUTH_MODE: 'local',
+    LOCAL_AUTH_SECRET: 'souvenote-local-auth-secret-only-for-development',
+    LOCAL_AUTH_CLIENT_ID: 'souvenote-local-web',
+    LOCAL_AUTH_SUBJECT: '00000000-0000-4000-8000-000000000001',
+    LOCAL_AUTH_EMAIL: 'local@souvenote.invalid',
+    LOCAL_AUTH_SCOPE: 'souvenote:customer',
+    BFF_SESSION_SECRET: 'souvenote-local-bff-session-secret-development',
+    API_INTERNAL_BASE_URL: `http://127.0.0.1:${localPorts.api}/api/v1`,
+    COGNITO_REQUIRED_SCOPES: 'souvenote:customer',
     DATABASE_URL: `postgresql://souvenote:souvenote_local@127.0.0.1:${localPorts.postgres}/souvenote`,
+    DATABASE_SSL_MODE: 'disable',
+    TRUST_PROXY_HOPS: '0',
     HOST: '127.0.0.1',
     WORKER_HOST: '127.0.0.1',
     WORKER_PORT: String(localPorts.worker),
@@ -112,7 +122,6 @@ export const createSafeLocalEnvironment = (sourceEnvironment = process.env) => {
     EMAIL_PROVIDER_MODE: 'disabled',
     ANALYTICS_MODE: 'disabled',
     ERROR_REPORTING_MODE: 'disabled',
-    NEXT_PUBLIC_API_BASE_URL: `http://127.0.0.1:${localPorts.api}/api`,
     POSTGRES_HOST_PORT: String(localPorts.postgres),
   };
 };
@@ -126,6 +135,7 @@ export const workspaceEnvironment = (workspace, baseEnvironment) => {
     case '@souvenote/worker':
       return {
         ...baseEnvironment,
+        AUTH_MODE: 'disabled',
         PORT: String(localPorts.worker),
         WORKER_PORT: String(localPorts.worker),
       };

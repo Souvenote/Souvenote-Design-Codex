@@ -4,7 +4,7 @@ export interface ConfigurationReader {
   get(key: string): unknown;
 }
 
-export type AuthMode = 'cognito' | 'disabled';
+export type AuthMode = 'cognito' | 'local';
 
 const LOCAL_WEB_ORIGINS = ['http://127.0.0.1:3000', 'http://localhost:3000'] as const;
 
@@ -24,13 +24,13 @@ export function resolveAuthMode(configuration: ConfigurationReader): AuthMode {
   const configuredMode = readString(configuration, 'AUTH_MODE')?.toLowerCase();
   const mode = configuredMode ?? 'cognito';
 
-  if (mode !== 'cognito' && mode !== 'disabled') {
-    throw new Error('AUTH_MODE must be either "cognito" or "disabled".');
+  if (mode !== 'cognito' && mode !== 'local') {
+    throw new Error('AUTH_MODE must be either "cognito" or "local".');
   }
 
   const environment = runtimeEnvironment(configuration);
-  if (mode === 'disabled' && environment !== 'development' && environment !== 'test') {
-    throw new Error('AUTH_MODE=disabled is permitted only when NODE_ENV is development or test.');
+  if (mode === 'local' && environment !== 'development' && environment !== 'test') {
+    throw new Error('AUTH_MODE=local is permitted only when NODE_ENV is development or test.');
   }
 
   return mode;
@@ -66,6 +66,9 @@ export function resolveHost(configuration: ConfigurationReader): string {
   if (isIP(host) === 0 && !isValidHostname(host)) {
     throw new Error('HOST must be a hostname or IP address without a scheme or path.');
   }
+  if (resolveAuthMode(configuration) === 'local' && !['127.0.0.1', 'localhost', '::1'].includes(host.toLowerCase())) {
+    throw new Error('AUTH_MODE=local requires a loopback HOST and cannot be exposed to a shared network.');
+  }
 
   return host;
 }
@@ -80,6 +83,10 @@ function isValidHostname(host: string): boolean {
 
 export function resolvePort(configuration: ConfigurationReader): number {
   return readBoundedInteger(configuration, 'PORT', 4000, 1, 65_535);
+}
+
+export function resolveTrustProxyHops(configuration: ConfigurationReader): number {
+  return readBoundedInteger(configuration, 'TRUST_PROXY_HOPS', 0, 0, 3);
 }
 
 export function readPositiveInteger(

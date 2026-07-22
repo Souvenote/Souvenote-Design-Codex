@@ -311,4 +311,5 @@ Current section status:
 | ------- | --------------------------------- | ------------------------------------------------- |
 | 0       | Merged                            | PR #1 and `docs/product/decision-register.md`     |
 | 1       | Audited; final PR checks required | PR #2 and `docs/engineering/section-1-audit.md`   |
-| 2-8     | Not started                       | Must follow this document in fresh PR-sized tasks |
+| 2       | Local gate passed; draft PR next  | `docs/engineering/section-2-audit.md`             |
+| 3-8     | Not started                       | Must follow this document in fresh PR-sized tasks |

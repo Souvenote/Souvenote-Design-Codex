@@ -15,7 +15,7 @@ import { useAuth } from './AuthProvider';
 import { AuthGatePrompt } from './AuthGatePrompt';
 
 type MyCardsAppProps = {
-  user: DemoUser;
+  user?: DemoUser;
   full?: boolean;
 };
 
@@ -90,12 +90,6 @@ type McsCardItemProps = {
 type McsSongRowProps = {
   s: McsSong;
 };
-
-declare global {
-  interface Window {
-    __mcsSetMode?: (value: boolean) => void;
-  }
-}
 
 function McsClock() {
   return (
@@ -478,7 +472,7 @@ function McsSongRow({ s }: McsSongRowProps) {
 function MyCardsApp({ user, full = true }: MyCardsAppProps) {
   const router = useRouter();
   const auth = useAuth();
-  const [mode, setMode] = React.useState(full);
+  const mode = full;
   const [authPromptOpen, setAuthPromptOpen] = React.useState(false);
   const [backendDrafts, setBackendDrafts] = React.useState<CardDraftWithAssets[]>([]);
   const [draftsStatus, setDraftsStatus] = React.useState<'loading' | 'ready' | 'error'>('loading');
@@ -486,13 +480,11 @@ function MyCardsApp({ user, full = true }: MyCardsAppProps) {
   const isAuthenticated = auth.status === 'authenticated';
   const localUserId = auth.user?.id;
 
-  React.useEffect(() => {
-    window.__mcsSetMode = (value) => setMode(value);
-  }, []);
+  const displayUser = auth.displayUser ?? user;
 
   const loadDraftsAndAssets = React.useCallback(async () => {
     if (!isAuthenticated || !localUserId) return [];
-    const draftsFromBackend = await fetchUserCardDrafts(localUserId);
+    const draftsFromBackend = await fetchUserCardDrafts();
     const draftsWithAssets = await Promise.all(
       draftsFromBackend.map(async (draft) => ({
         draft,
@@ -574,7 +566,7 @@ function MyCardsApp({ user, full = true }: MyCardsAppProps) {
   if (!isAuthenticated) {
     return (
       <>
-        <Navbar loggedIn={false} user={user} credits={{ images: 0, songs: 0 }} cardBank={0} cartCount={0} />
+        <Navbar loggedIn={false} user={displayUser} credits={{ images: 0, songs: 0 }} cardBank={0} cartCount={0} />
 
         <div className="bmc-shell" data-screen-label="05a Saved Cards & Songs">
           <div className="bmc-head" style={{ margin: '0 0 40px', maxWidth: 820 }}>
@@ -649,7 +641,13 @@ function MyCardsApp({ user, full = true }: MyCardsAppProps) {
 
   return (
     <>
-      <Navbar loggedIn={isAuthenticated} user={user} credits={{ images: 0, songs: 0 }} cardBank={0} cartCount={0} />
+      <Navbar
+        loggedIn={isAuthenticated}
+        user={displayUser}
+        credits={{ images: 0, songs: 0 }}
+        cardBank={0}
+        cartCount={0}
+      />
 
       <div className="bmc-shell" data-screen-label="05a Saved Cards & Songs">
         <div className="bmc-head" style={{ margin: '0 0 40px', maxWidth: 820 }}>

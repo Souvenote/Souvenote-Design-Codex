@@ -178,7 +178,6 @@ function IconChat() {
 }
 
 function ContactPage() {
-  const [sent, setSent] = React.useState(false);
   const cards: ContactCard[] = [
     {
       ico: <IconMail />,
@@ -220,15 +219,9 @@ function ContactPage() {
           ))}
         </aside>
 
-        <form
-          className="pg-form"
-          onSubmit={(event) => {
-            event.preventDefault();
-            setSent(true);
-          }}
-        >
+        <form className="pg-form" onSubmit={(event) => event.preventDefault()}>
           <div className="pg-form-title">Send us a message</div>
-          <p className="pg-form-sub">We read every note and reply within a day.</p>
+          <p className="pg-form-sub">The contact form is coming soon. For now, email hello@souvenote.com.</p>
 
           <div className="pg-field pg-row">
             <div>
@@ -252,8 +245,8 @@ function ContactPage() {
             <span className="pg-field-label">Message</span>
             <textarea className="input-dark" placeholder="Tell us how we can help..." />
           </div>
-          <button type="submit" className="btn-matte">
-            {sent ? 'Message sent \u2713' : 'Send Message'}
+          <button type="submit" className="btn-matte" disabled>
+            Coming soon
           </button>
           <div className="pg-form-fineprint">By sending, you agree to our Privacy Policy.</div>
         </form>

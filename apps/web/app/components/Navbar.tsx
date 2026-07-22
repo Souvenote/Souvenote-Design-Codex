@@ -16,7 +16,7 @@ type NavLink = {
   href: string;
 };
 
-type CurrencyCode = 'CAD' | 'USD';
+type CurrencyCode = 'CAD';
 
 type CurrencyOption = {
   code: CurrencyCode;
@@ -92,10 +92,7 @@ const NAV_LINKS: NavLink[] = [
   },
 ];
 
-const CURRENCIES: CurrencyOption[] = [
-  { code: 'CAD', flag: '\uD83C\uDDE8\uD83C\uDDE6' },
-  { code: 'USD', flag: '\uD83C\uDDFA\uD83C\uDDF8' },
-];
+const CURRENCIES: CurrencyOption[] = [{ code: 'CAD', flag: '\uD83C\uDDE8\uD83C\uDDE6' }];
 
 function IconUser() {
   return (
@@ -340,8 +337,8 @@ function NavRight({
               <button
                 type="button"
                 className="souv-popmenu-logout"
-                onClick={() => {
-                  const redirectingToHostedLogout = logout({ hostedUi: true });
+                onClick={async () => {
+                  const redirectingToHostedLogout = await logout({ hostedUi: true });
                   setProfileOpen(false);
                   if (!redirectingToHostedLogout) router.push('/');
                 }}
