@@ -1,10 +1,10 @@
-"use client";
+'use client';
 
-import { Navbar } from "./Navbar";
-import { Footer } from "./Footer";
-import { PageChrome } from "./PageChrome";
-import { CartPage } from "./CartPage";
-import { demoUser } from "./DemoUser";
+import { Navbar } from './Navbar';
+import { Footer } from './Footer';
+import { PageChrome } from './PageChrome';
+import { CartPage } from './CartPage';
+import { demoUser } from './DemoUser';
 
 export function CartRouteClient() {
   return (
@@ -12,7 +12,9 @@ export function CartRouteClient() {
       <PageChrome variant="bmc" />
       <div className="bmc-page">
         <Navbar user={demoUser} credits={{ images: 0, songs: 0 }} cardBank={0} cartCount={0} />
-        <main><CartPage /></main>
+        <main>
+          <CartPage />
+        </main>
         <Footer />
       </div>
     </div>

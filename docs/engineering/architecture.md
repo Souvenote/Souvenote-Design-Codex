@@ -1,35 +1,25 @@
 # Souvenote engineering architecture
 
-Status: approved target architecture; implementation is incremental.
-Do not assume target components already exist.
+Status: approved architecture; the Section 1 workspace migration and local lifecycle are implemented and verified on `codex/section-1-workspace`.
 
-## Current and target layout
-
-Current:
-
-```text
-front end/          Next.js application
-backend/server/     NestJS API
-backend/database/   draft SQL migrations and seed
-backend/docs/       legacy notes
-```
-
-Target:
+## Current workspace layout
 
 ```text
 apps/
   web/              Next.js frontend
   api/              NestJS HTTP API
-  worker/           async generation/payment/fulfillment worker
+  worker/           async worker process; health-only/idle until later sections
 packages/
-  contracts/        generated OpenAPI client and shared contract types
+  contracts/        placeholder; generated OpenAPI client begins in Section 2
   config/           shared TypeScript, lint, and test configuration
-database/            migrations and deterministic seeds
-infra/               AWS CDK TypeScript
+database/            database boundary; legacy SQL is not an approved baseline
+infra/               infrastructure boundary; presence does not authorize deployment
 docs/                product, engineering, operations, and runbooks
 ```
 
-Use npm workspaces and one lockfile after the Section 1 migration. Perform path moves in a dedicated change, preserving Git history and behavior.
+The repository uses npm workspaces, one root lockfile, and Node.js 22 as the canonical runtime. Section 1 moves existing code without intentionally changing the visual system or customer journey. The verified MVP database baseline, generated API client, and operational job handlers belong to later bounded sections.
+
+Historical backend and frontend notes live under `docs/legacy/` and are explicitly non-authoritative. Their commands, paths, APIs, and product behavior must not be copied into current implementation without reconciliation.
 
 ## System shape
 
@@ -47,6 +37,15 @@ flowchart LR
 ```
 
 This is a modular monolith, not a microservice system. The API and worker are independently deployable processes that share domain modules and one PostgreSQL database.
+
+For Section 1 local development, the native processes and database use these loopback endpoints:
+
+- Web health: `http://127.0.0.1:3000/api/health`
+- API liveness/readiness: `http://127.0.0.1:4000/api/health/live` and `http://127.0.0.1:4000/api/health/ready`
+- Worker liveness/readiness: `http://127.0.0.1:4001/health/live` and `http://127.0.0.1:4001/health/ready`
+- PostgreSQL 16: `127.0.0.1:55432`
+
+The worker deliberately performs no generation, payment, or fulfillment jobs yet. PostgreSQL readiness proves connectivity only; local startup does not execute legacy migrations.
 
 ## Dependency direction
 
@@ -94,34 +93,25 @@ export type ApiError = {
 
 Primary resource groups are `me`, `pricing`, `credits`, `card-entitlements`, `card-drafts`, `uploads`, `generation-jobs`, `assets`, `orders`, `checkout`, `fulfillment-jobs`, public share links, and provider webhooks.
 
+The existing API temporarily retains `/api` during Section 1 so workspace relocation does not masquerade as a contract/security migration. Section 2 introduces `/api/v1`, authentication-by-default, ownership enforcement, and the generated contract client as one reviewed boundary change.
+
 ## State contracts
 
 ```ts
-export type AssetGenerationStatus =
-  | "pending"
-  | "generating"
-  | "ready"
-  | "failed";
+export type AssetGenerationStatus = 'pending' | 'generating' | 'ready' | 'failed';
 
 export type GenerationJobStatus =
-  | "queued"
-  | "running"
-  | "succeeded"
-  | "partially_failed"
-  | "failed"
-  | "refunded"
-  | "canceled"
-  | "approved";
+  'queued' | 'running' | 'succeeded' | 'partially_failed' | 'failed' | 'refunded' | 'canceled' | 'approved';
 
 export type UploadStatus =
-  | "upload_pending"
-  | "upload_done"
-  | "moderation_pending"
-  | "moderation_passed"
-  | "moderation_failed"
-  | "attestation_required"
-  | "attestation_done"
-  | "committed";
+  | 'upload_pending'
+  | 'upload_done'
+  | 'moderation_pending'
+  | 'moderation_passed'
+  | 'moderation_failed'
+  | 'attestation_required'
+  | 'attestation_done'
+  | 'committed';
 ```
 
 Transitions must be validated by domain services and constrained where practical in PostgreSQL. Clients do not write lifecycle status directly.
@@ -129,6 +119,8 @@ Transitions must be validated by domain services and constrained where practical
 ## Database
 
 Use PostgreSQL and explicit SQL through repository modules.
+
+Local development uses PostgreSQL 16 bound only to `127.0.0.1:55432`. The normal shutdown path preserves its named Docker volume. No root startup, readiness, health, test, or CI command may auto-run the legacy draft migrations. The verified pre-launch baseline is a Section 2 deliverable.
 
 The pre-launch baseline includes users/auth identities, credit ledger, card entitlements, price books, drafts/revisions, uploads, generation jobs/provider attempts, assets/share metadata, orders/items, payments/webhook events, fulfillment jobs/tracking, notifications, feature flags, and audit events.
 
@@ -152,6 +144,8 @@ Rules:
 - Use Stripe-hosted payment elements. Souvenote never handles raw card data.
 - Validate actual upload bytes, type, dimensions, and size; moderate before commit or fulfillment.
 
+During Section 1 only, authentication may be disabled in the explicit local environment because secure Cognito/BFF behavior is a Section 2 boundary. Startup must reject disabled authentication in any non-local environment; missing configuration must not silently choose a permissive mode.
+
 ## Provider architecture
 
 Providers implement typed interfaces for image, music, text, moderation, payment, notification, and fulfillment work. Each provider has deterministic mock and disabled implementations.
@@ -159,6 +153,8 @@ Providers implement typed interfaces for image, music, text, moderation, payment
 External calls record provider/model/version, input hash, attempt, timing, result key, moderation, cost, reserved/refunded credits, and sanitized error category.
 
 No provider receives paid/live traffic until schemas, rate limits, moderation, audit logs, retry/refund behavior, cost controls, and explicit approval are complete.
+
+Section 1 provider modes are deterministic mock or disabled. Workspace startup, health checks, builds, tests, and smoke checks require no provider credentials and produce no AWS or third-party metered traffic.
 
 ## Scalability rules
 

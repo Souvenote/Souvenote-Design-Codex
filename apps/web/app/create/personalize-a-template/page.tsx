@@ -1,4 +1,4 @@
-import { PersonalizeTemplateClient } from "../../components/PersonalizeTemplateClient";
+import { PersonalizeTemplateClient } from '../../components/PersonalizeTemplateClient';
 
 export default function PersonalizeTemplatePage() {
   return <PersonalizeTemplateClient />;

@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import * as React from "react";
+import * as React from 'react';
 
 export type DemoLibraryCard = {
   id: string;
@@ -34,7 +34,7 @@ export type GeneratedSouvenoteInput = {
   voice?: string;
 };
 
-export const DEMO_LIBRARY_STORAGE_KEY = "souv_demo_library";
+export const DEMO_LIBRARY_STORAGE_KEY = 'souv_demo_library';
 
 const EMPTY_DEMO_LIBRARY: DemoLibrary = {
   cards: [],
@@ -42,7 +42,7 @@ const EMPTY_DEMO_LIBRARY: DemoLibrary = {
 };
 
 function normalizeLibrary(value: unknown): DemoLibrary {
-  const source = value && typeof value === "object" ? value as Partial<DemoLibrary> : {};
+  const source = value && typeof value === 'object' ? (value as Partial<DemoLibrary>) : {};
   return {
     cards: Array.isArray(source.cards) ? source.cards : [],
     songs: Array.isArray(source.songs) ? source.songs : [],
@@ -50,7 +50,7 @@ function normalizeLibrary(value: unknown): DemoLibrary {
 }
 
 export function readDemoLibrary(): DemoLibrary {
-  if (typeof window === "undefined") return EMPTY_DEMO_LIBRARY;
+  if (typeof window === 'undefined') return EMPTY_DEMO_LIBRARY;
 
   try {
     const raw = window.localStorage.getItem(DEMO_LIBRARY_STORAGE_KEY);
@@ -61,40 +61,43 @@ export function readDemoLibrary(): DemoLibrary {
 }
 
 function writeDemoLibrary(library: DemoLibrary): void {
-  if (typeof window === "undefined") return;
+  if (typeof window === 'undefined') return;
 
   window.localStorage.setItem(DEMO_LIBRARY_STORAGE_KEY, JSON.stringify(library));
-  window.dispatchEvent(new CustomEvent("souv-demo-library", { detail: library }));
+  window.dispatchEvent(new CustomEvent('souv-demo-library', { detail: library }));
 }
 
 export function addGeneratedSouvenote(input: GeneratedSouvenoteInput = {}): DemoLibrary {
-  if (typeof window === "undefined") return EMPTY_DEMO_LIBRARY;
+  if (typeof window === 'undefined') return EMPTY_DEMO_LIBRARY;
 
   const current = readDemoLibrary();
   const now = Date.now();
-  const title = input.title || "Custom Souvenote";
+  const title = input.title || 'Custom Souvenote';
   const id = `generated-${now}`;
   const includeSong = input.includeSong !== false;
   const card: DemoLibraryCard = {
     id,
-    pal: input.palette || "rose",
-    glyph: input.glyph || "S",
+    pal: input.palette || 'rose',
+    glyph: input.glyph || 'S',
     song: includeSong,
     days: 30,
     title,
-    saved: "just now",
+    saved: 'just now',
   };
 
   const next = {
     cards: [card, ...current.cards].slice(0, 24),
     songs: includeSong
-      ? [{
-          id: `song-${now}`,
-          name: input.songName || `${title} Song`,
-          voice: input.voice || "Generated Souvenote QR song",
-          card: title,
-          days: 30,
-        }, ...current.songs].slice(0, 24)
+      ? [
+          {
+            id: `song-${now}`,
+            name: input.songName || `${title} Song`,
+            voice: input.voice || 'Generated Souvenote QR song',
+            card: title,
+            days: 30,
+          },
+          ...current.songs,
+        ].slice(0, 24)
       : current.songs,
   };
   writeDemoLibrary(next);
@@ -102,10 +105,10 @@ export function addGeneratedSouvenote(input: GeneratedSouvenoteInput = {}): Demo
 }
 
 export function clearDemoLibrary(): void {
-  if (typeof window === "undefined") return;
+  if (typeof window === 'undefined') return;
 
   window.localStorage.removeItem(DEMO_LIBRARY_STORAGE_KEY);
-  window.dispatchEvent(new CustomEvent("souv-demo-library", { detail: EMPTY_DEMO_LIBRARY }));
+  window.dispatchEvent(new CustomEvent('souv-demo-library', { detail: EMPTY_DEMO_LIBRARY }));
 }
 
 export function useDemoLibrary(): DemoLibrary {
@@ -114,11 +117,11 @@ export function useDemoLibrary(): DemoLibrary {
   React.useEffect(() => {
     const sync = () => setLibrary(readDemoLibrary());
     sync();
-    window.addEventListener("storage", sync);
-    window.addEventListener("souv-demo-library", sync);
+    window.addEventListener('storage', sync);
+    window.addEventListener('souv-demo-library', sync);
     return () => {
-      window.removeEventListener("storage", sync);
-      window.removeEventListener("souv-demo-library", sync);
+      window.removeEventListener('storage', sync);
+      window.removeEventListener('souv-demo-library', sync);
     };
   }, []);
 

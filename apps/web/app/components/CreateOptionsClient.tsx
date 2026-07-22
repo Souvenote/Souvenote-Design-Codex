@@ -1,18 +1,16 @@
-"use client";
+'use client';
 
-import { useRouter } from "next/navigation";
-import { Footer } from "./Footer";
-import { Navbar } from "./Navbar";
-import { BackButton, OptionsHeader, TileGrid } from "./Options";
-import { PageChrome } from "./PageChrome";
-import { useAuth } from "./AuthProvider";
-import { useCreditBalance } from "../lib/creditBalance";
-import {
-  getCreateFlowGate,
-} from "./createFlowRules";
-import { goToPricingAfterPurchase } from "./PricingReturn";
+import { useRouter } from 'next/navigation';
+import { Footer } from './Footer';
+import { Navbar } from './Navbar';
+import { BackButton, OptionsHeader, TileGrid } from './Options';
+import { PageChrome } from './PageChrome';
+import { useAuth } from './AuthProvider';
+import { useCreditBalance } from '../lib/creditBalance';
+import { getCreateFlowGate } from './createFlowRules';
+import { goToPricingAfterPurchase } from './PricingReturn';
 
-const fallbackUser = { name: "Souvenote User", email: "user@souvenote.com", initials: "SU" };
+const fallbackUser = { name: 'Souvenote User', email: 'user@souvenote.com', initials: 'SU' };
 
 type CreateTile = {
   href: string;
@@ -23,7 +21,7 @@ type CreateTile = {
 export function CreateOptionsClient() {
   const router = useRouter();
   const auth = useAuth();
-  const isAuthenticated = auth.status === "authenticated";
+  const isAuthenticated = auth.status === 'authenticated';
   const creditBalance = useCreditBalance({ enabled: isAuthenticated, fallbackBalance: 0, userId: auth.user?.id });
   const user = auth.displayUser || fallbackUser;
   const accountBalance = {
@@ -39,7 +37,7 @@ export function CreateOptionsClient() {
     }
 
     if (tile.requiresCredits) {
-      const gate = getCreateFlowGate(accountBalance, "generation");
+      const gate = getCreateFlowGate(accountBalance, 'generation');
 
       if (!gate.allowed) {
         router.push(goToPricingAfterPurchase(tile.href));
@@ -54,20 +52,10 @@ export function CreateOptionsClient() {
     <div className="souv-route-page">
       <PageChrome variant="options" />
       <div className="opt-page">
-        <Navbar
-          loggedIn={isAuthenticated}
-          user={user}
-          credits={accountBalance.credits}
-          cardBank={0}
-          cartCount={0}
-        />
+        <Navbar loggedIn={isAuthenticated} user={user} credits={accountBalance.credits} cardBank={0} cartCount={0} />
         <main>
           <OptionsHeader user={user} credits={totalCredits} lowBalance={totalCredits < 1} />
-          <TileGrid
-            credits={totalCredits}
-            cardBank={0}
-            onSelect={handleTileSelect}
-          />
+          <TileGrid credits={totalCredits} cardBank={0} onSelect={handleTileSelect} />
           <BackButton href="/home" label="Back to home" />
         </main>
         <Footer />

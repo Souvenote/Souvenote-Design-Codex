@@ -1,3 +1,6 @@
+> [!WARNING]
+> Historical and non-authoritative. Do not use this file as current configuration or as permission to add provider credentials. See `docs/legacy/README.md` and current local-development guidance.
+
 # Environment Variables
 
 DATABASE_URL=

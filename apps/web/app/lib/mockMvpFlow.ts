@@ -1,11 +1,6 @@
-"use client";
+'use client';
 
-import type {
-  CardDraftAsset,
-  CheckoutSession,
-  FulfillmentRecord,
-  Order,
-} from "./api";
+import type { CardDraftAsset, CheckoutSession, FulfillmentRecord, Order } from './api';
 
 export type MockMvpFlowState = {
   cardDraftId: string | null;
@@ -19,8 +14,8 @@ export type MockMvpFlowState = {
   updatedAt: string | null;
 };
 
-export const MOCK_MVP_FLOW_STORAGE_KEY = "souv_mock_mvp_flow";
-export const MOCK_MVP_FLOW_UPDATED_EVENT = "souv-mock-mvp-flow-updated";
+export const MOCK_MVP_FLOW_STORAGE_KEY = 'souv_mock_mvp_flow';
+export const MOCK_MVP_FLOW_UPDATED_EVENT = 'souv-mock-mvp-flow-updated';
 
 const EMPTY_FLOW_STATE: MockMvpFlowState = {
   cardDraftId: null,
@@ -35,19 +30,19 @@ const EMPTY_FLOW_STATE: MockMvpFlowState = {
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === "object";
+  return !!value && typeof value === 'object';
 }
 
 function textValue(value: unknown): string | null {
-  return typeof value === "string" && value.trim() ? value : null;
+  return typeof value === 'string' && value.trim() ? value : null;
 }
 
 function assetType(asset: CardDraftAsset): string {
-  return String(asset.assetType || asset.asset_type || "").toLowerCase();
+  return String(asset.assetType || asset.asset_type || '').toLowerCase();
 }
 
 export function readMockMvpFlowState(): MockMvpFlowState {
-  if (typeof window === "undefined") return EMPTY_FLOW_STATE;
+  if (typeof window === 'undefined') return EMPTY_FLOW_STATE;
 
   try {
     const raw = window.localStorage.getItem(MOCK_MVP_FLOW_STORAGE_KEY);
@@ -59,14 +54,14 @@ export function readMockMvpFlowState(): MockMvpFlowState {
     return {
       cardDraftId: textValue(parsed.cardDraftId),
       generatedAssets: Array.isArray(parsed.generatedAssets)
-        ? parsed.generatedAssets.filter(isRecord) as CardDraftAsset[]
+        ? (parsed.generatedAssets.filter(isRecord) as CardDraftAsset[])
         : [],
       selectedAssetId: textValue(parsed.selectedAssetId),
       orderId: textValue(parsed.orderId),
       orderStatus: textValue(parsed.orderStatus),
       checkoutSessionId: textValue(parsed.checkoutSessionId),
       paymentId: textValue(parsed.paymentId),
-      fulfillment: isRecord(parsed.fulfillment) ? parsed.fulfillment as FulfillmentRecord : null,
+      fulfillment: isRecord(parsed.fulfillment) ? (parsed.fulfillment as FulfillmentRecord) : null,
       updatedAt: textValue(parsed.updatedAt),
     };
   } catch {
@@ -81,7 +76,7 @@ export function writeMockMvpFlowState(patch: Partial<MockMvpFlowState>): MockMvp
     updatedAt: new Date().toISOString(),
   };
 
-  if (typeof window !== "undefined") {
+  if (typeof window !== 'undefined') {
     window.localStorage.setItem(MOCK_MVP_FLOW_STORAGE_KEY, JSON.stringify(next));
     window.dispatchEvent(new CustomEvent(MOCK_MVP_FLOW_UPDATED_EVENT, { detail: next }));
   }
@@ -149,7 +144,7 @@ export function rememberFulfillmentResult(order: Order, fulfillment: Fulfillment
 }
 
 export function findGeneratedImageAsset(assets: CardDraftAsset[]): CardDraftAsset | null {
-  const imageAssets = assets.filter((asset) => assetType(asset) === "image");
+  const imageAssets = assets.filter((asset) => assetType(asset) === 'image');
   return imageAssets[imageAssets.length - 1] || null;
 }
 

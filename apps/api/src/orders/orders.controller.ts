@@ -1,12 +1,5 @@
 import { Body, Controller, Get, Param, Post } from '@nestjs/common';
-import {
-  IsInt,
-  IsNotEmpty,
-  IsObject,
-  IsOptional,
-  IsString,
-  Min,
-} from 'class-validator';
+import { IsInt, IsNotEmpty, IsObject, IsOptional, IsString, Min } from 'class-validator';
 import { OrdersService } from './orders.service';
 
 export class CreateOrderDto {

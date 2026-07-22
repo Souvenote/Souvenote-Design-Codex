@@ -2,10 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { DatabaseService } from '../database/database.service';
 import { OrdersService } from '../orders/orders.service';
-import {
-  MockCheckoutSuccessDto,
-  StartCheckoutDto,
-} from './checkout.controller';
+import { MockCheckoutSuccessDto, StartCheckoutDto } from './checkout.controller';
 
 type PaymentRow = {
   id: string;
@@ -80,11 +77,7 @@ export class CheckoutService {
     );
 
     const payment = paymentResult.rows[0];
-    const updatedOrder = await this.ordersService.markCheckoutStarted(
-      order.id,
-      checkoutSessionId,
-      payment.id,
-    );
+    const updatedOrder = await this.ordersService.markCheckoutStarted(order.id, checkoutSessionId, payment.id);
 
     return {
       checkoutSession: {
@@ -106,19 +99,10 @@ export class CheckoutService {
 
   async simulateCheckoutSuccess(dto: MockCheckoutSuccessDto) {
     const order = await this.ordersService.findOrderRow(dto.orderId);
-    this.ordersService.assertOrderStatus(
-      order,
-      ['checkout_started'],
-      'complete mock checkout',
-    );
+    this.ordersService.assertOrderStatus(order, ['checkout_started'], 'complete mock checkout');
 
-    if (
-      dto.checkoutSessionId &&
-      order.checkout_session_id !== dto.checkoutSessionId
-    ) {
-      throw new BadRequestException(
-        'checkoutSessionId does not match this order.',
-      );
+    if (dto.checkoutSessionId && order.checkout_session_id !== dto.checkoutSessionId) {
+      throw new BadRequestException('checkoutSessionId does not match this order.');
     }
 
     const sessionId = dto.checkoutSessionId ?? order.checkout_session_id;
@@ -162,10 +146,7 @@ export class CheckoutService {
     }
 
     const payment = paymentResult.rows[0];
-    const updatedOrder = await this.ordersService.markPaidMock(
-      order.id,
-      payment.id,
-    );
+    const updatedOrder = await this.ordersService.markPaidMock(order.id, payment.id);
 
     return {
       checkoutSession: {

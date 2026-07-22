@@ -1,8 +1,4 @@
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { DatabaseService } from '../database/database.service';
 import { MockUploadDto } from './upload.controller';
@@ -42,13 +38,7 @@ type AssetRow = {
 export class UploadService {
   constructor(private readonly databaseService: DatabaseService) {}
 
-  async requestUpload(
-    userId: string,
-    cardDraftId: string,
-    fileName: string,
-    contentType: string,
-    fileSize: number,
-  ) {
+  async requestUpload(userId: string, cardDraftId: string, fileName: string, contentType: string, fileSize: number) {
     await this.ensureCardDraftExists(userId, cardDraftId);
     this.validateUpload(fileName, contentType, fileSize);
 
@@ -100,18 +90,11 @@ export class UploadService {
     };
   }
 
-  async commitUpload(
-    userId: string,
-    cardDraftId: string,
-    storageKey: string,
-    attestationAccepted: boolean,
-  ) {
+  async commitUpload(userId: string, cardDraftId: string, storageKey: string, attestationAccepted: boolean) {
     await this.ensureCardDraftExists(userId, cardDraftId);
 
     if (!attestationAccepted) {
-      throw new BadRequestException(
-        'Image-rights attestation must be accepted before committing an upload.',
-      );
+      throw new BadRequestException('Image-rights attestation must be accepted before committing an upload.');
     }
 
     const uploadResult = await this.databaseService.query<UploadRow>(
@@ -248,20 +231,9 @@ export class UploadService {
   }
 
   async createMockUpload(dto: MockUploadDto) {
-    const request = await this.requestUpload(
-      dto.userId,
-      dto.cardDraftId,
-      dto.filename,
-      dto.mimeType,
-      dto.size,
-    );
+    const request = await this.requestUpload(dto.userId, dto.cardDraftId, dto.filename, dto.mimeType, dto.size);
 
-    return this.commitUpload(
-      dto.userId,
-      dto.cardDraftId,
-      request.uploadRequest.mockKey,
-      true,
-    );
+    return this.commitUpload(dto.userId, dto.cardDraftId, request.uploadRequest.mockKey, true);
   }
 
   private async ensureCardDraftExists(userId: string, cardDraftId: string) {

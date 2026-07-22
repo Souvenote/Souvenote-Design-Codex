@@ -144,10 +144,7 @@ export class AuthController {
 
   @Delete('payment-methods/:paymentMethodId')
   @UseGuards(CognitoAuthGuard)
-  async deletePaymentMethod(
-    @Req() request: AuthenticatedRequest,
-    @Param('paymentMethodId') paymentMethodId: string,
-  ) {
+  async deletePaymentMethod(@Req() request: AuthenticatedRequest, @Param('paymentMethodId') paymentMethodId: string) {
     const { user } = await this.authService.syncCognitoUser(request.cognitoUser);
     return this.authService.deletePaymentMethod(user.id, paymentMethodId);
   }

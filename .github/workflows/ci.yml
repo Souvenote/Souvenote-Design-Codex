@@ -15,15 +15,12 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  NEXT_TELEMETRY_DISABLED: "1"
+  NEXT_TELEMETRY_DISABLED: '1'
 
 jobs:
-  frontend:
-    name: Frontend baseline
+  quality:
+    name: Workspace quality gate
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: front end
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -33,29 +30,20 @@ jobs:
         with:
           node-version: 22.x
           cache: npm
-          cache-dependency-path: front end/package-lock.json
+          cache-dependency-path: package-lock.json
 
-      - name: Install exact dependencies
+      - name: Use the repository npm version
+        run: npm install --global npm@10.9.8
+
+      - name: Install the exact workspace graph
         run: npm ci
 
-      - name: Generate Next.js types
-        run: npm exec -- next typegen
+      - name: Verify formatting, code, tests, builds, and production dependencies
+        run: npm run verify
 
-      - name: Type-check
-        run: npm exec -- tsc --noEmit --incremental false
-
-      - name: Build production frontend
-        run: npm run build
-
-      - name: Block critical production dependency advisories
-        run: npm audit --omit=dev --audit-level=critical
-
-  backend:
-    name: Backend baseline
+  local-stack:
+    name: Credential-free local stack
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: backend/server
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -65,19 +53,20 @@ jobs:
         with:
           node-version: 22.x
           cache: npm
-          cache-dependency-path: backend/server/package-lock.json
+          cache-dependency-path: package-lock.json
 
-      - name: Install exact dependencies
+      - name: Use the repository npm version
+        run: npm install --global npm@10.9.8
+
+      - name: Install the exact workspace graph
         run: npm ci
 
-      - name: Type-check
-        run: npm exec -- tsc --noEmit --incremental false
+      - name: Validate the Docker Compose definition
+        run: docker compose --project-name souvenote-local --file compose.yaml config --quiet
 
-      - name: Run unit tests
-        run: npm test -- --runInBand --no-cache
+      - name: Start, verify, and stop the local stack
+        run: npm run smoke:stack
 
-      - name: Build production backend
-        run: npm run build
-
-      - name: Block critical production dependency advisories
-        run: npm audit --omit=dev --audit-level=critical
+      - name: Preserve PostgreSQL data during cleanup
+        if: always()
+        run: npm run dev:down

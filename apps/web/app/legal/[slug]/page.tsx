@@ -1,4 +1,4 @@
-import { LegalPageClient } from "../../components/LegalPageClient";
+import { LegalPageClient } from '../../components/LegalPageClient';
 
 type LegalRouteParams = {
   slug: string;
@@ -9,7 +9,7 @@ type LegalSlugPageProps = {
 };
 
 export function generateStaticParams(): LegalRouteParams[] {
-  return ["privacy-policy", "terms-of-service", "refund-policy", "cookie-policy"].map((slug) => ({ slug }));
+  return ['privacy-policy', 'terms-of-service', 'refund-policy', 'cookie-policy'].map((slug) => ({ slug }));
 }
 
 export default async function LegalSlugPage({ params }: LegalSlugPageProps) {

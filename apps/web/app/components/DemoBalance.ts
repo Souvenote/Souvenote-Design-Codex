@@ -1,17 +1,20 @@
-"use client";
+'use client';
 
-import * as React from "react";
-import type { DemoCredits } from "./DemoUser";
+import * as React from 'react';
+import type { DemoCredits } from './DemoUser';
 
 export type DemoBalance = {
   credits: DemoCredits;
   cardBank: number;
 };
 
-type DemoBalanceInput = {
-  credits?: Partial<Record<keyof DemoCredits, unknown>> | null;
-  cardBank?: unknown;
-} | null | undefined;
+type DemoBalanceInput =
+  | {
+      credits?: Partial<Record<keyof DemoCredits, unknown>> | null;
+      cardBank?: unknown;
+    }
+  | null
+  | undefined;
 
 type DemoBalanceDelta = {
   credits?: unknown;
@@ -42,7 +45,7 @@ declare global {
   }
 }
 
-export const DEMO_BALANCE_STORAGE_KEY = "souv_demo_balance";
+export const DEMO_BALANCE_STORAGE_KEY = 'souv_demo_balance';
 export const ZERO_DEMO_BALANCE: DemoBalance = {
   credits: { images: 0, songs: 0 },
   cardBank: 0,
@@ -64,43 +67,48 @@ function saveDemoBalance(balance: DemoBalance): void {
 
 function clearDemoBalanceOverrideParams(): void {
   const url = new URL(window.location.href);
-  const keys = ["demoBalance", "demoCredits", "demoImages", "demoSongs", "demoCards"];
+  const keys = ['demoBalance', 'demoCredits', 'demoImages', 'demoSongs', 'demoCards'];
   const hadOverride = keys.some((key) => url.searchParams.has(key));
   if (!hadOverride) return;
 
   keys.forEach((key) => url.searchParams.delete(key));
   const nextUrl = `${url.pathname}${url.search}${url.hash}`;
-  window.history.replaceState(window.history.state, "", nextUrl);
+  window.history.replaceState(window.history.state, '', nextUrl);
 }
 
 function readDemoBalanceOverride(fallback: DemoBalance): DemoBalance | null {
   const params = new URLSearchParams(window.location.search);
-  if (params.get("demoBalance") === "zero") return ZERO_DEMO_BALANCE;
+  if (params.get('demoBalance') === 'zero') return ZERO_DEMO_BALANCE;
 
-  const creditsParam = params.get("demoCredits");
-  const imagesParam = params.get("demoImages");
-  const songsParam = params.get("demoSongs");
-  const cardsParam = params.get("demoCards");
+  const creditsParam = params.get('demoCredits');
+  const imagesParam = params.get('demoImages');
+  const songsParam = params.get('demoSongs');
+  const cardsParam = params.get('demoCards');
   if (creditsParam === null && imagesParam === null && songsParam === null && cardsParam === null) {
     return null;
   }
 
-  const creditTotal = creditsParam !== null
-    ? normalizeNumber(creditsParam, fallback.credits.images + fallback.credits.songs)
-    : null;
+  const creditTotal =
+    creditsParam !== null ? normalizeNumber(creditsParam, fallback.credits.images + fallback.credits.songs) : null;
 
-  return normalizeDemoBalance({
-    credits: {
-      images: creditTotal !== null ? creditTotal : normalizeOptionalNumber(imagesParam, fallback.credits.images),
-      songs: creditTotal !== null ? 0 : normalizeOptionalNumber(songsParam, fallback.credits.songs),
+  return normalizeDemoBalance(
+    {
+      credits: {
+        images: creditTotal !== null ? creditTotal : normalizeOptionalNumber(imagesParam, fallback.credits.images),
+        songs: creditTotal !== null ? 0 : normalizeOptionalNumber(songsParam, fallback.credits.songs),
+      },
+      cardBank: normalizeOptionalNumber(cardsParam, fallback.cardBank),
     },
-    cardBank: normalizeOptionalNumber(cardsParam, fallback.cardBank),
-  }, fallback);
+    fallback,
+  );
 }
 
-export function normalizeDemoBalance(value: DemoBalanceInput, fallback: DemoBalance = DEFAULT_DEMO_BALANCE): DemoBalance {
-  const source = value && typeof value === "object" ? value : {};
-  const sourceCredits = source.credits && typeof source.credits === "object" ? source.credits : {};
+export function normalizeDemoBalance(
+  value: DemoBalanceInput,
+  fallback: DemoBalance = DEFAULT_DEMO_BALANCE,
+): DemoBalance {
+  const source = value && typeof value === 'object' ? value : {};
+  const sourceCredits = source.credits && typeof source.credits === 'object' ? source.credits : {};
 
   return {
     credits: {
@@ -116,7 +124,7 @@ export function getTotalDemoCredits(balance: DemoBalanceInput): number {
 }
 
 export function readDemoBalance(fallback: DemoBalance = DEFAULT_DEMO_BALANCE): DemoBalance {
-  if (typeof window === "undefined") return fallback;
+  if (typeof window === 'undefined') return fallback;
 
   try {
     const override = readDemoBalanceOverride(fallback);
@@ -134,20 +142,20 @@ export function readDemoBalance(fallback: DemoBalance = DEFAULT_DEMO_BALANCE): D
 }
 
 export function writeDemoBalance(balance: DemoBalanceInput): void {
-  if (typeof window === "undefined") return;
+  if (typeof window === 'undefined') return;
 
   const next = normalizeDemoBalance(balance);
   saveDemoBalance(next);
-  window.dispatchEvent(new CustomEvent("souv-demo-balance", { detail: next }));
+  window.dispatchEvent(new CustomEvent('souv-demo-balance', { detail: next }));
 }
 
 function parseFirstNumber(value: unknown): number {
-  const match = String(value || "").match(/\d+/);
+  const match = String(value || '').match(/\d+/);
   return match ? normalizeNumber(match[0], 0) : 0;
 }
 
 export function addDemoBalance(delta: DemoBalanceDelta): DemoBalance {
-  if (typeof window === "undefined") return DEFAULT_DEMO_BALANCE;
+  if (typeof window === 'undefined') return DEFAULT_DEMO_BALANCE;
 
   const current = readDemoBalance();
   const next = normalizeDemoBalance({
@@ -164,31 +172,34 @@ export function addDemoBalance(delta: DemoBalanceDelta): DemoBalance {
 export function getCartTopUpDelta(items: unknown): CartTopUpDelta {
   if (!Array.isArray(items) || items.length === 0) return { credits: 0, cards: 0 };
 
-  return (items as CartTopUpItem[]).reduce<CartTopUpDelta>((sum, item) => {
-    const qty = Math.max(1, Math.floor(Number(item?.qty) || 1));
+  return (items as CartTopUpItem[]).reduce<CartTopUpDelta>(
+    (sum, item) => {
+      const qty = Math.max(1, Math.floor(Number(item?.qty) || 1));
 
-    if (item?.type === "credits") {
-      return {
-        credits: sum.credits + parseFirstNumber(item.tokens || item.meta || item.name) * qty,
-        cards: sum.cards,
-      };
-    }
+      if (item?.type === 'credits') {
+        return {
+          credits: sum.credits + parseFirstNumber(item.tokens || item.meta || item.name) * qty,
+          cards: sum.cards,
+        };
+      }
 
-    if (item?.type === "pack") {
-      const cards = normalizeNumber(item.cardCount, parseFirstNumber(item.meta || item.cards || item.name)) * qty;
-      const creditsPerCard = normalizeNumber(item.creditsPerCard, 10);
-      return {
-        credits: sum.credits + (cards * creditsPerCard),
-        cards: sum.cards + cards,
-      };
-    }
+      if (item?.type === 'pack') {
+        const cards = normalizeNumber(item.cardCount, parseFirstNumber(item.meta || item.cards || item.name)) * qty;
+        const creditsPerCard = normalizeNumber(item.creditsPerCard, 10);
+        return {
+          credits: sum.credits + cards * creditsPerCard,
+          cards: sum.cards + cards,
+        };
+      }
 
-    return sum;
-  }, { credits: 0, cards: 0 });
+      return sum;
+    },
+    { credits: 0, cards: 0 },
+  );
 }
 
 export function spendDemoCredits(amount: unknown): DemoBalance {
-  if (typeof window === "undefined") return DEFAULT_DEMO_BALANCE;
+  if (typeof window === 'undefined') return DEFAULT_DEMO_BALANCE;
 
   const current = readDemoBalance();
   let remainingSpend = normalizeNumber(amount);
@@ -216,10 +227,10 @@ export function applyDemoTopUpFromCart(items: unknown): DemoBalance {
 }
 
 export function clearDemoBalance(): void {
-  if (typeof window === "undefined") return;
+  if (typeof window === 'undefined') return;
 
   window.localStorage.removeItem(DEMO_BALANCE_STORAGE_KEY);
-  window.dispatchEvent(new CustomEvent("souv-demo-balance", { detail: null }));
+  window.dispatchEvent(new CustomEvent('souv-demo-balance', { detail: null }));
 }
 
 export function useDemoBalance(fallback: DemoBalance = DEFAULT_DEMO_BALANCE): DemoBalance {
@@ -233,12 +244,12 @@ export function useDemoBalance(fallback: DemoBalance = DEFAULT_DEMO_BALANCE): De
     window.__souvClearDemoBalance = clearDemoBalance;
 
     sync();
-    window.addEventListener("storage", sync);
-    window.addEventListener("souv-demo-balance", sync);
+    window.addEventListener('storage', sync);
+    window.addEventListener('souv-demo-balance', sync);
 
     return () => {
-      window.removeEventListener("storage", sync);
-      window.removeEventListener("souv-demo-balance", sync);
+      window.removeEventListener('storage', sync);
+      window.removeEventListener('souv-demo-balance', sync);
     };
   }, [fallback]);
 

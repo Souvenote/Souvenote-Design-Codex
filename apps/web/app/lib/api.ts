@@ -1,10 +1,9 @@
-import { getActiveCognitoSession, getStoredLocalUser } from "./cognitoAuth";
-import type { LocalUser } from "./cognitoAuth";
+import { getActiveCognitoSession, getStoredLocalUser } from './cognitoAuth';
+import type { LocalUser } from './cognitoAuth';
 
-export const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:4000/api";
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000/api';
 
-export const LOCAL_MOCK_USER_ID = "ad2c7c0f-797f-4bc2-b103-91a1fc61ddef";
+export const LOCAL_MOCK_USER_ID = 'ad2c7c0f-797f-4bc2-b103-91a1fc61ddef';
 
 export type PricingOffer = {
   id: string;
@@ -290,7 +289,7 @@ type PaymentMethodResponse = {
   paymentMethod: PaymentMethod;
 };
 
-export const CARD_DRAFTS_UPDATED_EVENT = "souv-card-drafts-updated";
+export const CARD_DRAFTS_UPDATED_EVENT = 'souv-card-drafts-updated';
 
 export function getApiUserId(userId?: string) {
   return userId || getStoredLocalUser()?.id || LOCAL_MOCK_USER_ID;
@@ -298,12 +297,12 @@ export function getApiUserId(userId?: string) {
 
 async function buildApiHeaders(headers?: HeadersInit, json = false) {
   const nextHeaders = new Headers(headers);
-  if (!nextHeaders.has("Accept")) nextHeaders.set("Accept", "application/json");
-  if (json && !nextHeaders.has("Content-Type")) nextHeaders.set("Content-Type", "application/json");
+  if (!nextHeaders.has('Accept')) nextHeaders.set('Accept', 'application/json');
+  if (json && !nextHeaders.has('Content-Type')) nextHeaders.set('Content-Type', 'application/json');
 
   const session = await getActiveCognitoSession();
   if (session?.idToken) {
-    nextHeaders.set("Authorization", `Bearer ${session.idToken}`);
+    nextHeaders.set('Authorization', `Bearer ${session.idToken}`);
   }
 
   return nextHeaders;
@@ -312,9 +311,9 @@ async function buildApiHeaders(headers?: HeadersInit, json = false) {
 async function readErrorMessage(response: Response, fallback: string) {
   try {
     const payload = (await response.json()) as { message?: unknown; error?: unknown };
-    if (typeof payload.message === "string") return payload.message;
-    if (Array.isArray(payload.message) && typeof payload.message[0] === "string") return payload.message[0];
-    if (typeof payload.error === "string") return payload.error;
+    if (typeof payload.message === 'string') return payload.message;
+    if (Array.isArray(payload.message) && typeof payload.message[0] === 'string') return payload.message[0];
+    if (typeof payload.error === 'string') return payload.error;
   } catch {
     // Keep the original fallback when the server does not return JSON.
   }
@@ -334,7 +333,7 @@ export async function fetchPricingOffers(): Promise<PricingOffer[]> {
   const payload = (await response.json()) as Partial<PricingResponse>;
 
   if (!Array.isArray(payload.data)) {
-    throw new Error("Pricing response did not include a data array.");
+    throw new Error('Pricing response did not include a data array.');
   }
 
   return payload.data;
@@ -346,13 +345,16 @@ export async function fetchAuthenticatedUser(): Promise<LocalUser> {
   });
 
   if (!response.ok) {
-    const message = await readErrorMessage(response, `Authenticated user request failed with status ${response.status}.`);
+    const message = await readErrorMessage(
+      response,
+      `Authenticated user request failed with status ${response.status}.`,
+    );
     throw new Error(message);
   }
 
   const payload = (await response.json()) as Partial<AuthMeResponse>;
-  if (typeof payload.user?.id !== "string" || typeof payload.user.email !== "string") {
-    throw new Error("Authenticated user response did not include a local user id.");
+  if (typeof payload.user?.id !== 'string' || typeof payload.user.email !== 'string') {
+    throw new Error('Authenticated user response did not include a local user id.');
   }
 
   return payload.user;
@@ -360,7 +362,7 @@ export async function fetchAuthenticatedUser(): Promise<LocalUser> {
 
 export async function updateAuthenticatedUser(input: UserProfileUpdate): Promise<LocalUser> {
   const response = await fetch(`${API_BASE_URL}/auth/me`, {
-    method: "PATCH",
+    method: 'PATCH',
     headers: await buildApiHeaders(undefined, true),
     body: JSON.stringify(input),
   });
@@ -371,8 +373,8 @@ export async function updateAuthenticatedUser(input: UserProfileUpdate): Promise
   }
 
   const payload = (await response.json()) as Partial<AuthMeResponse>;
-  if (typeof payload.user?.id !== "string" || typeof payload.user.email !== "string") {
-    throw new Error("Profile update response did not include a local user.");
+  if (typeof payload.user?.id !== 'string' || typeof payload.user.email !== 'string') {
+    throw new Error('Profile update response did not include a local user.');
   }
 
   return payload.user;
@@ -390,7 +392,7 @@ export async function fetchPaymentMethods(): Promise<PaymentMethod[]> {
 
   const payload = (await response.json()) as Partial<PaymentMethodsResponse>;
   if (!Array.isArray(payload.paymentMethods)) {
-    throw new Error("Payment methods response did not include a paymentMethods array.");
+    throw new Error('Payment methods response did not include a paymentMethods array.');
   }
 
   return payload.paymentMethods;
@@ -398,7 +400,7 @@ export async function fetchPaymentMethods(): Promise<PaymentMethod[]> {
 
 export async function createPaymentMethod(input: SavePaymentMethodRequest): Promise<PaymentMethod> {
   const response = await fetch(`${API_BASE_URL}/auth/payment-methods`, {
-    method: "POST",
+    method: 'POST',
     headers: await buildApiHeaders(undefined, true),
     body: JSON.stringify(input),
   });
@@ -410,15 +412,18 @@ export async function createPaymentMethod(input: SavePaymentMethodRequest): Prom
 
   const payload = (await response.json()) as Partial<PaymentMethodResponse>;
   if (!payload.paymentMethod?.id) {
-    throw new Error("Payment method response did not include a saved method.");
+    throw new Error('Payment method response did not include a saved method.');
   }
 
   return payload.paymentMethod;
 }
 
-export async function updatePaymentMethod(paymentMethodId: string, input: SavePaymentMethodRequest): Promise<PaymentMethod> {
+export async function updatePaymentMethod(
+  paymentMethodId: string,
+  input: SavePaymentMethodRequest,
+): Promise<PaymentMethod> {
   const response = await fetch(`${API_BASE_URL}/auth/payment-methods/${encodeURIComponent(paymentMethodId)}`, {
-    method: "PATCH",
+    method: 'PATCH',
     headers: await buildApiHeaders(undefined, true),
     body: JSON.stringify(input),
   });
@@ -430,7 +435,7 @@ export async function updatePaymentMethod(paymentMethodId: string, input: SavePa
 
   const payload = (await response.json()) as Partial<PaymentMethodResponse>;
   if (!payload.paymentMethod?.id) {
-    throw new Error("Payment method response did not include an updated method.");
+    throw new Error('Payment method response did not include an updated method.');
   }
 
   return payload.paymentMethod;
@@ -438,7 +443,7 @@ export async function updatePaymentMethod(paymentMethodId: string, input: SavePa
 
 export async function deletePaymentMethod(paymentMethodId: string): Promise<void> {
   const response = await fetch(`${API_BASE_URL}/auth/payment-methods/${encodeURIComponent(paymentMethodId)}`, {
-    method: "DELETE",
+    method: 'DELETE',
     headers: await buildApiHeaders(),
   });
 
@@ -460,8 +465,8 @@ export async function fetchCreditBalance(userId?: string): Promise<CreditBalance
 
   const payload = (await response.json()) as Partial<CreditBalance>;
 
-  if (typeof payload.userId !== "string" || typeof payload.balance !== "number" || !Number.isFinite(payload.balance)) {
-    throw new Error("Credit balance response did not include a valid balance.");
+  if (typeof payload.userId !== 'string' || typeof payload.balance !== 'number' || !Number.isFinite(payload.balance)) {
+    throw new Error('Credit balance response did not include a valid balance.');
   }
 
   return {
@@ -478,7 +483,7 @@ export async function createCardDraft({
 }: CreateCardDraftRequest): Promise<CardDraft> {
   const resolvedUserId = getApiUserId(userId);
   const response = await fetch(`${API_BASE_URL}/card-drafts`, {
-    method: "POST",
+    method: 'POST',
     headers: await buildApiHeaders(undefined, true),
     body: JSON.stringify({
       userId: resolvedUserId,
@@ -495,7 +500,7 @@ export async function createCardDraft({
 
   const payload = (await response.json()) as Partial<CardDraftResponse>;
   if (!payload.cardDraft?.id) {
-    throw new Error("Card draft response did not include a draft id.");
+    throw new Error('Card draft response did not include a draft id.');
   }
 
   return payload.cardDraft;
@@ -513,7 +518,7 @@ export async function fetchCardDraftById(cardDraftId: string): Promise<CardDraft
 
   const payload = (await response.json()) as Partial<CardDraftResponse>;
   if (!payload.cardDraft?.id) {
-    throw new Error("Card draft response did not include a draft id.");
+    throw new Error('Card draft response did not include a draft id.');
   }
 
   return payload.cardDraft;
@@ -524,7 +529,7 @@ export async function updateCardDraft(
   { occasion, relationship, creativeBrief }: UpdateCardDraftRequest,
 ): Promise<CardDraft> {
   const response = await fetch(`${API_BASE_URL}/card-drafts/${encodeURIComponent(cardDraftId)}`, {
-    method: "PATCH",
+    method: 'PATCH',
     headers: await buildApiHeaders(undefined, true),
     body: JSON.stringify({
       ...(occasion ? { occasion } : {}),
@@ -540,7 +545,7 @@ export async function updateCardDraft(
 
   const payload = (await response.json()) as Partial<CardDraftResponse>;
   if (!payload.cardDraft?.id) {
-    throw new Error("Card draft update response did not include a draft id.");
+    throw new Error('Card draft update response did not include a draft id.');
   }
 
   return payload.cardDraft;
@@ -559,7 +564,7 @@ export async function fetchUserCardDrafts(userId?: string): Promise<CardDraft[]>
 
   const payload = (await response.json()) as Partial<UserCardDraftsResponse>;
   if (!Array.isArray(payload.cardDrafts)) {
-    throw new Error("Card drafts response did not include a cardDrafts array.");
+    throw new Error('Card drafts response did not include a cardDrafts array.');
   }
 
   return payload.cardDrafts;
@@ -571,13 +576,16 @@ export async function fetchCardDraftAssets(cardDraftId: string): Promise<CardDra
   });
 
   if (!response.ok) {
-    const message = await readErrorMessage(response, `Card draft assets request failed with status ${response.status}.`);
+    const message = await readErrorMessage(
+      response,
+      `Card draft assets request failed with status ${response.status}.`,
+    );
     throw new Error(message);
   }
 
   const payload = (await response.json()) as Partial<CardDraftAssetsResponse>;
   if (!Array.isArray(payload.assets)) {
-    throw new Error("Card draft assets response did not include an assets array.");
+    throw new Error('Card draft assets response did not include an assets array.');
   }
 
   return payload.assets;
@@ -592,7 +600,7 @@ export async function mockUpload({
 }: MockUploadRequest): Promise<MockUploadResponse> {
   const resolvedUserId = getApiUserId(userId);
   const response = await fetch(`${API_BASE_URL}/uploads/mock`, {
-    method: "POST",
+    method: 'POST',
     headers: await buildApiHeaders(undefined, true),
     body: JSON.stringify({
       userId: resolvedUserId,
@@ -618,10 +626,12 @@ export async function refreshCardDraftBackendState(cardDraftId: string, userId?:
     fetchCardDraftAssets(cardDraftId),
   ]);
 
-  if (typeof window !== "undefined") {
-    window.dispatchEvent(new CustomEvent(CARD_DRAFTS_UPDATED_EVENT, {
-      detail: { userId: resolvedUserId, cardDraftId, cardDrafts, assets },
-    }));
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(
+      new CustomEvent(CARD_DRAFTS_UPDATED_EVENT, {
+        detail: { userId: resolvedUserId, cardDraftId, cardDrafts, assets },
+      }),
+    );
   }
 
   return { cardDrafts, assets };
@@ -634,7 +644,7 @@ export async function startGeneration({
 }: StartGenerationRequest): Promise<GenerationStartResponse> {
   const resolvedUserId = getApiUserId(userId);
   const response = await fetch(`${API_BASE_URL}/generation/start`, {
-    method: "POST",
+    method: 'POST',
     headers: await buildApiHeaders(undefined, true),
     body: JSON.stringify({
       userId: resolvedUserId,
@@ -660,7 +670,7 @@ export async function createOrder({
 }: CreateOrderRequest): Promise<Order> {
   const resolvedUserId = getApiUserId(userId);
   const response = await fetch(`${API_BASE_URL}/orders`, {
-    method: "POST",
+    method: 'POST',
     headers: await buildApiHeaders(undefined, true),
     body: JSON.stringify({
       userId: resolvedUserId,
@@ -678,7 +688,7 @@ export async function createOrder({
 
   const payload = (await response.json()) as Partial<OrderResponse>;
   if (!payload.order?.id) {
-    throw new Error("Order response did not include an order id.");
+    throw new Error('Order response did not include an order id.');
   }
 
   return payload.order;
@@ -686,7 +696,7 @@ export async function createOrder({
 
 export async function startCheckout(orderId: string): Promise<CheckoutResponse> {
   const response = await fetch(`${API_BASE_URL}/checkout/start`, {
-    method: "POST",
+    method: 'POST',
     headers: await buildApiHeaders(undefined, true),
     body: JSON.stringify({ orderId }),
   });
@@ -698,7 +708,7 @@ export async function startCheckout(orderId: string): Promise<CheckoutResponse> 
 
   const payload = (await response.json()) as Partial<CheckoutResponse>;
   if (!payload.checkoutSession?.id || !payload.order?.id) {
-    throw new Error("Checkout response did not include a checkout session and order.");
+    throw new Error('Checkout response did not include a checkout session and order.');
   }
 
   return {
@@ -709,7 +719,7 @@ export async function startCheckout(orderId: string): Promise<CheckoutResponse> 
 
 export async function completeMockCheckout(orderId: string): Promise<CheckoutResponse> {
   const response = await fetch(`${API_BASE_URL}/checkout/mock-success`, {
-    method: "POST",
+    method: 'POST',
     headers: await buildApiHeaders(undefined, true),
     body: JSON.stringify({ orderId }),
   });
@@ -721,7 +731,7 @@ export async function completeMockCheckout(orderId: string): Promise<CheckoutRes
 
   const payload = (await response.json()) as Partial<CheckoutResponse>;
   if (!payload.checkoutSession?.id || !payload.order?.id) {
-    throw new Error("Mock checkout response did not include a checkout session and order.");
+    throw new Error('Mock checkout response did not include a checkout session and order.');
   }
 
   return {
@@ -732,7 +742,7 @@ export async function completeMockCheckout(orderId: string): Promise<CheckoutRes
 
 export async function submitFulfillment(orderId: string): Promise<FulfillmentSubmitResponse> {
   const response = await fetch(`${API_BASE_URL}/fulfillment/submit`, {
-    method: "POST",
+    method: 'POST',
     headers: await buildApiHeaders(undefined, true),
     body: JSON.stringify({ orderId }),
   });
@@ -744,7 +754,7 @@ export async function submitFulfillment(orderId: string): Promise<FulfillmentSub
 
   const payload = (await response.json()) as Partial<FulfillmentSubmitResponse>;
   if (!payload.fulfillment?.id || !payload.order?.id) {
-    throw new Error("Fulfillment response did not include a fulfillment record and order.");
+    throw new Error('Fulfillment response did not include a fulfillment record and order.');
   }
 
   return {
@@ -761,7 +771,7 @@ export async function grantCredits({
 }: GrantCreditsRequest): Promise<GrantCreditsResponse> {
   const resolvedUserId = getApiUserId(userId);
   const response = await fetch(`${API_BASE_URL}/credits/grant`, {
-    method: "POST",
+    method: 'POST',
     headers: await buildApiHeaders(undefined, true),
     body: JSON.stringify({
       userId: resolvedUserId,
@@ -780,7 +790,7 @@ export async function grantCredits({
 }
 
 export function createLocalIdempotencyKey(prefix: string) {
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return `${prefix}-${crypto.randomUUID()}`;
   }
 

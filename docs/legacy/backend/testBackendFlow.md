@@ -1,3 +1,6 @@
+> [!WARNING]
+> Historical and non-authoritative. Do not run the SQL or API steps in this file against the Section 1 workspace. Current lifecycle and safety rules are in `docs/engineering/local-development.md`.
+
 # Souvenote Swagger Demo Flow
 
 This document shows the full local backend demo flow using Swagger.

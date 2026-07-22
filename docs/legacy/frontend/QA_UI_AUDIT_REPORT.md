@@ -1,3 +1,6 @@
+> [!WARNING]
+> Historical and non-authoritative. Paths, route counts, prototype behavior, prices, and verification results below describe an earlier snapshot and are not current acceptance evidence.
+
 # Souvenote Frontend QA & UI Audit Report
 
 Date: 2026-06-13  

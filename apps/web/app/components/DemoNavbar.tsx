@@ -1,11 +1,11 @@
-"use client";
+'use client';
 
-import { Navbar } from "./Navbar";
-import { demoUser } from "./DemoUser";
-import { useAuth } from "./AuthProvider";
-import type { NavbarProps } from "./Navbar";
+import { Navbar } from './Navbar';
+import { demoUser } from './DemoUser';
+import { useAuth } from './AuthProvider';
+import type { NavbarProps } from './Navbar';
 
-type DemoNavbarProps = Pick<NavbarProps, "followUserOnScroll"> & {
+type DemoNavbarProps = Pick<NavbarProps, 'followUserOnScroll'> & {
   cartCount?: number;
   onLoginClick?: () => void;
   onSignupClick?: () => void;
@@ -17,7 +17,7 @@ function DemoNavbar({ cartCount = 0, ...props }: DemoNavbarProps) {
 
   return (
     <Navbar
-      loggedIn={auth.status === "authenticated"}
+      loggedIn={auth.status === 'authenticated'}
       user={demoUser}
       credits={{ images: 0, songs: 0 }}
       cardBank={0}

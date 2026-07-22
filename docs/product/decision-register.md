@@ -113,3 +113,32 @@ Approval reference:
 - Status: approved implementation decision
 - Decision: Section 0 CI is credential-free and non-deploying. It blocks type, unit-test, production-build, and critical dependency-audit failures. Existing non-fixing lint failures and high dependency advisories are recorded debt for Section 1, not silently waived.
 - Consequence: CI starts green without rewriting source, touching a database, or requiring secrets; Section 1 must remediate the debt and raise the gates.
+
+### MVP-015 - Canonical workspace and toolchain
+
+- Date: 2026-07-21
+- Status: approved implementation decision
+- Decision: Use one npm workspace rooted at the repository, with `apps/web`, `apps/api`, `apps/worker`, `packages/contracts`, `packages/config`, `database`, `infra`, and `docs`; use Node.js 22 as the canonical local and CI runtime.
+- Supersedes: The separate `front end` and `backend/server` package layout and independent lockfiles.
+- Consequence: Root commands and one lockfile own installation, verification, and local lifecycle behavior. The contracts package remains a placeholder until Section 2 generates the client.
+
+### MVP-016 - Local PostgreSQL and lifecycle safety
+
+- Date: 2026-07-21
+- Status: approved implementation decision
+- Decision: Use PostgreSQL 16 for local development, bound to `127.0.0.1:55432`. Normal `dev:down` preserves its Docker volume; destructive reset or volume deletion is never part of the ordinary lifecycle.
+- Consequence: Port conflicts fail with a diagnostic rather than killing unrelated processes. Database readiness uses a connectivity query only during Section 1.
+
+### MVP-017 - Section 1 transitional runtime boundaries
+
+- Date: 2026-07-21
+- Status: approved implementation decision
+- Decision: Keep the existing `/api` prefix until Section 2; do not auto-run the legacy draft migrations; keep all provider modes deterministic mock or disabled; permit disabled authentication only in the explicit local environment and reject it in every non-local environment.
+- Consequence: Section 1 can verify workspace and process orchestration without legitimizing an unsafe schema, caller-supplied identity, or external traffic. Section 2 owns `/api/v1`, Cognito/session enforcement, generated contracts, and the verified baseline migration.
+
+### MVP-018 - Section 1 external-cost boundary
+
+- Date: 2026-07-21
+- Status: approved implementation decision
+- Decision: Section 1 is entirely local and credential-free. It creates no AWS resources and activates no paid or metered provider traffic.
+- Consequence: Section 1 external cost is CAD $0 and USD $0. Any later AWS mutation or paid-provider activation still requires a separately scoped approval under `docs/operations/cost-approval.md`.

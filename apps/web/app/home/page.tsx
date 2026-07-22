@@ -1,11 +1,11 @@
-import { FAQ } from "../components/FAQ";
-import { Footer } from "../components/Footer";
-import { Gallery } from "../components/Gallery";
-import { Hero } from "../components/Hero";
-import { HowItWorks } from "../components/HowItWorks";
-import { DemoNavbar } from "../components/DemoNavbar";
-import { OrnamentDivider } from "../components/Ornaments";
-import { PageChrome } from "../components/PageChrome";
+import { FAQ } from '../components/FAQ';
+import { Footer } from '../components/Footer';
+import { Gallery } from '../components/Gallery';
+import { Hero } from '../components/Hero';
+import { HowItWorks } from '../components/HowItWorks';
+import { DemoNavbar } from '../components/DemoNavbar';
+import { OrnamentDivider } from '../components/Ornaments';
+import { PageChrome } from '../components/PageChrome';
 
 export default function LandingLoggedInPage() {
   return (

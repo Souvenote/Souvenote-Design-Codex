@@ -1,24 +1,24 @@
-import { ValidationPipe } from '@nestjs/common';
+import { Logger, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
+import { resolveCorsAllowedOrigins, resolveHost, resolvePort, runtimeEnvironment } from './config/runtime-config';
 
-async function bootstrap() {
-  // Create the NestJS application
+const logger = new Logger('Bootstrap');
+
+async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
+  const configService = app.get(ConfigService);
+  const environment = runtimeEnvironment(configService);
+  const host = resolveHost(configService);
+  const port = resolvePort(configService);
 
-  // Makes its so the frontend and backend can communicate with each other
   app.enableCors({
-    origin: true,
+    origin: resolveCorsAllowedOrigins(configService),
     credentials: true,
   });
-
-  // all endpoints will be prefixed with /api
   app.setGlobalPrefix('api');
-
-
-  // makes sure that all incoming requests are validated
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -26,28 +26,27 @@ async function bootstrap() {
       transform: true,
     }),
   );
+  app.enableShutdownHooks();
 
-  // Set up Swagger documentation
-  const swaggerConfig = new DocumentBuilder()
-    .setTitle('Souvenote Backend API')
-    .setDescription('Backend API for Souvenote MVP')
-    .setVersion('0.1.0')
-    .build();
+  if (environment !== 'production') {
+    const swaggerConfig = new DocumentBuilder()
+      .setTitle('Souvenote Backend API')
+      .setDescription('Backend API for Souvenote MVP')
+      .setVersion('0.1.0')
+      .build();
+    const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig);
+    SwaggerModule.setup('api/docs', app, swaggerDocument);
+  }
 
-  const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup('api/docs', app, swaggerDocument);
+  await app.listen(port, host);
 
-  // Reads .env variables and starts the server
-  const configService = app.get(ConfigService);
-  // If PORT is not set in .env, it defaults to 4000
-  const port = configService.get<number>('PORT') ?? 4000;
-
-  // start server
-  await app.listen(port);
-
-  // prints helpful information to the console when the server starts
-  console.log(`Souvenote backend running on http://localhost:${port}`);
-  console.log(`Swagger docs available at http://localhost:${port}/api/docs`);
+  logger.log(`Souvenote backend running on http://${host}:${port}`);
+  if (environment !== 'production') {
+    logger.log(`Swagger docs available at http://${host}:${port}/api/docs`);
+  }
 }
 
-bootstrap();
+void bootstrap().catch(() => {
+  logger.error('Souvenote backend failed to start.');
+  process.exitCode = 1;
+});

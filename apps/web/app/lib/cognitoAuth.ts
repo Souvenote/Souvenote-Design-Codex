@@ -5,7 +5,7 @@ import {
   CognitoUserAttribute,
   CognitoUserPool,
   CognitoUserSession,
-} from "amazon-cognito-identity-js";
+} from 'amazon-cognito-identity-js';
 
 export type CognitoCodeDelivery = {
   AttributeName?: string;
@@ -111,17 +111,17 @@ type JwtClaims = {
   picture?: string;
 };
 
-export const AUTH_SESSION_STORAGE_KEY = "souv_cognito_session";
-export const AUTH_LOCAL_USER_STORAGE_KEY = "souv_local_user";
-export const AUTH_SESSION_UPDATED_EVENT = "souv-auth-session-updated";
-const HOSTED_UI_STATE_STORAGE_KEY = "souv_cognito_oauth_state";
-const HOSTED_UI_RETURN_STORAGE_KEY = "souv_cognito_oauth_return_to";
-const HOSTED_UI_ERROR_STORAGE_KEY = "souv_cognito_oauth_error";
-const HOSTED_UI_ATTEMPT_STORAGE_KEY = "souv_cognito_oauth_attempt";
+export const AUTH_SESSION_STORAGE_KEY = 'souv_cognito_session';
+export const AUTH_LOCAL_USER_STORAGE_KEY = 'souv_local_user';
+export const AUTH_SESSION_UPDATED_EVENT = 'souv-auth-session-updated';
+const HOSTED_UI_STATE_STORAGE_KEY = 'souv_cognito_oauth_state';
+const HOSTED_UI_RETURN_STORAGE_KEY = 'souv_cognito_oauth_return_to';
+const HOSTED_UI_ERROR_STORAGE_KEY = 'souv_cognito_oauth_error';
+const HOSTED_UI_ATTEMPT_STORAGE_KEY = 'souv_cognito_oauth_attempt';
 
 const EXPIRY_SKEW_MS = 60_000;
 
-export type CognitoSocialProvider = "Google" | "Facebook" | "SignInWithApple";
+export type CognitoSocialProvider = 'Google' | 'Facebook' | 'SignInWithApple';
 
 export class CognitoClientError extends Error {
   constructor(
@@ -129,26 +129,23 @@ export class CognitoClientError extends Error {
     readonly code: string,
   ) {
     super(message);
-    this.name = "CognitoClientError";
+    this.name = 'CognitoClientError';
   }
 }
 
 function toCognitoClientError(error: unknown) {
   if (error instanceof CognitoClientError) return error;
 
-  if (error && typeof error === "object") {
+  if (error && typeof error === 'object') {
     const record = error as { code?: unknown; name?: unknown; message?: unknown };
-    const code = typeof record.code === "string"
-      ? record.code
-      : typeof record.name === "string"
-        ? record.name
-        : "CognitoError";
-    const message = typeof record.message === "string" ? record.message : "Cognito request failed.";
+    const code =
+      typeof record.code === 'string' ? record.code : typeof record.name === 'string' ? record.name : 'CognitoError';
+    const message = typeof record.message === 'string' ? record.message : 'Cognito request failed.';
 
     return new CognitoClientError(message, code);
   }
 
-  return new CognitoClientError("Cognito request failed.", "CognitoError");
+  return new CognitoClientError('Cognito request failed.', 'CognitoError');
 }
 
 function getCognitoConfig(): CognitoConfig {
@@ -158,8 +155,8 @@ function getCognitoConfig(): CognitoConfig {
 
   if (!region || !userPoolId || !clientId) {
     throw new CognitoClientError(
-      "Cognito is not configured. Add NEXT_PUBLIC_COGNITO_REGION, NEXT_PUBLIC_COGNITO_USER_POOL_ID, and NEXT_PUBLIC_COGNITO_CLIENT_ID to front end/.env.local.",
-      "MissingCognitoConfig",
+      'Cognito is not configured. Add NEXT_PUBLIC_COGNITO_REGION, NEXT_PUBLIC_COGNITO_USER_POOL_ID, and NEXT_PUBLIC_COGNITO_CLIENT_ID to front end/.env.local.',
+      'MissingCognitoConfig',
     );
   }
 
@@ -169,32 +166,33 @@ function getCognitoConfig(): CognitoConfig {
 function getHostedUiConfig() {
   const { clientId } = getCognitoConfig();
   const rawDomain = process.env.NEXT_PUBLIC_COGNITO_DOMAIN?.trim();
-  const redirectUri = process.env.NEXT_PUBLIC_COGNITO_REDIRECT_URI?.trim()
-    || (typeof window !== "undefined" ? `${window.location.origin}/login` : "");
-  const logoutUri = process.env.NEXT_PUBLIC_COGNITO_LOGOUT_URI?.trim()
-    || (typeof window !== "undefined" ? window.location.origin : "");
-  const scopes = (process.env.NEXT_PUBLIC_COGNITO_OAUTH_SCOPES || "openid email profile")
+  const redirectUri =
+    process.env.NEXT_PUBLIC_COGNITO_REDIRECT_URI?.trim() ||
+    (typeof window !== 'undefined' ? `${window.location.origin}/login` : '');
+  const logoutUri =
+    process.env.NEXT_PUBLIC_COGNITO_LOGOUT_URI?.trim() || (typeof window !== 'undefined' ? window.location.origin : '');
+  const scopes = (process.env.NEXT_PUBLIC_COGNITO_OAUTH_SCOPES || 'openid email profile')
     .split(/\s+/)
     .map((scope) => scope.trim())
     .filter(Boolean);
 
   if (!rawDomain || !redirectUri) {
     throw new CognitoClientError(
-      "Cognito social sign-in is not configured. Add NEXT_PUBLIC_COGNITO_DOMAIN and NEXT_PUBLIC_COGNITO_REDIRECT_URI to front end/.env.local, then add the same callback URL in Cognito.",
-      "MissingHostedUiConfig",
+      'Cognito social sign-in is not configured. Add NEXT_PUBLIC_COGNITO_DOMAIN and NEXT_PUBLIC_COGNITO_REDIRECT_URI to front end/.env.local, then add the same callback URL in Cognito.',
+      'MissingHostedUiConfig',
     );
   }
 
   const domain = /^https?:\/\//i.test(rawDomain)
-    ? rawDomain.replace(/\/+$/, "")
-    : `https://${rawDomain.replace(/\/+$/, "")}`;
+    ? rawDomain.replace(/\/+$/, '')
+    : `https://${rawDomain.replace(/\/+$/, '')}`;
 
   return {
     clientId,
     domain,
     logoutUri,
     redirectUri,
-    scopes: scopes.length ? scopes : ["openid", "email", "profile"],
+    scopes: scopes.length ? scopes : ['openid', 'email', 'profile'],
   };
 }
 
@@ -218,20 +216,17 @@ function getCognitoUser(email: string) {
 }
 
 function dispatchAuthUpdate() {
-  if (typeof window === "undefined") return;
+  if (typeof window === 'undefined') return;
   window.dispatchEvent(new Event(AUTH_SESSION_UPDATED_EVENT));
 }
 
 function base64UrlEncode(bytes: Uint8Array) {
-  let binary = "";
+  let binary = '';
   bytes.forEach((byte) => {
     binary += String.fromCharCode(byte);
   });
 
-  return window.btoa(binary)
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/, "");
+  return window.btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
 function randomBase64Url(byteLength: number) {
@@ -241,13 +236,13 @@ function randomBase64Url(byteLength: number) {
 }
 
 async function pkceChallenge(verifier: string) {
-  const digest = await window.crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier));
+  const digest = await window.crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
   return base64UrlEncode(new Uint8Array(digest));
 }
 
 function decodeBase64Url(value: string) {
-  const base64 = value.replace(/-/g, "+").replace(/_/g, "/");
-  const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), "=");
+  const base64 = value.replace(/-/g, '+').replace(/_/g, '/');
+  const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '=');
   const binary = window.atob(padded);
   const bytes = new Uint8Array(binary.length);
 
@@ -259,8 +254,8 @@ function decodeBase64Url(value: string) {
 }
 
 function decodeJwtClaims(token: string): JwtClaims {
-  const [, payload] = token.split(".");
-  if (!payload || typeof window === "undefined") return {};
+  const [, payload] = token.split('.');
+  if (!payload || typeof window === 'undefined') return {};
 
   try {
     return JSON.parse(decodeBase64Url(payload)) as JwtClaims;
@@ -271,7 +266,7 @@ function decodeJwtClaims(token: string): JwtClaims {
 
 function buildSession(authResult: CognitoAuthResult, previousRefreshToken?: string): CognitoSession {
   if (!authResult.IdToken || !authResult.AccessToken) {
-    throw new CognitoClientError("Cognito did not return a complete session.", "MissingAuthenticationResult");
+    throw new CognitoClientError('Cognito did not return a complete session.', 'MissingAuthenticationResult');
   }
 
   const claims = decodeJwtClaims(authResult.IdToken);
@@ -279,12 +274,10 @@ function buildSession(authResult: CognitoAuthResult, previousRefreshToken?: stri
   const sub = claims.sub?.trim();
 
   if (!email || !sub) {
-    throw new CognitoClientError("Cognito session did not include the expected email and sub claims.", "MissingClaims");
+    throw new CognitoClientError('Cognito session did not include the expected email and sub claims.', 'MissingClaims');
   }
 
-  const expiresAt = claims.exp
-    ? claims.exp * 1000
-    : Date.now() + ((authResult.ExpiresIn ?? 3600) * 1000);
+  const expiresAt = claims.exp ? claims.exp * 1000 : Date.now() + (authResult.ExpiresIn ?? 3600) * 1000;
 
   return {
     idToken: authResult.IdToken,
@@ -309,7 +302,7 @@ function buildSessionFromCognitoUserSession(session: CognitoUserSession): Cognit
   const sub = claims.sub?.trim();
 
   if (!email || !sub) {
-    throw new CognitoClientError("Cognito session did not include the expected email and sub claims.", "MissingClaims");
+    throw new CognitoClientError('Cognito session did not include the expected email and sub claims.', 'MissingClaims');
   }
 
   return {
@@ -333,30 +326,33 @@ function isExpired(session: CognitoSession) {
 async function cognitoRequest<T>(target: string, body: Record<string, unknown>): Promise<T> {
   const { region } = getCognitoConfig();
   const response = await fetch(cognitoEndpoint(region), {
-    method: "POST",
+    method: 'POST',
     headers: {
-      "Content-Type": "application/x-amz-json-1.1",
-      "X-Amz-Target": `AWSCognitoIdentityProviderService.${target}`,
+      'Content-Type': 'application/x-amz-json-1.1',
+      'X-Amz-Target': `AWSCognitoIdentityProviderService.${target}`,
     },
     body: JSON.stringify(body),
   });
 
-  const payload = await response.json().catch(() => ({})) as {
+  const payload = (await response.json().catch(() => ({}))) as {
     __type?: string;
     message?: string;
     Message?: string;
   };
 
   if (!response.ok) {
-    const code = String(payload.__type || response.status).split("#").pop() || "CognitoError";
-    throw new CognitoClientError(payload.message || payload.Message || "Cognito request failed.", code);
+    const code =
+      String(payload.__type || response.status)
+        .split('#')
+        .pop() || 'CognitoError';
+    throw new CognitoClientError(payload.message || payload.Message || 'Cognito request failed.', code);
   }
 
   return payload as T;
 }
 
 export function getStoredCognitoSession(options: { allowExpired?: boolean } = {}): CognitoSession | null {
-  if (typeof window === "undefined") return null;
+  if (typeof window === 'undefined') return null;
 
   try {
     const raw = window.localStorage.getItem(AUTH_SESSION_STORAGE_KEY);
@@ -364,11 +360,11 @@ export function getStoredCognitoSession(options: { allowExpired?: boolean } = {}
 
     const parsed = JSON.parse(raw) as Partial<CognitoSession>;
     if (
-      typeof parsed.idToken !== "string"
-      || typeof parsed.accessToken !== "string"
-      || typeof parsed.expiresAt !== "number"
-      || typeof parsed.email !== "string"
-      || typeof parsed.sub !== "string"
+      typeof parsed.idToken !== 'string' ||
+      typeof parsed.accessToken !== 'string' ||
+      typeof parsed.expiresAt !== 'number' ||
+      typeof parsed.email !== 'string' ||
+      typeof parsed.sub !== 'string'
     ) {
       return null;
     }
@@ -382,7 +378,7 @@ export function getStoredCognitoSession(options: { allowExpired?: boolean } = {}
 }
 
 function getStoredHostedUiState(): HostedUiState | null {
-  if (typeof window === "undefined") return null;
+  if (typeof window === 'undefined') return null;
 
   try {
     const raw = window.localStorage.getItem(HOSTED_UI_STATE_STORAGE_KEY);
@@ -390,9 +386,9 @@ function getStoredHostedUiState(): HostedUiState | null {
 
     const parsed = JSON.parse(raw) as Partial<HostedUiState>;
     if (
-      typeof parsed.state !== "string"
-      || typeof parsed.verifier !== "string"
-      || typeof parsed.redirectUri !== "string"
+      typeof parsed.state !== 'string' ||
+      typeof parsed.verifier !== 'string' ||
+      typeof parsed.redirectUri !== 'string'
     ) {
       return null;
     }
@@ -404,59 +400,59 @@ function getStoredHostedUiState(): HostedUiState | null {
 }
 
 function cleanAuthPath(value: string | undefined) {
-  if (!value || !value.startsWith("/") || value.startsWith("//")) return "/login";
+  if (!value || !value.startsWith('/') || value.startsWith('//')) return '/login';
   return value;
 }
 
 function clearHostedUiState() {
-  if (typeof window === "undefined") return;
+  if (typeof window === 'undefined') return;
   window.localStorage.removeItem(HOSTED_UI_STATE_STORAGE_KEY);
 }
 
 function clearHostedUiError() {
-  if (typeof window === "undefined") return;
+  if (typeof window === 'undefined') return;
   window.sessionStorage.removeItem(HOSTED_UI_ERROR_STORAGE_KEY);
 }
 
 function clearHostedUiAttempt() {
-  if (typeof window === "undefined") return;
+  if (typeof window === 'undefined') return;
   window.sessionStorage.removeItem(HOSTED_UI_ATTEMPT_STORAGE_KEY);
 }
 
 function storeHostedUiError(error: HostedUiError) {
-  if (typeof window === "undefined") return;
+  if (typeof window === 'undefined') return;
   window.sessionStorage.setItem(HOSTED_UI_ERROR_STORAGE_KEY, JSON.stringify(error));
 }
 
 function storeHostedUiAttempt(attempt: HostedUiAttempt) {
-  if (typeof window === "undefined") return;
+  if (typeof window === 'undefined') return;
   window.sessionStorage.setItem(HOSTED_UI_ATTEMPT_STORAGE_KEY, JSON.stringify(attempt));
 }
 
 function cleanHostedUiCallbackUrl(url: URL) {
-  url.searchParams.delete("code");
-  url.searchParams.delete("state");
-  url.searchParams.delete("error");
-  url.searchParams.delete("error_description");
+  url.searchParams.delete('code');
+  url.searchParams.delete('state');
+  url.searchParams.delete('error');
+  url.searchParams.delete('error_description');
   const nextSearch = url.searchParams.toString();
-  window.history.replaceState(null, "", `${url.pathname}${nextSearch ? `?${nextSearch}` : ""}${url.hash}`);
+  window.history.replaceState(null, '', `${url.pathname}${nextSearch ? `?${nextSearch}` : ''}${url.hash}`);
 }
 
 export function storeCognitoSession(session: CognitoSession) {
-  if (typeof window === "undefined") return;
+  if (typeof window === 'undefined') return;
   window.localStorage.setItem(AUTH_SESSION_STORAGE_KEY, JSON.stringify(session));
   dispatchAuthUpdate();
 }
 
 export function getStoredLocalUser(): LocalUser | null {
-  if (typeof window === "undefined") return null;
+  if (typeof window === 'undefined') return null;
 
   try {
     const raw = window.localStorage.getItem(AUTH_LOCAL_USER_STORAGE_KEY);
     if (!raw) return null;
 
     const parsed = JSON.parse(raw) as Partial<LocalUser>;
-    if (typeof parsed.id !== "string" || typeof parsed.email !== "string") return null;
+    if (typeof parsed.id !== 'string' || typeof parsed.email !== 'string') return null;
     return parsed as LocalUser;
   } catch {
     return null;
@@ -464,13 +460,13 @@ export function getStoredLocalUser(): LocalUser | null {
 }
 
 export function storeLocalUser(user: LocalUser) {
-  if (typeof window === "undefined") return;
+  if (typeof window === 'undefined') return;
   window.localStorage.setItem(AUTH_LOCAL_USER_STORAGE_KEY, JSON.stringify(user));
   dispatchAuthUpdate();
 }
 
 export function clearCognitoAuthState() {
-  if (typeof window === "undefined") return;
+  if (typeof window === 'undefined') return;
   window.localStorage.removeItem(AUTH_SESSION_STORAGE_KEY);
   window.localStorage.removeItem(AUTH_LOCAL_USER_STORAGE_KEY);
   window.localStorage.removeItem(HOSTED_UI_RETURN_STORAGE_KEY);
@@ -482,17 +478,17 @@ export function rememberHostedUiError(error: HostedUiError) {
   storeHostedUiError(error);
 }
 
-export async function startHostedUiSignIn(provider?: CognitoSocialProvider, returnTo = "/create") {
-  if (typeof window === "undefined") return;
+export async function startHostedUiSignIn(provider?: CognitoSocialProvider, returnTo = '/create') {
+  if (typeof window === 'undefined') return;
 
   const config = getHostedUiConfig();
   const verifier = randomBase64Url(64);
   const state = randomBase64Url(32);
   const challenge = await pkceChallenge(verifier);
   const currentAuthPath = `${window.location.pathname}${window.location.search}`;
-  const authPath = cleanAuthPath(currentAuthPath.startsWith("/login") || currentAuthPath.startsWith("/signup")
-    ? currentAuthPath
-    : "/login");
+  const authPath = cleanAuthPath(
+    currentAuthPath.startsWith('/login') || currentAuthPath.startsWith('/signup') ? currentAuthPath : '/login',
+  );
 
   window.localStorage.removeItem(AUTH_SESSION_STORAGE_KEY);
   window.localStorage.removeItem(AUTH_LOCAL_USER_STORAGE_KEY);
@@ -502,39 +498,42 @@ export async function startHostedUiSignIn(provider?: CognitoSocialProvider, retu
   clearHostedUiState();
   dispatchAuthUpdate();
 
-  window.localStorage.setItem(HOSTED_UI_STATE_STORAGE_KEY, JSON.stringify({
-    state,
-    verifier,
-    redirectUri: config.redirectUri,
-    returnTo,
-    authPath,
-    provider,
-  } satisfies HostedUiState));
+  window.localStorage.setItem(
+    HOSTED_UI_STATE_STORAGE_KEY,
+    JSON.stringify({
+      state,
+      verifier,
+      redirectUri: config.redirectUri,
+      returnTo,
+      authPath,
+      provider,
+    } satisfies HostedUiState),
+  );
 
   const params = new URLSearchParams({
     client_id: config.clientId,
     code_challenge: challenge,
-    code_challenge_method: "S256",
+    code_challenge_method: 'S256',
     redirect_uri: config.redirectUri,
-    response_type: "code",
-    scope: config.scopes.join(" "),
+    response_type: 'code',
+    scope: config.scopes.join(' '),
     state,
   });
 
-  if (provider) params.set("identity_provider", provider);
-  if (provider === "Google") params.set("prompt", "select_account");
+  if (provider) params.set('identity_provider', provider);
+  if (provider === 'Google') params.set('prompt', 'select_account');
 
   window.location.assign(`${config.domain}/oauth2/authorize?${params.toString()}`);
 }
 
 export async function completeHostedUiSignIn(currentUrl?: string): Promise<CognitoSession | null> {
-  if (typeof window === "undefined") return null;
+  if (typeof window === 'undefined') return null;
 
   const url = new URL(currentUrl || window.location.href);
-  const code = url.searchParams.get("code");
-  const state = url.searchParams.get("state");
-  const oauthError = url.searchParams.get("error");
-  const oauthErrorDescription = url.searchParams.get("error_description");
+  const code = url.searchParams.get('code');
+  const state = url.searchParams.get('state');
+  const oauthError = url.searchParams.get('error');
+  const oauthErrorDescription = url.searchParams.get('error_description');
   const storedState = getStoredHostedUiState();
 
   if (oauthError) {
@@ -557,8 +556,8 @@ export async function completeHostedUiSignIn(currentUrl?: string): Promise<Cogni
   if (!storedState || storedState.state !== state) {
     const authPath = cleanAuthPath(storedState?.authPath);
     storeHostedUiError({
-      code: "InvalidHostedUiState",
-      message: "The social sign-in response could not be verified. Please try again.",
+      code: 'InvalidHostedUiState',
+      message: 'The social sign-in response could not be verified. Please try again.',
       provider: storedState?.provider,
     });
     clearHostedUiState();
@@ -566,30 +565,33 @@ export async function completeHostedUiSignIn(currentUrl?: string): Promise<Cogni
     if (`${window.location.pathname}${window.location.search}` !== authPath) {
       window.location.replace(authPath);
     }
-    throw new CognitoClientError("The social sign-in response could not be verified. Please try again.", "InvalidHostedUiState");
+    throw new CognitoClientError(
+      'The social sign-in response could not be verified. Please try again.',
+      'InvalidHostedUiState',
+    );
   }
 
   const config = getHostedUiConfig();
   const response = await fetch(`${config.domain}/oauth2/token`, {
-    method: "POST",
+    method: 'POST',
     headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
+      'Content-Type': 'application/x-www-form-urlencoded',
     },
     body: new URLSearchParams({
       client_id: config.clientId,
       code,
       code_verifier: storedState.verifier,
-      grant_type: "authorization_code",
+      grant_type: 'authorization_code',
       redirect_uri: storedState.redirectUri,
     }),
   });
 
-  const payload = await response.json().catch(() => ({})) as HostedUiTokenResponse;
+  const payload = (await response.json().catch(() => ({}))) as HostedUiTokenResponse;
   if (!response.ok) {
     const authPath = cleanAuthPath(storedState.authPath);
-    const message = payload.error_description || payload.error || "Could not finish social sign-in.";
+    const message = payload.error_description || payload.error || 'Could not finish social sign-in.';
     storeHostedUiError({
-      code: payload.error || "HostedUiTokenError",
+      code: payload.error || 'HostedUiTokenError',
       message,
       provider: storedState.provider,
     });
@@ -598,10 +600,7 @@ export async function completeHostedUiSignIn(currentUrl?: string): Promise<Cogni
     if (`${window.location.pathname}${window.location.search}` !== authPath) {
       window.location.replace(authPath);
     }
-    throw new CognitoClientError(
-      message,
-      payload.error || "HostedUiTokenError",
-    );
+    throw new CognitoClientError(message, payload.error || 'HostedUiTokenError');
   }
 
   const session = buildSession({
@@ -625,7 +624,7 @@ export async function completeHostedUiSignIn(currentUrl?: string): Promise<Cogni
 }
 
 export function consumeHostedUiError(): HostedUiError | null {
-  if (typeof window === "undefined") return null;
+  if (typeof window === 'undefined') return null;
 
   try {
     const raw = window.sessionStorage.getItem(HOSTED_UI_ERROR_STORAGE_KEY);
@@ -633,7 +632,7 @@ export function consumeHostedUiError(): HostedUiError | null {
     if (!raw) return null;
 
     const parsed = JSON.parse(raw) as Partial<HostedUiError>;
-    if (typeof parsed.code !== "string" || typeof parsed.message !== "string") return null;
+    if (typeof parsed.code !== 'string' || typeof parsed.message !== 'string') return null;
     return {
       code: parsed.code,
       message: parsed.message,
@@ -645,7 +644,7 @@ export function consumeHostedUiError(): HostedUiError | null {
 }
 
 export function consumeHostedUiAttempt(): HostedUiAttempt | null {
-  if (typeof window === "undefined") return null;
+  if (typeof window === 'undefined') return null;
 
   try {
     const raw = window.sessionStorage.getItem(HOSTED_UI_ATTEMPT_STORAGE_KEY);
@@ -653,7 +652,7 @@ export function consumeHostedUiAttempt(): HostedUiAttempt | null {
     if (!raw) return null;
 
     const parsed = JSON.parse(raw) as Partial<HostedUiAttempt>;
-    if (typeof parsed.authPath !== "string") return null;
+    if (typeof parsed.authPath !== 'string') return null;
     return {
       authPath: cleanAuthPath(parsed.authPath),
       provider: parsed.provider,
@@ -664,7 +663,7 @@ export function consumeHostedUiAttempt(): HostedUiAttempt | null {
 }
 
 export function consumeHostedUiReturnTo() {
-  if (typeof window === "undefined") return null;
+  if (typeof window === 'undefined') return null;
   const value = window.localStorage.getItem(HOSTED_UI_RETURN_STORAGE_KEY);
   window.localStorage.removeItem(HOSTED_UI_RETURN_STORAGE_KEY);
   return value;
@@ -688,7 +687,7 @@ export async function signUpWithCognito(email: string, password: string): Promis
     userPool.signUp(
       username,
       password,
-      [new CognitoUserAttribute({ Name: "email", Value: username })],
+      [new CognitoUserAttribute({ Name: 'email', Value: username })],
       [],
       (error, result) => {
         if (error || !result) {
@@ -736,16 +735,31 @@ export async function signInWithCognito(email: string, password: string): Promis
         reject(toCognitoClientError(error));
       },
       newPasswordRequired: () => {
-        reject(new CognitoClientError("A new password is required for this Cognito user.", "NEW_PASSWORD_REQUIRED"));
+        reject(new CognitoClientError('A new password is required for this Cognito user.', 'NEW_PASSWORD_REQUIRED'));
       },
       mfaRequired: () => {
-        reject(new CognitoClientError("MFA is required for this Cognito user, but this local UI does not support MFA yet.", "SMS_MFA"));
+        reject(
+          new CognitoClientError(
+            'MFA is required for this Cognito user, but this local UI does not support MFA yet.',
+            'SMS_MFA',
+          ),
+        );
       },
       totpRequired: () => {
-        reject(new CognitoClientError("Authenticator-app MFA is required for this Cognito user, but this local UI does not support MFA yet.", "SOFTWARE_TOKEN_MFA"));
+        reject(
+          new CognitoClientError(
+            'Authenticator-app MFA is required for this Cognito user, but this local UI does not support MFA yet.',
+            'SOFTWARE_TOKEN_MFA',
+          ),
+        );
       },
       selectMFAType: () => {
-        reject(new CognitoClientError("MFA selection is required for this Cognito user, but this local UI does not support MFA yet.", "SELECT_MFA_TYPE"));
+        reject(
+          new CognitoClientError(
+            'MFA selection is required for this Cognito user, but this local UI does not support MFA yet.',
+            'SELECT_MFA_TYPE',
+          ),
+        );
       },
     });
   });

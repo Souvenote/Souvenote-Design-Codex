@@ -1,4 +1,4 @@
-export type CreateGateRequirement = "generation";
+export type CreateGateRequirement = 'generation';
 
 export type AccountBalance = {
   credits: {
@@ -17,14 +17,11 @@ export function getTotalCredits(balance: AccountBalance) {
   return balance.credits.images + balance.credits.songs;
 }
 
-export function getCreateFlowGate(
-  balance: AccountBalance,
-  requirement: CreateGateRequirement,
-): CreateFlowGate {
+export function getCreateFlowGate(balance: AccountBalance, requirement: CreateGateRequirement): CreateFlowGate {
   const totalCredits = getTotalCredits(balance);
   const hasGenerationCredits = totalCredits >= MIN_GENERATION_CREDITS;
 
-  if (requirement === "generation" && !hasGenerationCredits) {
+  if (requirement === 'generation' && !hasGenerationCredits) {
     return { allowed: false };
   }
 

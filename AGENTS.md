@@ -19,14 +19,18 @@ Do not silently choose between conflicting requirements. Record the conflict and
 
 The canonical local clone is `C:\Users\wilso\Desktop\Souvenote_Design_Codex`.
 
-The repository is currently organized as:
+The canonical npm-workspace layout is:
 
-- `front end/`: Next.js 15 and React 19 frontend.
-- `backend/server/`: NestJS 11 API.
-- `backend/database/`: draft PostgreSQL migrations and seeds.
-- `backend/docs/`: legacy backend notes that may be stale.
+- `apps/web/`: Next.js 15 and React 19 frontend.
+- `apps/api/`: NestJS 11 HTTP API.
+- `apps/worker/`: asynchronous worker process; intentionally idle except for health behavior until later sections add jobs.
+- `packages/contracts/`: contract-package placeholder until Section 2 generates the OpenAPI client and shared schemas.
+- `packages/config/`: shared workspace configuration.
+- `database/`: legacy draft SQL plus the future verified migration baseline. Legacy migrations are never run automatically.
+- `infra/`: infrastructure boundary and documentation placeholder. Its presence is not deployment approval.
+- `docs/`: authoritative product, engineering, and operational guidance plus explicitly non-authoritative legacy material.
 
-The approved target workspace layout is documented in `docs/engineering/architecture.md`. Do not perform broad moves as part of an unrelated feature.
+Use Node.js 22 as the canonical local and CI runtime. Local PostgreSQL is version 16 and binds only to `127.0.0.1:55432`. See `docs/engineering/local-development.md` before starting or stopping the stack.
 
 ## Locked MVP rules
 
@@ -69,6 +73,8 @@ This includes:
 
 Silence is denial. Approval for one action is not reusable.
 
+Section 1 is local-only and has no AWS or paid-provider cost. Authentication is disabled only in the explicit local environment and the API must reject that mode in any non-local environment. Provider modes remain deterministic mock or disabled. Do not add a permissive fallback when configuration is missing.
+
 ## Task start protocol
 
 Each PR-sized task must begin by:
@@ -82,31 +88,33 @@ Each PR-sized task must begin by:
 
 Use a fresh task for each PR-sized change. Stay in the same task for testing, debugging, and review of that same change.
 
-## Current verification commands
+## Current workspace commands
 
-Frontend:
-
-```powershell
-Set-Location 'front end'
-npm.cmd ci
-npm.cmd exec -- next typegen
-npm.cmd exec -- tsc --noEmit --incremental false
-npm.cmd run build
-npm.cmd audit --omit=dev --audit-level=critical
-```
-
-Backend:
+Run workspace commands from the repository root. `npm run verify` is the aggregate non-deploying quality gate; the individual commands remain available for focused diagnosis.
 
 ```powershell
-Set-Location 'backend/server'
 npm.cmd ci
-npm.cmd exec -- tsc --noEmit --incremental false
-npm.cmd test -- --runInBand --no-cache
+npm.cmd run format:check
+npm.cmd run lint
+npm.cmd run typecheck
+npm.cmd run test
 npm.cmd run build
-npm.cmd audit --omit=dev --audit-level=critical
+npm.cmd run audit:prod
+npm.cmd run verify
 ```
 
-Run frontend commands sequentially because both type generation and the production build update `.next`. Do not use `npm run lint` in CI while it contains `--fix`; CI checks must not rewrite source files. The current lint and dependency-audit debt is documented in `docs/engineering/current-baseline.md` and must be fixed in Section 1 before those checks become blocking.
+Local-stack lifecycle commands are:
+
+```powershell
+npm.cmd run dev
+npm.cmd run health
+npm.cmd run smoke:stack
+npm.cmd run dev:down
+```
+
+`dev:down` preserves the PostgreSQL Docker volume during normal shutdown. Never improvise a reset, volume deletion, or legacy migration command. The Section 1 branch-level checks and stack smoke test are recorded in `docs/engineering/current-baseline.md`.
+
+The API retains its transitional `/api` prefix during Section 1. Section 2 owns the authenticated `/api/v1` contract and generated client migration.
 
 ## Definition of done
 

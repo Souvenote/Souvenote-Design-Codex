@@ -1,11 +1,13 @@
-import { AuthApp } from "../components/Auth";
-import { PageChrome } from "../components/PageChrome";
+import { AuthApp } from '../components/Auth';
+import { PageChrome } from '../components/PageChrome';
 
 export default function AuthPage() {
   return (
     <div className="souv-route-page">
       <PageChrome variant="auth" />
-      <main><AuthApp initialState="forgot" /></main>
+      <main>
+        <AuthApp initialState="forgot" />
+      </main>
     </div>
   );
 }

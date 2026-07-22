@@ -1,4 +1,4 @@
-import { BuildMyCardClient } from "../../components/BuildMyCardClient";
+import { BuildMyCardClient } from '../../components/BuildMyCardClient';
 
 export default function BuildMyCardPage() {
   return <BuildMyCardClient />;

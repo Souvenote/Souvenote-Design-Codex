@@ -1,10 +1,6 @@
-import {Module} from '@nestjs/common';
-import {PricingController} from './pricing.controller';
-import {PricingService} from './pricing.service';
+import { Module } from '@nestjs/common';
+import { PricingController } from './pricing.controller';
+import { PricingService } from './pricing.service';
 
-
-@Module({  controllers: [PricingController],
-    providers: [PricingService],
-})
-
+@Module({ controllers: [PricingController], providers: [PricingService] })
 export class PricingModule {}

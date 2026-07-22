@@ -80,12 +80,7 @@ export class UploadController {
 
   @Post('commit')
   async commitReq(@Body() dto: CommitDto) {
-    return this.uploadService.commitUpload(
-      dto.userId,
-      dto.cardDraftId,
-      dto.s3Key,
-      dto.attestationAccepted,
-    );
+    return this.uploadService.commitUpload(dto.userId, dto.cardDraftId, dto.s3Key, dto.attestationAccepted);
   }
 
   @Post('mock')

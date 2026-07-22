@@ -1,37 +1,50 @@
-"use client";
+'use client';
 
-import * as React from "react";
-import { useRouter } from "next/navigation";
-import { BmcReview } from "./BmcReview";
-import { BmcErrorModal, bmcError } from "./BmcShared";
-import { OrnamentDivider } from "./Ornaments";
-import { AttestationGate } from "./AttestationGate";
-import { createCardDraft, fetchCardDraftAssets, fetchCardDraftById, mockUpload, refreshCardDraftBackendState, startGeneration, updateCardDraft } from "../lib/api";
-import type { CardDraftAsset } from "../lib/api";
-import { publishCreditBalance } from "../lib/creditBalance";
-import { rememberGeneratedAssets, rememberSelectedAsset, resetMockMvpOrderState, writeMockMvpFlowState } from "../lib/mockMvpFlow";
-import type { CreditBalanceStatus } from "../lib/creditBalance";
-import { getTotalDemoCredits } from "./DemoBalance";
-import type { DemoBalance } from "./DemoBalance";
-import { CARD_WITH_QR_SONG_CREDITS, MIN_GENERATION_CREDITS } from "./createFlowRules";
-import { goToPricingAfterPurchase } from "./PricingReturn";
-import { AuthGatePrompt } from "./AuthGatePrompt";
+import * as React from 'react';
+import { useRouter } from 'next/navigation';
+import { BmcReview } from './BmcReview';
+import { BmcErrorModal, bmcError } from './BmcShared';
+import { OrnamentDivider } from './Ornaments';
+import { AttestationGate } from './AttestationGate';
+import {
+  createCardDraft,
+  fetchCardDraftAssets,
+  fetchCardDraftById,
+  mockUpload,
+  refreshCardDraftBackendState,
+  startGeneration,
+  updateCardDraft,
+} from '../lib/api';
+import type { CardDraftAsset } from '../lib/api';
+import { publishCreditBalance } from '../lib/creditBalance';
+import {
+  rememberGeneratedAssets,
+  rememberSelectedAsset,
+  resetMockMvpOrderState,
+  writeMockMvpFlowState,
+} from '../lib/mockMvpFlow';
+import type { CreditBalanceStatus } from '../lib/creditBalance';
+import { getTotalDemoCredits } from './DemoBalance';
+import type { DemoBalance } from './DemoBalance';
+import { CARD_WITH_QR_SONG_CREDITS, MIN_GENERATION_CREDITS } from './createFlowRules';
+import { goToPricingAfterPurchase } from './PricingReturn';
+import { AuthGatePrompt } from './AuthGatePrompt';
 
 // Personalize.tsx - Page 3: Personalize a Template (marketplace + modal + chatbot).
 
 type PtIconName =
-  | "arrow"
-  | "back"
-  | "search"
-  | "sparkle"
-  | "upload"
-  | "close"
-  | "check"
-  | "send"
-  | "chevL"
-  | "chevR"
-  | "min"
-  | "shield";
+  | 'arrow'
+  | 'back'
+  | 'search'
+  | 'sparkle'
+  | 'upload'
+  | 'close'
+  | 'check'
+  | 'send'
+  | 'chevL'
+  | 'chevR'
+  | 'min'
+  | 'shield';
 
 type PtIconProps = {
   name: PtIconName;
@@ -82,7 +95,7 @@ type PtMarketplaceProps = {
   onPersonalize: (template: Template) => void;
 };
 
-type ModalStepId = "photo" | "birthday" | "caption";
+type ModalStepId = 'photo' | 'birthday' | 'caption';
 
 type ModalStep = {
   id: ModalStepId;
@@ -108,10 +121,10 @@ type PtPersonalizeModalProps = {
   onAuthRequired?: () => void;
 };
 
-type ChatPreset = "Caption" | "Personal Message" | "Vibe Check" | "Custom";
+type ChatPreset = 'Caption' | 'Personal Message' | 'Vibe Check' | 'Custom';
 
 type ChatMessage = {
-  role: "bot" | "user";
+  role: 'bot' | 'user';
   text: React.ReactNode;
 };
 
@@ -120,7 +133,7 @@ type PtChatProps = {
   setOpen: (open: boolean) => void;
 };
 
-type PersonalizeView = "marketplace" | "review";
+type PersonalizeView = 'marketplace' | 'review';
 
 type PersonalizeAppProps = {
   openModal?: boolean;
@@ -144,13 +157,13 @@ type ReferenceImageUpload = {
   size: number;
 };
 
-const CURRENT_CARD_DRAFT_ID_KEY = "souv_current_card_draft_id";
+const CURRENT_CARD_DRAFT_ID_KEY = 'souv_current_card_draft_id';
 
 function buildTemplateDraftInput(tmpl: Template): PersonalizeDraftInput {
   return {
     occasion: tmpl.occasion,
     creativeBrief: {
-      flow: "personalize_template",
+      flow: 'personalize_template',
       template: {
         id: tmpl.id,
         name: tmpl.name,
@@ -162,7 +175,7 @@ function buildTemplateDraftInput(tmpl: Template): PersonalizeDraftInput {
 }
 
 function asRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === "object" ? value as Record<string, unknown> : {};
+  return value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
 }
 
 function nestedRecord(source: Record<string, unknown> | undefined, key: string): Record<string, unknown> {
@@ -170,19 +183,19 @@ function nestedRecord(source: Record<string, unknown> | undefined, key: string):
 }
 
 function textValue(value: unknown): string {
-  return typeof value === "string" ? value : "";
+  return typeof value === 'string' ? value : '';
 }
 
 function booleanValue(value: unknown, fallback = false): boolean {
-  return typeof value === "boolean" ? value : fallback;
+  return typeof value === 'boolean' ? value : fallback;
 }
 
 function stringArrayValue(value: unknown): string[] {
-  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
 }
 
 function numberValue(value: unknown, fallback = 0): number {
-  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
 }
 
 function referenceImageValue(value: unknown): PhotoPreview[] {
@@ -193,17 +206,19 @@ function referenceImageValue(value: unknown): PhotoPreview[] {
     const name = textValue(record.filename) || textValue(record.name);
     if (!name) return [];
 
-    return [{
-      name,
-      url: "/assets/LogoMark.png",
-      mimeType: textValue(record.mimeType) || undefined,
-      size: numberValue(record.size, 0) || undefined,
-    }];
+    return [
+      {
+        name,
+        url: '/assets/LogoMark.png',
+        mimeType: textValue(record.mimeType) || undefined,
+        size: numberValue(record.size, 0) || undefined,
+      },
+    ];
   });
 }
 
 function getReferenceImageUploads(input: PersonalizeDraftInput): ReferenceImageUpload[] {
-  const photo = nestedRecord(input.creativeBrief, "photo");
+  const photo = nestedRecord(input.creativeBrief, 'photo');
   const referenceImages = photo.referenceImages;
   if (!Array.isArray(referenceImages)) return [];
 
@@ -213,7 +228,7 @@ function getReferenceImageUploads(input: PersonalizeDraftInput): ReferenceImageU
     const mimeType = textValue(record.mimeType);
     const size = numberValue(record.size);
 
-    if (!filename || !mimeType.includes("/") || size <= 0) return [];
+    if (!filename || !mimeType.includes('/') || size <= 0) return [];
     return [{ filename, mimeType, size }];
   });
 }
@@ -226,21 +241,94 @@ function referenceUploadSignature(cardDraftId: string, uploads: ReferenceImageUp
 // ICONS
 // ============================================================
 function PtIcon({ name, w = 18 }: PtIconProps) {
-  const props: React.SVGProps<SVGSVGElement> = { width: w, height: w, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.6, strokeLinecap: 'round', strokeLinejoin: 'round' };
+  const props: React.SVGProps<SVGSVGElement> = {
+    width: w,
+    height: w,
+    viewBox: '0 0 24 24',
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeWidth: 1.6,
+    strokeLinecap: 'round',
+    strokeLinejoin: 'round',
+  };
   switch (name) {
-    case 'arrow':    return <svg {...props}><path d="M5 12h14M13 6l6 6-6 6" /></svg>;
-    case 'back':     return <svg {...props}><path d="M19 12H5M11 6l-6 6 6 6" /></svg>;
-    case 'search':   return <svg {...props}><circle cx="11" cy="11" r="6.5" /><path d="M20 20l-4.5-4.5" /></svg>;
-    case 'sparkle':  return <svg {...props}><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1" /></svg>;
-    case 'upload':   return <svg {...props}><path d="M12 4v12M6 10l6-6 6 6" /><path d="M4 18v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" /></svg>;
-    case 'close':    return <svg {...props}><path d="M6 6l12 12M18 6L6 18" /></svg>;
-    case 'check':    return <svg {...props}><path d="M5 12.5l4 4 10-10" /></svg>;
-    case 'send':     return <svg {...props}><path d="M22 2L11 13M22 2l-7 20-4-9-9-4z" /></svg>;
-    case 'chevL':    return <svg {...props}><path d="M15 6l-6 6 6 6" /></svg>;
-    case 'chevR':    return <svg {...props}><path d="M9 6l6 6-6 6" /></svg>;
-    case 'min':      return <svg {...props}><path d="M5 12h14" /></svg>;
-    case 'shield':   return <svg {...props}><path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6z" /><path d="M8.5 12l2.5 2.5 5-5" /></svg>;
-    default: return null;
+    case 'arrow':
+      return (
+        <svg {...props}>
+          <path d="M5 12h14M13 6l6 6-6 6" />
+        </svg>
+      );
+    case 'back':
+      return (
+        <svg {...props}>
+          <path d="M19 12H5M11 6l-6 6 6 6" />
+        </svg>
+      );
+    case 'search':
+      return (
+        <svg {...props}>
+          <circle cx="11" cy="11" r="6.5" />
+          <path d="M20 20l-4.5-4.5" />
+        </svg>
+      );
+    case 'sparkle':
+      return (
+        <svg {...props}>
+          <path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1" />
+        </svg>
+      );
+    case 'upload':
+      return (
+        <svg {...props}>
+          <path d="M12 4v12M6 10l6-6 6 6" />
+          <path d="M4 18v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
+        </svg>
+      );
+    case 'close':
+      return (
+        <svg {...props}>
+          <path d="M6 6l12 12M18 6L6 18" />
+        </svg>
+      );
+    case 'check':
+      return (
+        <svg {...props}>
+          <path d="M5 12.5l4 4 10-10" />
+        </svg>
+      );
+    case 'send':
+      return (
+        <svg {...props}>
+          <path d="M22 2L11 13M22 2l-7 20-4-9-9-4z" />
+        </svg>
+      );
+    case 'chevL':
+      return (
+        <svg {...props}>
+          <path d="M15 6l-6 6 6 6" />
+        </svg>
+      );
+    case 'chevR':
+      return (
+        <svg {...props}>
+          <path d="M9 6l6 6-6 6" />
+        </svg>
+      );
+    case 'min':
+      return (
+        <svg {...props}>
+          <path d="M5 12h14" />
+        </svg>
+      );
+    case 'shield':
+      return (
+        <svg {...props}>
+          <path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6z" />
+          <path d="M8.5 12l2.5 2.5 5-5" />
+        </svg>
+      );
+    default:
+      return null;
   }
 }
 
@@ -259,7 +347,13 @@ const TEMPLATES: Template[] = [
     art: {
       bg: 'radial-gradient(70% 60% at 50% 30%, #18223a 0%, #0a0f1d 70%, #050810 100%)',
       eyebrow: 'ON THIS DAY · MAR 4 1992',
-      glyph: <>The world spun.<br/><em style={{color:'#e0c478'}}>You arrived.</em></>,
+      glyph: (
+        <>
+          The world spun.
+          <br />
+          <em style={{ color: '#e0c478' }}>You arrived.</em>
+        </>
+      ),
       foot: '— Their unrepeatable date —',
     },
   },
@@ -273,7 +367,13 @@ const TEMPLATES: Template[] = [
     art: {
       bg: 'radial-gradient(60% 80% at 50% 20%, #2a1a40 0%, #110628 70%, #050208 100%)',
       eyebrow: '♓ PISCES · FEB 19 – MAR 20',
-      glyph: <>Deep&nbsp;water,<br/><em style={{color:'#e8b8ff'}}>steady tide.</em></>,
+      glyph: (
+        <>
+          Deep&nbsp;water,
+          <br />
+          <em style={{ color: '#e8b8ff' }}>steady tide.</em>
+        </>
+      ),
       foot: '— Mutable · Yin · Neptune —',
     },
   },
@@ -287,7 +387,13 @@ const TEMPLATES: Template[] = [
     art: {
       bg: 'radial-gradient(50% 60% at 30% 30%, #c93c54 0%, #6b0e1f 65%, #2a040a 100%)',
       eyebrow: '★ ★ ★ ISSUE #032 ★ ★ ★',
-      glyph: <>POW!<br/><em style={{color:'#ffe27a',fontSize:18}}>(it's your birthday)</em></>,
+      glyph: (
+        <>
+          POW!
+          <br />
+          <em style={{ color: '#ffe27a', fontSize: 18 }}>(it's your birthday)</em>
+        </>
+      ),
       foot: '— A halftone hero —',
     },
   },
@@ -301,7 +407,13 @@ const TEMPLATES: Template[] = [
     art: {
       bg: 'radial-gradient(40% 60% at 50% 70%, #c89665 0%, #6f3a18 60%, #1c0d05 100%)',
       eyebrow: 'A NOVEL · FIRST EDITION',
-      glyph: <>Together,<br/><em style={{color:'#fbd9b0'}}>by us.</em></>,
+      glyph: (
+        <>
+          Together,
+          <br />
+          <em style={{ color: '#fbd9b0' }}>by us.</em>
+        </>
+      ),
       foot: '— Chapter one of many —',
     },
   },
@@ -315,7 +427,13 @@ const TEMPLATES: Template[] = [
     art: {
       bg: 'radial-gradient(70% 70% at 50% 50%, #f4c4a8 0%, #c87a92 55%, #5e2440 100%)',
       eyebrow: 'A CARD THAT SAYS IT',
-      glyph: <>You're allowed<br/><em style={{color:'#fff0c8'}}>to feel it all.</em></>,
+      glyph: (
+        <>
+          You're allowed
+          <br />
+          <em style={{ color: '#fff0c8' }}>to feel it all.</em>
+        </>
+      ),
       foot: '— A quiet word, well-meant —',
     },
   },
@@ -329,7 +447,13 @@ const TEMPLATES: Template[] = [
     art: {
       bg: 'radial-gradient(50% 70% at 50% 30%, #2f2b1d 0%, #14110a 70%, #060503 100%)',
       eyebrow: 'CASE 24-CV-1102',
-      glyph: <>The People<br/><em style={{color:'#e0c478'}}>v. Cameron.</em></>,
+      glyph: (
+        <>
+          The People
+          <br />
+          <em style={{ color: '#e0c478' }}>v. Cameron.</em>
+        </>
+      ),
       foot: '— Verdict: loved —',
     },
   },
@@ -344,7 +468,13 @@ const TEMPLATES: Template[] = [
     art: {
       bg: 'radial-gradient(70% 50% at 50% 30%, #2a200e 0%, #161008 60%, #050402 100%)',
       eyebrow: '— EST. TODAY —',
-      glyph: <em style={{color:'#f4d870', fontStyle:'italic'}}>Ten&nbsp;years,<br/>and counting.</em>,
+      glyph: (
+        <em style={{ color: '#f4d870', fontStyle: 'italic' }}>
+          Ten&nbsp;years,
+          <br />
+          and counting.
+        </em>
+      ),
       foot: '— Anniv. Edition —',
     },
   },
@@ -357,7 +487,13 @@ const TEMPLATES: Template[] = [
     art: {
       bg: 'radial-gradient(70% 70% at 50% 50%, #e7c7a8 0%, #b08470 55%, #4d2820 100%)',
       eyebrow: 'IN BLOOM',
-      glyph: <em style={{color:'#fff0d0'}}>Today,<br/>and always.</em>,
+      glyph: (
+        <em style={{ color: '#fff0d0' }}>
+          Today,
+          <br />
+          and always.
+        </em>
+      ),
       foot: '— A botanical print —',
     },
   },
@@ -370,7 +506,13 @@ const TEMPLATES: Template[] = [
     art: {
       bg: 'radial-gradient(60% 70% at 50% 50%, #f0e8d8 0%, #c8b89a 55%, #6e5e44 100%)',
       eyebrow: '·  TYPESET  ·',
-      glyph: <span style={{color:'#1e1a10'}}>Thank,<br/><em>you.</em></span>,
+      glyph: (
+        <span style={{ color: '#1e1a10' }}>
+          Thank,
+          <br />
+          <em>you.</em>
+        </span>
+      ),
       foot: '— Letterpress —',
     },
   },
@@ -383,7 +525,13 @@ const TEMPLATES: Template[] = [
     art: {
       bg: 'radial-gradient(60% 70% at 50% 30%, #1f4538 0%, #0b1a16 60%, #030504 100%)',
       eyebrow: '— SEASONS GREET —',
-      glyph: <em style={{color:'#f4d870'}}>Warm hands,<br/>warm hearts.</em>,
+      glyph: (
+        <em style={{ color: '#f4d870' }}>
+          Warm hands,
+          <br />
+          warm hearts.
+        </em>
+      ),
       foot: '— Holiday edition —',
     },
   },
@@ -396,7 +544,13 @@ const TEMPLATES: Template[] = [
     art: {
       bg: 'radial-gradient(80% 80% at 50% 30%, #fff0e0 0%, #f0c8b0 50%, #c08a9a 100%)',
       eyebrow: 'WELCOME, LITTLE ONE',
-      glyph: <em style={{color:'#5a2840'}}>Hello,<br/>brand new.</em>,
+      glyph: (
+        <em style={{ color: '#5a2840' }}>
+          Hello,
+          <br />
+          brand new.
+        </em>
+      ),
       foot: '— 7 lb 4 oz · Mar 04 —',
     },
   },
@@ -409,7 +563,13 @@ const TEMPLATES: Template[] = [
     art: {
       bg: 'radial-gradient(60% 70% at 50% 40%, #2c2618 0%, #14110a 70%, #050402 100%)',
       eyebrow: 'CLASS OF — — — —',
-      glyph: <em style={{color:'#f4d870'}}>And so it<br/>begins.</em>,
+      glyph: (
+        <em style={{ color: '#f4d870' }}>
+          And so it
+          <br />
+          begins.
+        </em>
+      ),
       foot: '— Graduation Plate —',
     },
   },
@@ -424,7 +584,13 @@ const TEMPLATES: Template[] = [
     art: {
       bg: 'radial-gradient(60% 70% at 50% 30%, #1f4a32 0%, #0a1f15 60%, #040805 100%)',
       eyebrow: '— MERRY & BRIGHT —',
-      glyph: <>Joy,<br/><em style={{color:'#f4d870'}}>multiplied.</em></>,
+      glyph: (
+        <>
+          Joy,
+          <br />
+          <em style={{ color: '#f4d870' }}>multiplied.</em>
+        </>
+      ),
       foot: '— Dec 25 —',
     },
   },
@@ -437,33 +603,51 @@ const TEMPLATES: Template[] = [
     art: {
       bg: 'radial-gradient(55% 65% at 50% 40%, #c0304e 0%, #6a0f24 60%, #240409 100%)',
       eyebrow: 'SEALED WITH A —',
-      glyph: <>Still you,<br/><em style={{color:'#ffd0d8'}}>still us.</em></>,
+      glyph: (
+        <>
+          Still you,
+          <br />
+          <em style={{ color: '#ffd0d8' }}>still us.</em>
+        </>
+      ),
       foot: '— Feb 14 —',
     },
   },
   {
     id: 'mothers-day',
-    name: "For Mom",
+    name: 'For Mom',
     tag: "Mother's Day",
     sub: 'Soft floral wash, hand-lettered thanks — warm without the cliché.',
     occasion: "Mother's Day",
     art: {
       bg: 'radial-gradient(70% 70% at 50% 40%, #f6cdb6 0%, #d98aa0 55%, #6e2e48 100%)',
       eyebrow: 'FOR HER',
-      glyph: <em style={{color:'#fff2e0'}}>Thank you,<br/>Mom.</em>,
+      glyph: (
+        <em style={{ color: '#fff2e0' }}>
+          Thank you,
+          <br />
+          Mom.
+        </em>
+      ),
       foot: '— With love —',
     },
   },
   {
     id: 'fathers-day',
-    name: "For Dad",
+    name: 'For Dad',
     tag: "Father's Day",
     sub: 'Slate and amber, understated serif — the card he\u2019d actually keep.',
     occasion: "Father's Day",
     art: {
       bg: 'radial-gradient(60% 70% at 50% 35%, #2a3340 0%, #131922 65%, #050709 100%)',
       eyebrow: 'FOR HIM',
-      glyph: <>Thanks,<br/><em style={{color:'#e0b46a'}}>Dad.</em></>,
+      glyph: (
+        <>
+          Thanks,
+          <br />
+          <em style={{ color: '#e0b46a' }}>Dad.</em>
+        </>
+      ),
       foot: '— The original —',
     },
   },
@@ -476,7 +660,13 @@ const TEMPLATES: Template[] = [
     art: {
       bg: 'radial-gradient(60% 60% at 50% 35%, #d9b85a 0%, #8a6516 60%, #2a1d05 100%)',
       eyebrow: '· WELL DONE ·',
-      glyph: <span style={{color:'#2a1d05'}}>You did<br/><em>the thing.</em></span>,
+      glyph: (
+        <span style={{ color: '#2a1d05' }}>
+          You did
+          <br />
+          <em>the thing.</em>
+        </span>
+      ),
       foot: '— Raise a glass —',
     },
   },
@@ -492,7 +682,13 @@ const TEMPLATES: Template[] = [
     art: {
       bg: 'radial-gradient(60% 70% at 50% 35%, #3a2c1c 0%, #1a130b 65%, #070504 100%)',
       eyebrow: 'REEL 01 · PLAY',
-      glyph: <>Moments,<br/><em style={{color:'#e6c07a'}}>in motion.</em></>,
+      glyph: (
+        <>
+          Moments,
+          <br />
+          <em style={{ color: '#e6c07a' }}>in motion.</em>
+        </>
+      ),
       foot: '— A living memory —',
     },
   },
@@ -505,7 +701,13 @@ const TEMPLATES: Template[] = [
     art: {
       bg: 'radial-gradient(50% 60% at 50% 60%, #b08a55 0%, #5e3a18 60%, #1a0d05 100%)',
       eyebrow: 'CHAPTER XII',
-      glyph: <>The story<br/><em style={{color:'#fbdcb0'}}>continues.</em></>,
+      glyph: (
+        <>
+          The story
+          <br />
+          <em style={{ color: '#fbdcb0' }}>continues.</em>
+        </>
+      ),
       foot: '— Turn the page —',
     },
   },
@@ -518,7 +720,13 @@ const TEMPLATES: Template[] = [
     art: {
       bg: 'radial-gradient(60% 70% at 50% 40%, #1e3a3a 0%, #0c1a1a 65%, #040808 100%)',
       eyebrow: 'SEALED · OPEN 2046',
-      glyph: <>For the<br/><em style={{color:'#8fe0d0'}}>future you.</em></>,
+      glyph: (
+        <>
+          For the
+          <br />
+          <em style={{ color: '#8fe0d0' }}>future you.</em>
+        </>
+      ),
       foot: '— Do not open early —',
     },
   },
@@ -533,7 +741,13 @@ const TEMPLATES: Template[] = [
     art: {
       bg: 'radial-gradient(55% 60% at 50% 30%, #e0c25e 0%, #8a6516 60%, #2a1d05 100%)',
       eyebrow: '· MILESTONE ·',
-      glyph: <span style={{color:'#2a1d05'}}>Another<br/><em>marker passed.</em></span>,
+      glyph: (
+        <span style={{ color: '#2a1d05' }}>
+          Another
+          <br />
+          <em>marker passed.</em>
+        </span>
+      ),
       foot: '— Onward —',
     },
   },
@@ -546,7 +760,13 @@ const TEMPLATES: Template[] = [
     art: {
       bg: 'radial-gradient(60% 70% at 50% 40%, #1f4a32 0%, #0a1f15 65%, #040805 100%)',
       eyebrow: 'GOAL · 100%',
-      glyph: <>You<br/><em style={{color:'#8ce0a0'}}>got there.</em></>,
+      glyph: (
+        <>
+          You
+          <br />
+          <em style={{ color: '#8ce0a0' }}>got there.</em>
+        </>
+      ),
       foot: '— Bar filled —',
     },
   },
@@ -561,7 +781,13 @@ const TEMPLATES: Template[] = [
     art: {
       bg: 'radial-gradient(55% 65% at 50% 40%, #c8506a 0%, #6a1024 60%, #240409 100%)',
       eyebrow: 'THE TWO OF US',
-      glyph: <>You<br/><em style={{color:'#ffd0d8'}}>&amp; me.</em></>,
+      glyph: (
+        <>
+          You
+          <br />
+          <em style={{ color: '#ffd0d8' }}>&amp; me.</em>
+        </>
+      ),
       foot: '— A matched set —',
     },
   },
@@ -576,7 +802,13 @@ const TEMPLATES: Template[] = [
     art: {
       bg: 'radial-gradient(55% 65% at 50% 35%, #3a2208 0%, #160c02 65%, #050301 100%)',
       eyebrow: '— ALL HALLOWS —',
-      glyph: <>Spooky,<br/><em style={{color:'#f0902a'}}>sincerely.</em></>,
+      glyph: (
+        <>
+          Spooky,
+          <br />
+          <em style={{ color: '#f0902a' }}>sincerely.</em>
+        </>
+      ),
       foot: '— After dark —',
     },
   },
@@ -591,7 +823,13 @@ const TEMPLATES: Template[] = [
     art: {
       bg: 'radial-gradient(70% 70% at 50% 35%, #cdb6f0 0%, #7a5ec0 55%, #2e1e5e 100%)',
       eyebrow: 'ONCE UPON A TIME',
-      glyph: <>Happily<br/><em style={{color:'#fff0c8'}}>ever after.</em></>,
+      glyph: (
+        <>
+          Happily
+          <br />
+          <em style={{ color: '#fff0c8' }}>ever after.</em>
+        </>
+      ),
       foot: '— A tale for you —',
     },
   },
@@ -604,7 +842,13 @@ const TEMPLATES: Template[] = [
     art: {
       bg: 'radial-gradient(60% 70% at 50% 40%, #b53040 0%, #6a1018 60%, #2a060a 100%)',
       eyebrow: 'CAN YOU FIND THEM?',
-      glyph: <>Look<br/><em style={{color:'#ffe27a'}}>closely…</em></>,
+      glyph: (
+        <>
+          Look
+          <br />
+          <em style={{ color: '#ffe27a' }}>closely…</em>
+        </>
+      ),
       foot: '— Hidden in plain sight —',
     },
   },
@@ -619,7 +863,13 @@ const TEMPLATES: Template[] = [
     art: {
       bg: 'radial-gradient(60% 70% at 50% 45%, #f0e6d2 0%, #c8b496 55%, #6e5a40 100%)',
       eyebrow: 'FROM THE KITCHEN',
-      glyph: <span style={{color:'#3a2c18'}}>Made<br/><em>with love.</em></span>,
+      glyph: (
+        <span style={{ color: '#3a2c18' }}>
+          Made
+          <br />
+          <em>with love.</em>
+        </span>
+      ),
       foot: '— Serves: everyone —',
     },
   },
@@ -634,7 +884,13 @@ const TEMPLATES: Template[] = [
     art: {
       bg: 'radial-gradient(60% 70% at 50% 40%, #2a2620 0%, #131009 70%, #050402 100%)',
       eyebrow: 'THE DAILY · OP-ED',
-      glyph: <>Drawn,<br/><em style={{color:'#e0c478'}}>with love.</em></>,
+      glyph: (
+        <>
+          Drawn,
+          <br />
+          <em style={{ color: '#e0c478' }}>with love.</em>
+        </>
+      ),
       foot: '— Editorial page —',
     },
   },
@@ -647,7 +903,13 @@ const TEMPLATES: Template[] = [
     art: {
       bg: 'radial-gradient(55% 70% at 50% 30%, #2a1a48 0%, #110628 70%, #050208 100%)',
       eyebrow: '✦ YOUR FORTUNE ✦',
-      glyph: <>Good things,<br/><em style={{color:'#d8b8ff'}}>incoming.</em></>,
+      glyph: (
+        <>
+          Good things,
+          <br />
+          <em style={{ color: '#d8b8ff' }}>incoming.</em>
+        </>
+      ),
       foot: '— Shuffle &amp; cut —',
     },
   },
@@ -660,7 +922,13 @@ const TEMPLATES: Template[] = [
     art: {
       bg: 'radial-gradient(60% 70% at 50% 40%, #28384e 0%, #121c28 65%, #050709 100%)',
       eyebrow: 'UNTIL NEXT TIME',
-      glyph: <>I'll be<br/><em style={{color:'#a8c8e8'}}>missing you.</em></>,
+      glyph: (
+        <>
+          I'll be
+          <br />
+          <em style={{ color: '#a8c8e8' }}>missing you.</em>
+        </>
+      ),
       foot: '— Miles, not hearts —',
     },
   },
@@ -673,7 +941,13 @@ const TEMPLATES: Template[] = [
     art: {
       bg: 'radial-gradient(60% 60% at 50% 35%, #2a220e 0%, #161008 65%, #050402 100%)',
       eyebrow: "YOU'RE INVITED",
-      glyph: <em style={{color:'#f4d870', fontStyle:'italic'}}>Save<br/>the date.</em>,
+      glyph: (
+        <em style={{ color: '#f4d870', fontStyle: 'italic' }}>
+          Save
+          <br />
+          the date.
+        </em>
+      ),
       foot: '— RSVP inside —',
     },
   },
@@ -686,7 +960,13 @@ const TEMPLATES: Template[] = [
     art: {
       bg: 'radial-gradient(55% 65% at 50% 40%, #2a2418 0%, #14110a 70%, #050402 100%)',
       eyebrow: '♫ TRACK 01 ♫',
-      glyph: <>Our<br/><em style={{color:'#e0c478'}}>song.</em></>,
+      glyph: (
+        <>
+          Our
+          <br />
+          <em style={{ color: '#e0c478' }}>song.</em>
+        </>
+      ),
       foot: '— Side A —',
     },
   },
@@ -699,7 +979,13 @@ const TEMPLATES: Template[] = [
     art: {
       bg: 'radial-gradient(60% 70% at 50% 40%, #1f4035 0%, #0b1a16 65%, #040705 100%)',
       eyebrow: 'A GIFT, ANONYMOUS',
-      glyph: <>Given<br/><em style={{color:'#8ce0b0'}}>in your name.</em></>,
+      glyph: (
+        <>
+          Given
+          <br />
+          <em style={{ color: '#8ce0b0' }}>in your name.</em>
+        </>
+      ),
       foot: '— No name attached —',
     },
   },
@@ -712,7 +998,13 @@ const TEMPLATES: Template[] = [
     art: {
       bg: 'radial-gradient(60% 70% at 50% 45%, #efe6d4 0%, #c4b290 55%, #6a5840 100%)',
       eyebrow: '— VERSE FOR YOU —',
-      glyph: <span style={{color:'#3a2c18'}}>A few<br/><em>chosen words.</em></span>,
+      glyph: (
+        <span style={{ color: '#3a2c18' }}>
+          A few
+          <br />
+          <em>chosen words.</em>
+        </span>
+      ),
       foot: '— Composed today —',
     },
   },
@@ -725,7 +1017,13 @@ const TEMPLATES: Template[] = [
     art: {
       bg: 'radial-gradient(60% 65% at 50% 40%, #3a2030 0%, #1a0e16 65%, #060305 100%)',
       eyebrow: 'POSTAGE · PAID',
-      glyph: <>First<br/><em style={{color:'#f0b8c8'}}>class.</em></>,
+      glyph: (
+        <>
+          First
+          <br />
+          <em style={{ color: '#f0b8c8' }}>class.</em>
+        </>
+      ),
       foot: '— Perforated edge —',
     },
   },
@@ -738,7 +1036,13 @@ const TEMPLATES: Template[] = [
     art: {
       bg: 'radial-gradient(60% 65% at 50% 35%, #25303f 0%, #121922 65%, #050709 100%)',
       eyebrow: 'MEMBER SINCE TODAY',
-      glyph: <>The gift<br/><em style={{color:'#e0b46a'}}>that returns.</em></>,
+      glyph: (
+        <>
+          The gift
+          <br />
+          <em style={{ color: '#e0b46a' }}>that returns.</em>
+        </>
+      ),
       foot: '— Renews monthly —',
     },
   },
@@ -751,47 +1055,72 @@ const TEMPLATES: Template[] = [
     art: {
       bg: 'radial-gradient(60% 70% at 50% 40%, #14141a 0%, #0a0a0e 70%, #050507 100%)',
       eyebrow: '— ONE CONTINUOUS LINE —',
-      glyph: <>Just the<br/><em style={{color:'#e8eaee'}}>essential you.</em></>,
+      glyph: (
+        <>
+          Just the
+          <br />
+          <em style={{ color: '#e8eaee' }}>essential you.</em>
+        </>
+      ),
       foot: '— Line art portrait —',
     },
   },
 ];
 
-const FEATURED_IDS = ['on-this-day','horoscope','comic-card','book-cover','mental-health','courtroom','couples-cards','fortune-cards','fairy-tale-kids','outline'];
+const FEATURED_IDS = [
+  'on-this-day',
+  'horoscope',
+  'comic-card',
+  'book-cover',
+  'mental-health',
+  'courtroom',
+  'couples-cards',
+  'fortune-cards',
+  'fairy-tale-kids',
+  'outline',
+];
 
 const OCCASIONS: OccasionOption[] = [
-  { id: 'all',            label: 'All',             count: TEMPLATES.length },
-  { id: 'Birthday',       label: 'Birthday',        count: TEMPLATES.filter(t => t.occasion === 'Birthday').length },
-  { id: 'Christmas',      label: 'Christmas',       count: TEMPLATES.filter(t => t.occasion === 'Christmas').length },
-  { id: "Valentine's Day",label: "Valentine's Day", count: TEMPLATES.filter(t => t.occasion === "Valentine's Day").length },
-  { id: "Mother's Day",   label: "Mother's Day",    count: TEMPLATES.filter(t => t.occasion === "Mother's Day").length },
-  { id: 'Anniversary',    label: 'Anniversary',     count: TEMPLATES.filter(t => t.occasion === 'Anniversary').length },
-  { id: 'Wedding',        label: 'Wedding',         count: TEMPLATES.filter(t => t.occasion === 'Wedding').length },
-  { id: "Father's Day",   label: "Father's Day",    count: TEMPLATES.filter(t => t.occasion === "Father's Day").length },
-  { id: 'Thank You',      label: 'Thank You',       count: TEMPLATES.filter(t => t.occasion === 'Thank You').length },
-  { id: 'Graduation',     label: 'Graduation',      count: TEMPLATES.filter(t => t.occasion === 'Graduation').length },
-  { id: 'New Baby',       label: 'New Baby',        count: TEMPLATES.filter(t => t.occasion === 'New Baby').length },
-  { id: 'Congratulations',label: 'Congratulations', count: TEMPLATES.filter(t => t.occasion === 'Congratulations').length },
-  { id: 'Holiday',        label: 'Holiday',         count: TEMPLATES.filter(t => t.occasion === 'Holiday').length },
-  { id: 'Get Well',       label: 'Get Well',        count: TEMPLATES.filter(t => t.occasion === 'Get Well').length },
-  { id: 'Just Because',   label: 'Just Because',    count: TEMPLATES.filter(t => t.occasion === 'Just Because').length },
+  { id: 'all', label: 'All', count: TEMPLATES.length },
+  { id: 'Birthday', label: 'Birthday', count: TEMPLATES.filter((t) => t.occasion === 'Birthday').length },
+  { id: 'Christmas', label: 'Christmas', count: TEMPLATES.filter((t) => t.occasion === 'Christmas').length },
+  {
+    id: "Valentine's Day",
+    label: "Valentine's Day",
+    count: TEMPLATES.filter((t) => t.occasion === "Valentine's Day").length,
+  },
+  { id: "Mother's Day", label: "Mother's Day", count: TEMPLATES.filter((t) => t.occasion === "Mother's Day").length },
+  { id: 'Anniversary', label: 'Anniversary', count: TEMPLATES.filter((t) => t.occasion === 'Anniversary').length },
+  { id: 'Wedding', label: 'Wedding', count: TEMPLATES.filter((t) => t.occasion === 'Wedding').length },
+  { id: "Father's Day", label: "Father's Day", count: TEMPLATES.filter((t) => t.occasion === "Father's Day").length },
+  { id: 'Thank You', label: 'Thank You', count: TEMPLATES.filter((t) => t.occasion === 'Thank You').length },
+  { id: 'Graduation', label: 'Graduation', count: TEMPLATES.filter((t) => t.occasion === 'Graduation').length },
+  { id: 'New Baby', label: 'New Baby', count: TEMPLATES.filter((t) => t.occasion === 'New Baby').length },
+  {
+    id: 'Congratulations',
+    label: 'Congratulations',
+    count: TEMPLATES.filter((t) => t.occasion === 'Congratulations').length,
+  },
+  { id: 'Holiday', label: 'Holiday', count: TEMPLATES.filter((t) => t.occasion === 'Holiday').length },
+  { id: 'Get Well', label: 'Get Well', count: TEMPLATES.filter((t) => t.occasion === 'Get Well').length },
+  { id: 'Just Because', label: 'Just Because', count: TEMPLATES.filter((t) => t.occasion === 'Just Because').length },
 ];
 
 const OCCASION_TAGLINES: Record<string, string> = {
-  'Birthday':        'For another trip around the sun',
-  'Christmas':       'Merry, bright, and personally yours',
+  Birthday: 'For another trip around the sun',
+  Christmas: 'Merry, bright, and personally yours',
   "Valentine's Day": 'For the one you keep choosing',
-  "Mother's Day":    'For the woman who did it all',
-  'Anniversary':     'Years worth marking',
-  'Wedding':         'For the ones saying "I do"',
-  "Father's Day":    'For the original role model',
-  'Thank You':       'Gratitude, made tangible',
-  'Graduation':      'And so it begins',
-  'New Baby':        'Hello, brand new',
-  'Congratulations': 'For every win worth marking',
-  'Holiday':         'Seasons worth celebrating',
-  'Get Well':        'A little warmth, sent over',
-  'Just Because':    'No occasion required',
+  "Mother's Day": 'For the woman who did it all',
+  Anniversary: 'Years worth marking',
+  Wedding: 'For the ones saying "I do"',
+  "Father's Day": 'For the original role model',
+  'Thank You': 'Gratitude, made tangible',
+  Graduation: 'And so it begins',
+  'New Baby': 'Hello, brand new',
+  Congratulations: 'For every win worth marking',
+  Holiday: 'Seasons worth celebrating',
+  'Get Well': 'A little warmth, sent over',
+  'Just Because': 'No occasion required',
 };
 
 // Pad each occasion section up to at least 4 cards with style variants.
@@ -800,7 +1129,13 @@ function padOccasion(items: Template[], occId: string): Template[] {
   const out = items.slice();
   let i = 0;
   while (out.length < 6) {
-    out.push({ id: `${occId}-pad-${i}`, name: PAD_STYLES[i % PAD_STYLES.length], occasion: occId, _pad: true, art: { bg: 'linear-gradient(160deg, #34343d 0%, #2a2a31 60%, #232329 100%)' } });
+    out.push({
+      id: `${occId}-pad-${i}`,
+      name: PAD_STYLES[i % PAD_STYLES.length],
+      occasion: occId,
+      _pad: true,
+      art: { bg: 'linear-gradient(160deg, #34343d 0%, #2a2a31 60%, #232329 100%)' },
+    });
     i++;
   }
   return out;
@@ -859,15 +1194,25 @@ function PtSectionRail({ items, onPersonalize }: PtSectionRailProps) {
   const scrollable = items.length > 4;
   return (
     <div className={`pt-rail ${scrollable ? 'is-scrollable' : ''}`}>
-      <button type="button" className="pt-rail-arrow pt-rail-arrow--l" aria-label="Scroll left" onClick={(e) => scroll(e, -1)}>
+      <button
+        type="button"
+        className="pt-rail-arrow pt-rail-arrow--l"
+        aria-label="Scroll left"
+        onClick={(e) => scroll(e, -1)}
+      >
         <PtIcon name="chevL" w={16} />
       </button>
       <div className="pt-grid pt-grid--rail" ref={railRef}>
-        {items.map(t => (
+        {items.map((t) => (
           <PtTemplateCard key={t.id} tmpl={t} onPersonalize={onPersonalize} />
         ))}
       </div>
-      <button type="button" className="pt-rail-arrow pt-rail-arrow--r" aria-label="Scroll right" onClick={(e) => scroll(e, 1)}>
+      <button
+        type="button"
+        className="pt-rail-arrow pt-rail-arrow--r"
+        aria-label="Scroll right"
+        onClick={(e) => scroll(e, 1)}
+      >
         <PtIcon name="chevR" w={16} />
       </button>
     </div>
@@ -890,8 +1235,13 @@ function PtOccasions({ occasion, setOccasion }: PtOccasionsProps) {
         <PtIcon name="chevL" w={16} />
       </button>
       <div className="pt-occasions" ref={railRef}>
-        {OCCASIONS.map(o => (
-          <button key={o.id} type="button" className={`pt-occasion ${o.id === occasion ? 'is-active' : ''}`} onClick={() => setOccasion(o.id)}>
+        {OCCASIONS.map((o) => (
+          <button
+            key={o.id}
+            type="button"
+            className={`pt-occasion ${o.id === occasion ? 'is-active' : ''}`}
+            onClick={() => setOccasion(o.id)}
+          >
             {o.label}
             <span className="pt-occasion-count">{o.count}</span>
           </button>
@@ -910,12 +1260,12 @@ function PtOccasions({ occasion, setOccasion }: PtOccasionsProps) {
 function PtMarketplace({ onPersonalize }: PtMarketplaceProps) {
   const [occasion, setOccasion] = React.useState('all');
   const [search, setSearch] = React.useState('');
-  const filtered = TEMPLATES.filter(t => {
+  const filtered = TEMPLATES.filter((t) => {
     if (occasion !== 'all' && t.occasion !== occasion) return false;
     if (search && !`${t.name} ${t.tag} ${t.sub}`.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });
-  const featured = TEMPLATES.filter(t => FEATURED_IDS.includes(t.id));
+  const featured = TEMPLATES.filter((t) => FEATURED_IDS.includes(t.id));
 
   return (
     <div className="pt-shell">
@@ -925,12 +1275,11 @@ function PtMarketplace({ onPersonalize }: PtMarketplaceProps) {
             <span>Templates Marketplace</span>
           </div>
           <h1 className="pt-title">
-            Personalize a{' '}
-            <span className="souv-hero-italic text-metallic-rose-gold">template</span>
+            Personalize a <span className="souv-hero-italic text-metallic-rose-gold">template</span>
           </h1>
           <p className="pt-lede">
-            Our designs, your personal touch. Choose a template, swap the photos and text,
-            and we'll generate the perfect card instantly.
+            Our designs, your personal touch. Choose a template, swap the photos and text, and we'll generate the
+            perfect card instantly.
           </p>
         </div>
 
@@ -951,7 +1300,9 @@ function PtMarketplace({ onPersonalize }: PtMarketplaceProps) {
       <div className="pt-controls">
         <div className="pt-search-row">
           <div className="pt-search">
-            <span className="pt-search-icon"><PtIcon name="search" w={18} /></span>
+            <span className="pt-search-icon">
+              <PtIcon name="search" w={18} />
+            </span>
             <input
               className="pt-search-input"
               placeholder="Search cards…"
@@ -966,7 +1317,9 @@ function PtMarketplace({ onPersonalize }: PtMarketplaceProps) {
       {occasion === 'all' && !search && (
         <div className="pt-featured">
           <div className="pt-toppicks-head">
-            <h2 className="pt-toppicks" data-text="Our Top Picks">Our Top Picks</h2>
+            <h2 className="pt-toppicks" data-text="Our Top Picks">
+              Our Top Picks
+            </h2>
           </div>
           <PtSectionRail items={featured} onPersonalize={onPersonalize} />
         </div>
@@ -974,8 +1327,8 @@ function PtMarketplace({ onPersonalize }: PtMarketplaceProps) {
 
       {occasion === 'all' && !search ? (
         <div className="pt-occ-sections">
-          {OCCASIONS.filter(o => o.id !== 'all').map(o => {
-            const real = TEMPLATES.filter(t => t.occasion === o.id);
+          {OCCASIONS.filter((o) => o.id !== 'all').map((o) => {
+            const real = TEMPLATES.filter((t) => t.occasion === o.id);
             if (!real.length) return null;
             const items = padOccasion(real, o.id);
             return (
@@ -1002,7 +1355,9 @@ function PtMarketplace({ onPersonalize }: PtMarketplaceProps) {
             <div>
               <div className="pt-section-title-num">{occasion === 'all' ? 'Search results' : occasion}</div>
               <div className="pt-section-title">
-                <span>{filtered.length} template{filtered.length === 1 ? '' : 's'}</span>
+                <span>
+                  {filtered.length} template{filtered.length === 1 ? '' : 's'}
+                </span>
               </div>
             </div>
             {occasion !== 'all' && (
@@ -1012,7 +1367,7 @@ function PtMarketplace({ onPersonalize }: PtMarketplaceProps) {
             )}
           </div>
           <div className="pt-grid">
-            {(occasion !== 'all' ? padOccasion(filtered, occasion) : filtered).map(t => (
+            {(occasion !== 'all' ? padOccasion(filtered, occasion) : filtered).map((t) => (
               <PtTemplateCard key={t.id} tmpl={t} onPersonalize={onPersonalize} />
             ))}
           </div>
@@ -1026,9 +1381,9 @@ function PtMarketplace({ onPersonalize }: PtMarketplaceProps) {
 // PERSONALIZATION MODAL
 // ============================================================
 const MODAL_STEPS: ModalStep[] = [
-  { id: 'photo',     label: 'Photo · Upload' },
-  { id: 'birthday',  label: 'Birthday · Optional' },
-  { id: 'caption',   label: 'Caption & Message' },
+  { id: 'photo', label: 'Photo · Upload' },
+  { id: 'birthday', label: 'Birthday · Optional' },
+  { id: 'caption', label: 'Caption & Message' },
 ];
 
 function PtPersonalizeModal({
@@ -1043,20 +1398,20 @@ function PtPersonalizeModal({
   onAuthRequired,
 }: PtPersonalizeModalProps) {
   const initialBrief = asRecord(initialDraftInput?.creativeBrief);
-  const initialPhoto = nestedRecord(initialBrief, "photo");
+  const initialPhoto = nestedRecord(initialBrief, 'photo');
   const [step, setStep] = React.useState<ModalStepId>(initialStep);
   const initialReferenceImageNames = stringArrayValue(initialPhoto.referenceImageNames);
   const initialReferenceImages = referenceImageValue(initialPhoto.referenceImages);
   const [photoPreviews, setPhotoPreviews] = React.useState<PhotoPreview[]>(
-    textValue(initialPhoto.mode) === "upload"
+    textValue(initialPhoto.mode) === 'upload'
       ? initialReferenceImages.length
         ? initialReferenceImages
-        : initialReferenceImageNames.map((name) => ({ name, url: "/assets/LogoMark.png" }))
+        : initialReferenceImageNames.map((name) => ({ name, url: '/assets/LogoMark.png' }))
       : [],
   );
   const [attested, setAttested] = React.useState(booleanValue(initialPhoto.attested));
   const [gateOpen, setGateOpen] = React.useState(false);
-  const [describe, setDescribe] = React.useState(textValue(initialPhoto.mode) === "description");
+  const [describe, setDescribe] = React.useState(textValue(initialPhoto.mode) === 'description');
   const [describeText, setDescribeText] = React.useState(textValue(initialPhoto.description));
   const [captionText, setCaptionText] = React.useState(textValue(initialBrief.caption) || 'To the moon and back');
   const [captionAttempts, setCaptionAttempts] = React.useState(1);
@@ -1068,7 +1423,7 @@ function PtPersonalizeModal({
   const [birthday, setBirthday] = React.useState(textValue(initialBrief.birthday));
   const [recipient, setRecipient] = React.useState(textValue(initialBrief.recipient));
   const [phonetic, setPhonetic] = React.useState(textValue(initialBrief.phonetic));
-  const idx = MODAL_STEPS.findIndex(s => s.id === step);
+  const idx = MODAL_STEPS.findIndex((s) => s.id === step);
   const last = idx === MODAL_STEPS.length - 1;
   const generationCost = includeSong ? CARD_WITH_QR_SONG_CREDITS : MIN_GENERATION_CREDITS;
   const hasPhoto = photoPreviews.length > 0;
@@ -1087,23 +1442,36 @@ function PtPersonalizeModal({
   const needsAttest = step === 'photo' && hasPhoto && !attested;
   const needsDescribe = step === 'photo' && describe && !describeText.trim();
   const goNext = () => {
-    if (needsDescribe) { setDescribeError(true); return; }
-    if (needsAttest) { setGateOpen(true); return; }
-    if (requireAuthToContinue && step === 'photo') { onAuthRequired?.(); return; }
+    if (needsDescribe) {
+      setDescribeError(true);
+      return;
+    }
+    if (needsAttest) {
+      setGateOpen(true);
+      return;
+    }
+    if (requireAuthToContinue && step === 'photo') {
+      onAuthRequired?.();
+      return;
+    }
     if (idx < MODAL_STEPS.length - 1) setStep(MODAL_STEPS[idx + 1].id);
   };
-  const goBack = () => { if (idx > 0) setStep(MODAL_STEPS[idx - 1].id); };
+  const goBack = () => {
+    if (idx > 0) setStep(MODAL_STEPS[idx - 1].id);
+  };
   const addPersonalizeFiles = (list: FileList | File[] | null) => {
     const file = Array.from(list || []).find((incoming) => incoming.type.startsWith('image/'));
     if (!file) return;
     setPhotoPreviews((current) => {
       current.forEach((photo) => URL.revokeObjectURL(photo.url));
-      return [{
-        url: URL.createObjectURL(file),
-        name: file.name,
-        mimeType: file.type,
-        size: file.size,
-      }];
+      return [
+        {
+          url: URL.createObjectURL(file),
+          name: file.name,
+          mimeType: file.type,
+          size: file.size,
+        },
+      ];
     });
     setDescribe(false);
     setAttested(false);
@@ -1117,27 +1485,27 @@ function PtPersonalizeModal({
   };
 
   const SUGGESTED_MESSAGES = [
-    "Mom — for every quiet morning that turned out to mean everything, thank you. I love you to the moon and back. — Cameron",
-    "To the one who taught me what warmth looks like: happy birthday, Mom. Every good thing I know, I learned from you.",
-    "Another year, and still my favorite person. Thank you for the love that never once ran out. Love always, Cameron.",
+    'Mom — for every quiet morning that turned out to mean everything, thank you. I love you to the moon and back. — Cameron',
+    'To the one who taught me what warmth looks like: happy birthday, Mom. Every good thing I know, I learned from you.',
+    'Another year, and still my favorite person. Thank you for the love that never once ran out. Love always, Cameron.',
   ];
   const SUGGESTED_CAPTIONS = [
-    "To the moon and back",
-    "Born under a brighter sky",
-    "Your story, written in gold",
-    "Another year, another tiny miracle",
-    "Some days become forever",
+    'To the moon and back',
+    'Born under a brighter sky',
+    'Your story, written in gold',
+    'Another year, another tiny miracle',
+    'Some days become forever',
   ];
   const limitCaptionWords = (value: string) => value.trim().split(/\s+/).filter(Boolean).slice(0, 8).join(' ');
   const generateCaption = () => {
-    setCaptionAttempts(a => {
+    setCaptionAttempts((a) => {
       setCaptionText(limitCaptionWords(SUGGESTED_CAPTIONS[(a - 1) % SUGGESTED_CAPTIONS.length]));
       return Math.min(5, a + 1);
     });
   };
   const generateMessage = () => {
     setMsgError(false);
-    setMsgAttempts(a => {
+    setMsgAttempts((a) => {
       const n = Math.min(5, a + 1);
       setInsideMsg(SUGGESTED_MESSAGES[(n - 1) % SUGGESTED_MESSAGES.length]);
       return n;
@@ -1150,7 +1518,7 @@ function PtPersonalizeModal({
   const buildDraftInput = (): PersonalizeDraftInput => ({
     occasion: tmpl.occasion,
     creativeBrief: {
-      flow: "personalize_template",
+      flow: 'personalize_template',
       template: {
         id: tmpl.id,
         name: tmpl.name,
@@ -1158,7 +1526,7 @@ function PtPersonalizeModal({
         tag: tmpl.tag,
       },
       photo: {
-        mode: describe ? "description" : hasPhoto ? "upload" : "unset",
+        mode: describe ? 'description' : hasPhoto ? 'upload' : 'unset',
         description: describe ? describeText.trim() || undefined : undefined,
         referenceImageCount: photoPreviews.length,
         referenceImageNames: photoPreviews.map((photo) => photo.name),
@@ -1188,7 +1556,10 @@ function PtPersonalizeModal({
       <div className="pt-modal">
         <div className="pt-modal-head">
           <div className="pt-modal-tmpl">
-            <div className="pt-modal-tmpl-thumb" style={{ background: (tmpl.art && tmpl.art.bg) || 'linear-gradient(160deg,#34343d,#232329)' }}>
+            <div
+              className="pt-modal-tmpl-thumb"
+              style={{ background: (tmpl.art && tmpl.art.bg) || 'linear-gradient(160deg,#34343d,#232329)' }}
+            >
               <img src="/assets/LogoMark.png" alt="Souvenote" className="pt-modal-tmpl-mark" />
             </div>
             <div className="pt-modal-tmpl-meta">
@@ -1206,7 +1577,7 @@ function PtPersonalizeModal({
             <React.Fragment key={s.id}>
               {i > 0 && <span className="pt-modal-step-sep" />}
               <div className={`pt-modal-step ${i === idx ? 'is-active' : ''} ${i < idx ? 'is-done' : ''}`}>
-                <span className="pt-modal-step-dot">{i < idx ? <PtIcon name="check" w={12} /> : (i + 1)}</span>
+                <span className="pt-modal-step-dot">{i < idx ? <PtIcon name="check" w={12} /> : i + 1}</span>
                 <span>{s.label}</span>
               </div>
             </React.Fragment>
@@ -1218,11 +1589,14 @@ function PtPersonalizeModal({
             <>
               <div className="pt-modal-step-head">
                 <h2 className="pt-modal-step-title">
-                  Upload a photo,{' '}
-                  <span className="souv-hero-italic text-metallic-rose-gold">or describe it</span>
+                  Upload a photo, <span className="souv-hero-italic text-metallic-rose-gold">or describe it</span>
                 </h2>
                 <p className="pt-modal-step-sub">
-                  Add a photo and we'll reimagine the people in <em className="text-metallic-gold" style={{ fontStyle: 'italic' }}>{tmpl.name}'s</em> style. Or skip the upload and describe the card you want; we'll imagine it from your words.
+                  Add a photo and we'll reimagine the people in{' '}
+                  <em className="text-metallic-gold" style={{ fontStyle: 'italic' }}>
+                    {tmpl.name}'s
+                  </em>{' '}
+                  style. Or skip the upload and describe the card you want; we'll imagine it from your words.
                 </p>
               </div>
 
@@ -1235,7 +1609,9 @@ function PtPersonalizeModal({
                     addPersonalizeFiles(event.dataTransfer.files);
                   }}
                 >
-                  <span className="pt-upload-icon"><PtIcon name="upload" w={28} /></span>
+                  <span className="pt-upload-icon">
+                    <PtIcon name="upload" w={28} />
+                  </span>
                   <span className="pt-upload-title">{hasPhoto ? 'Photo ready' : 'Drop a photo here'}</span>
                   <span className="pt-upload-sub">Or click to browse. JPG · PNG · HEIC · WEBP</span>
                   <span className="pt-upload-rules">
@@ -1256,9 +1632,17 @@ function PtPersonalizeModal({
                 <div className={`pt-photo-or ${describe ? 'is-active' : ''}`}>
                   <span className="pt-photo-or-eyebrow">— OR —</span>
                   <span className="pt-photo-or-title">Skip upload</span>
-                  <p className="pt-photo-or-sub">Describe a memory, joke, or imaginary scene. We'll generate the card from your words alone.</p>
-                  <button type="button" className={describe ? 'pt-cta' : 'pt-cta-secondary'}
-                          onClick={() => { setDescribe(true); removePersonalizePhoto(); }}>
+                  <p className="pt-photo-or-sub">
+                    Describe a memory, joke, or imaginary scene. We'll generate the card from your words alone.
+                  </p>
+                  <button
+                    type="button"
+                    className={describe ? 'pt-cta' : 'pt-cta-secondary'}
+                    onClick={() => {
+                      setDescribe(true);
+                      removePersonalizePhoto();
+                    }}
+                  >
                     Describe My Card <PtIcon name="sparkle" w={14} />
                   </button>
                 </div>
@@ -1268,13 +1652,18 @@ function PtPersonalizeModal({
                 <div className="pt-ref-tray">
                   <div className="pt-ref-count">
                     <b>{photoPreviews.length}</b> photo selected
-                    <span className="pt-ref-cap">{"\u00b7"} preview loaded below</span>
+                    <span className="pt-ref-cap">{'\u00b7'} preview loaded below</span>
                   </div>
                   <div className="pt-ref-thumbs">
                     {photoPreviews.map((photo) => (
                       <span key={photo.url} className="pt-ref-thumb" style={{ backgroundImage: `url(${photo.url})` }}>
                         <span className="pt-ref-name">{photo.name}</span>
-                        <button type="button" className="pt-ref-x" onClick={removePersonalizePhoto} aria-label="Remove uploaded photo">
+                        <button
+                          type="button"
+                          className="pt-ref-x"
+                          onClick={removePersonalizePhoto}
+                          aria-label="Remove uploaded photo"
+                        >
                           <PtIcon name="close" w={12} />
                         </button>
                       </span>
@@ -1292,25 +1681,42 @@ function PtPersonalizeModal({
                     autoFocus
                     placeholder="Describe a memory, inside joke, or imaginary scene — the more vivid, the better. We'll build the whole card from this."
                     value={describeText}
-                    onChange={(e) => { setDescribeText(e.target.value); if (e.target.value.trim()) setDescribeError(false); }}
+                    onChange={(e) => {
+                      setDescribeText(e.target.value);
+                      if (e.target.value.trim()) setDescribeError(false);
+                    }}
                   />
                   <p className="pt-help">
-                    No photo needed — we generate the art from your description. <b style={{ color: 'var(--gold-hi)' }}>{500 - describeText.length}</b> chars left.
+                    No photo needed — we generate the art from your description.{' '}
+                    <b style={{ color: 'var(--gold-hi)' }}>{500 - describeText.length}</b> chars left.
                   </p>
                 </div>
               )}
 
               {!describe && hasPhoto && (
                 <div className={`pt-attest ${attested ? 'is-done' : ''}`}>
-                  <span className="pt-attest-icon"><PtIcon name={attested ? 'check' : 'shield'} w={18} /></span>
+                  <span className="pt-attest-icon">
+                    <PtIcon name={attested ? 'check' : 'shield'} w={18} />
+                  </span>
                   <div className="pt-attest-text">
                     {attested ? (
-                      <><b>Image rights confirmed.</b> Consent, copyright, and terms attested. You&rsquo;re clear to continue.</>
+                      <>
+                        <b>Image rights confirmed.</b> Consent, copyright, and terms attested. You&rsquo;re clear to
+                        continue.
+                      </>
                     ) : (
-                      <><b>Image rights required.</b> Read our Terms of Service and Privacy Policy in full, then confirm consent and copyright before we generate.</>
+                      <>
+                        <b>Image rights required.</b> Read our Terms of Service and Privacy Policy in full, then confirm
+                        consent and copyright before we generate.
+                      </>
                     )}
                   </div>
-                  <button type="button" className="pt-cta-secondary" style={{ flex: '0 0 auto', whiteSpace: 'nowrap' }} onClick={() => setGateOpen(true)}>
+                  <button
+                    type="button"
+                    className="pt-cta-secondary"
+                    style={{ flex: '0 0 auto', whiteSpace: 'nowrap' }}
+                    onClick={() => setGateOpen(true)}
+                  >
                     {attested ? 'Review again' : 'Review & attest'}
                   </button>
                 </div>
@@ -1325,15 +1731,24 @@ function PtPersonalizeModal({
                   Add their <span className="text-metallic-rose-gold">birthday</span>
                 </h2>
                 <p className="pt-modal-step-sub">
-                  {tmpl.name === 'Horoscope' ? 'Recommended for this template so we can estimate their sign. You can skip it if you do not know it.' :
-                   tmpl.name === 'On This Day' ? 'Recommended for this template so we can pull details from that day. You can skip it if you do not know it.' :
-                   'Optional context that helps us anchor the card to the right moment in time.'}
+                  {tmpl.name === 'Horoscope'
+                    ? 'Recommended for this template so we can estimate their sign. You can skip it if you do not know it.'
+                    : tmpl.name === 'On This Day'
+                      ? 'Recommended for this template so we can pull details from that day. You can skip it if you do not know it.'
+                      : 'Optional context that helps us anchor the card to the right moment in time.'}
                 </p>
               </div>
 
               <div className="pt-field">
-                <label className="pt-label">Their birthday <em className="pt-label-opt">· optional</em></label>
-                <input className="pt-input" type="date" value={birthday} onChange={(event) => setBirthday(event.target.value)} />
+                <label className="pt-label">
+                  Their birthday <em className="pt-label-opt">· optional</em>
+                </label>
+                <input
+                  className="pt-input"
+                  type="date"
+                  value={birthday}
+                  onChange={(event) => setBirthday(event.target.value)}
+                />
                 <p className="pt-help">Optional. We never share the date; it stays on this card.</p>
               </div>
             </>
@@ -1343,8 +1758,7 @@ function PtPersonalizeModal({
             <>
               <div className="pt-modal-step-head">
                 <h2 className="pt-modal-step-title">
-                  Caption and{' '}
-                  <span className="souv-hero-italic text-metallic-rose-gold">message</span>
+                  Caption and <span className="souv-hero-italic text-metallic-rose-gold">message</span>
                 </h2>
                 <p className="pt-modal-step-sub">
                   Edit the caption, write your inside message, or use our writing generators for inspiration.
@@ -1354,7 +1768,15 @@ function PtPersonalizeModal({
               <div className="pt-field">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <label className="pt-label">Card caption</label>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 12,
+                      flexWrap: 'wrap',
+                      justifyContent: 'flex-end',
+                    }}
+                  >
                     <button type="button" className="pt-caption-gen" onClick={generateCaption}>
                       <PtIcon name="sparkle" w={13} /> Caption Generator
                     </button>
@@ -1367,17 +1789,34 @@ function PtPersonalizeModal({
                   onChange={(e) => setCaptionText(e.target.value)}
                   placeholder="Front-of-card text"
                 />
-                <p className="pt-help">Enter your general idea in the card caption space and use the caption generator for suggestions up to eight words.</p>
+                <p className="pt-help">
+                  Enter your general idea in the card caption space and use the caption generator for suggestions up to
+                  eight words.
+                </p>
               </div>
 
               <div className="pt-field-row">
                 <div className="pt-field" style={{ marginBottom: 0 }}>
-                  <label className="pt-label">Recipient name <em className="pt-label-opt">· optional</em></label>
-                  <input className="pt-input" placeholder="Who's it for?" value={recipient} onChange={(event) => setRecipient(event.target.value)} />
+                  <label className="pt-label">
+                    Recipient name <em className="pt-label-opt">· optional</em>
+                  </label>
+                  <input
+                    className="pt-input"
+                    placeholder="Who's it for?"
+                    value={recipient}
+                    onChange={(event) => setRecipient(event.target.value)}
+                  />
                 </div>
                 <div className="pt-field" style={{ marginBottom: 0 }}>
-                  <label className="pt-label">Phonetic spelling <em className="pt-label-opt">· optional</em></label>
-                  <input className="pt-input" placeholder="e.g. KAH-rin" value={phonetic} onChange={(event) => setPhonetic(event.target.value)} />
+                  <label className="pt-label">
+                    Phonetic spelling <em className="pt-label-opt">· optional</em>
+                  </label>
+                  <input
+                    className="pt-input"
+                    placeholder="e.g. KAH-rin"
+                    value={phonetic}
+                    onChange={(event) => setPhonetic(event.target.value)}
+                  />
                 </div>
               </div>
 
@@ -1385,19 +1824,39 @@ function PtPersonalizeModal({
 
               <div className="pt-field">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <label className="pt-label">Inside message <em className="pt-label-opt">· optional</em></label>
+                  <label className="pt-label">
+                    Inside message <em className="pt-label-opt">· optional</em>
+                  </label>
                   <span className="pt-msg-counter">
-                    <span><b>{500 - insideMsg.length}</b> chars left</span>
+                    <span>
+                      <b>{500 - insideMsg.length}</b> chars left
+                    </span>
                   </span>
                 </div>
                 <textarea
                   className={`pt-input pt-textarea ${msgError ? 'is-error' : ''}`}
                   maxLength={500}
-                  placeholder={msgError ? 'Add a message first' : 'Write the note that prints inside the card — or try your best and use our "Message Generator" button for help.'}
+                  placeholder={
+                    msgError
+                      ? 'Add a message first'
+                      : 'Write the note that prints inside the card — or try your best and use our "Message Generator" button for help.'
+                  }
                   value={insideMsg}
-                  onChange={(e) => { setInsideMsg(e.target.value); if (e.target.value.trim()) setMsgError(false); }}
+                  onChange={(e) => {
+                    setInsideMsg(e.target.value);
+                    if (e.target.value.trim()) setMsgError(false);
+                  }}
                 />
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 14, flexWrap: 'wrap', marginTop: 12 }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    gap: 14,
+                    flexWrap: 'wrap',
+                    marginTop: 12,
+                  }}
+                >
                   <button type="button" className="pt-caption-gen" onClick={remixMessage}>
                     <PtIcon name="sparkle" w={13} /> Message Generator
                   </button>
@@ -1407,17 +1866,37 @@ function PtPersonalizeModal({
 
               <div className="pt-msg-divider" />
 
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap: 40, marginTop: 28, paddingTop: 28, borderTop: '1px solid rgba(232,234,238,0.10)' }}>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1fr 1fr',
+                  gap: 40,
+                  marginTop: 28,
+                  paddingTop: 28,
+                  borderTop: '1px solid rgba(232,234,238,0.10)',
+                }}
+              >
                 <div className="pt-field" style={{ margin: 0 }}>
-                  <label className="pt-label" style={{ fontSize: 15, letterSpacing: '.05em', marginBottom: 16 }}>You're all set, let's generate.</label>
-                  <div style={{ display:'flex', flexDirection:'column', gap: 12, fontFamily:'var(--font-sans)', fontSize:14.5, color:'var(--text-secondary)' }}>
-                    <span style={{ display:'flex', alignItems:'center', gap: 10 }}>
+                  <label className="pt-label" style={{ fontSize: 15, letterSpacing: '.05em', marginBottom: 16 }}>
+                    You're all set, let's generate.
+                  </label>
+                  <div
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 12,
+                      fontFamily: 'var(--font-sans)',
+                      fontSize: 14.5,
+                      color: 'var(--text-secondary)',
+                    }}
+                  >
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                       <PtIcon name="check" w={14} /> Front card image
                     </span>
-                    <span style={{ display:'flex', alignItems:'center', gap: 10 }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                       <PtIcon name="check" w={14} /> A personalized inside message
                     </span>
-                    <span style={{ display:'flex', alignItems:'center', gap: 10 }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                       <PtIcon name="check" w={14} /> {includeSong ? 'A 45-second QR-code song' : 'No QR song selected'}
                     </span>
                   </div>
@@ -1427,7 +1906,9 @@ function PtPersonalizeModal({
                       checked={includeSong}
                       onChange={(event) => setIncludeSong(event.target.checked)}
                     />
-                    <span className="pt-song-toggle-box"><PtIcon name="check" w={12} /></span>
+                    <span className="pt-song-toggle-box">
+                      <PtIcon name="check" w={12} />
+                    </span>
                     <span>
                       <b>Include song by QR code</b>
                       <em>Add a custom QR-code song behind a scannable code inside the printed card.</em>
@@ -1435,11 +1916,31 @@ function PtPersonalizeModal({
                   </label>
                 </div>
                 <div className="pt-field" style={{ margin: 0 }}>
-                  <label className="pt-label" style={{ marginBottom: 16 }}>Credits</label>
-                  <div style={{ display:'flex', flexDirection:'column', gap: 12, fontFamily:'var(--font-sans)', fontSize:14.5, color:'var(--text-secondary)' }}>
-                    <span><b style={{ fontFamily:'var(--font-num)', color:'var(--gold-hi)' }}>1</b> · front card image</span>
-                    {includeSong && <span><b style={{ fontFamily:'var(--font-num)', color:'var(--gold-hi)' }}>1</b> · QR song generation</span>}
-                    <span><b style={{ fontFamily:'var(--font-num)', color:'var(--gold-hi)' }}>0</b> · inside message (free)</span>
+                  <label className="pt-label" style={{ marginBottom: 16 }}>
+                    Credits
+                  </label>
+                  <div
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 12,
+                      fontFamily: 'var(--font-sans)',
+                      fontSize: 14.5,
+                      color: 'var(--text-secondary)',
+                    }}
+                  >
+                    <span>
+                      <b style={{ fontFamily: 'var(--font-num)', color: 'var(--gold-hi)' }}>1</b> · front card image
+                    </span>
+                    {includeSong && (
+                      <span>
+                        <b style={{ fontFamily: 'var(--font-num)', color: 'var(--gold-hi)' }}>1</b> · QR song generation
+                      </span>
+                    )}
+                    <span>
+                      <b style={{ fontFamily: 'var(--font-num)', color: 'var(--gold-hi)' }}>0</b> · inside message
+                      (free)
+                    </span>
                   </div>
                 </div>
               </div>
@@ -1449,7 +1950,15 @@ function PtPersonalizeModal({
 
         <div className="pt-modal-foot">
           <div className="pt-modal-cost">
-            {last ? <>Will deduct <b>{generationCost}</b> {generationCost === 1 ? 'credit' : 'credits'} on generate</> : <>Free step <span>·</span> 0 credits</>}
+            {last ? (
+              <>
+                Will deduct <b>{generationCost}</b> {generationCost === 1 ? 'credit' : 'credits'} on generate
+              </>
+            ) : (
+              <>
+                Free step <span>·</span> 0 credits
+              </>
+            )}
           </div>
           <div className="pt-modal-foot-acts">
             {idx > 0 ? (
@@ -1457,15 +1966,22 @@ function PtPersonalizeModal({
                 <PtIcon name="back" w={13} /> Back
               </button>
             ) : (
-              <button type="button" className="pt-link" onClick={closeAndSave}>← Back to marketplace</button>
+              <button type="button" className="pt-link" onClick={closeAndSave}>
+                ← Back to marketplace
+              </button>
             )}
             {!last ? (
               <button type="button" className="pt-cta" onClick={goNext}>
                 Continue <PtIcon name="arrow" w={14} />
               </button>
             ) : (
-              <button type="button" className="pt-cta" onClick={() => onCreate && onCreate(includeSong, buildDraftInput())} disabled={generating}>
-                {generating ? "Starting..." : "Create my Card"} <PtIcon name="arrow" w={14} />
+              <button
+                type="button"
+                className="pt-cta"
+                onClick={() => onCreate && onCreate(includeSong, buildDraftInput())}
+                disabled={generating}
+              >
+                {generating ? 'Starting...' : 'Create my Card'} <PtIcon name="arrow" w={14} />
               </button>
             )}
           </div>
@@ -1475,18 +1991,24 @@ function PtPersonalizeModal({
       <AttestationGate
         open={gateOpen}
         onClose={() => setGateOpen(false)}
-        onAgree={() => { setAttested(true); setGateOpen(false); setStep(MODAL_STEPS[idx + 1] ? MODAL_STEPS[idx + 1].id : step); }}
+        onAgree={() => {
+          setAttested(true);
+          setGateOpen(false);
+          setStep(MODAL_STEPS[idx + 1] ? MODAL_STEPS[idx + 1].id : step);
+        }}
       />
 
       {describeError && (
         <div className="pt-prompt-wrap" role="dialog" aria-modal="true">
           <div className="pt-prompt-scrim" onClick={() => setDescribeError(false)} />
           <div className="pt-prompt">
-            <span className="pt-prompt-icon"><PtIcon name="sparkle" w={22} /></span>
+            <span className="pt-prompt-icon">
+              <PtIcon name="sparkle" w={22} />
+            </span>
             <h3 className="pt-prompt-title">Describe your idea first</h3>
             <p className="pt-prompt-body">
-              Tell us the memory, inside joke, or scene you have in mind and we'll generate
-              the card from your words. Add a few details before continuing.
+              Tell us the memory, inside joke, or scene you have in mind and we'll generate the card from your words.
+              Add a few details before continuing.
             </p>
             <button
               type="button"
@@ -1511,9 +2033,24 @@ function PtPersonalizeModal({
 // ============================================================
 const CHAT_PRESETS: ChatPreset[] = ['Caption', 'Personal Message', 'Vibe Check', 'Custom'];
 const CHAT_INITIAL: ChatMessage[] = [
-  { role: 'bot', text: <>Hi, I'm <b>Nova</b>, your card assistant. Need help with a caption or a personal message?</> },
+  {
+    role: 'bot',
+    text: (
+      <>
+        Hi, I'm <b>Nova</b>, your card assistant. Need help with a caption or a personal message?
+      </>
+    ),
+  },
   { role: 'user', text: 'Caption for a 60th birthday for my mom, warm but not sappy.' },
-  { role: 'bot', text: <>Try: <em>"Sixty looks good on you, Mom."</em> or <em>"Sixty trips around the sun, all of them better because you're in them."</em></> },
+  {
+    role: 'bot',
+    text: (
+      <>
+        Try: <em>"Sixty looks good on you, Mom."</em> or{' '}
+        <em>"Sixty trips around the sun, all of them better because you're in them."</em>
+      </>
+    ),
+  },
 ];
 
 function PtChat({ open, setOpen }: PtChatProps) {
@@ -1522,9 +2059,25 @@ function PtChat({ open, setOpen }: PtChatProps) {
 
   if (!open) {
     return (
-      <button type="button" className="pt-chat" style={{ display:'flex', alignItems:'center', gap: 8, padding: '12px 18px', width:'auto' }} onClick={() => setOpen(true)}>
+      <button
+        type="button"
+        className="pt-chat"
+        style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 18px', width: 'auto' }}
+        onClick={() => setOpen(true)}
+      >
         <span className="pt-chat-title-dot" />
-        <span style={{ fontFamily:'var(--font-sans)', fontWeight: 700, fontSize: 11, letterSpacing:'.18em', textTransform:'uppercase', color:'var(--gold-hi)' }}>Ask Nova</span>
+        <span
+          style={{
+            fontFamily: 'var(--font-sans)',
+            fontWeight: 700,
+            fontSize: 11,
+            letterSpacing: '.18em',
+            textTransform: 'uppercase',
+            color: 'var(--gold-hi)',
+          }}
+        >
+          Ask Nova
+        </span>
       </button>
     );
   }
@@ -1537,21 +2090,39 @@ function PtChat({ open, setOpen }: PtChatProps) {
           <span>Nova</span>
           <span className="pt-chat-title-sub">· Bedrock Nova Lite</span>
         </div>
-        <button type="button" className="pt-chat-min" onClick={() => setOpen(false)} aria-label="Minimize"><PtIcon name="min" w={14} /></button>
+        <button type="button" className="pt-chat-min" onClick={() => setOpen(false)} aria-label="Minimize">
+          <PtIcon name="min" w={14} />
+        </button>
       </div>
       <div className="pt-chat-presets">
-        {CHAT_PRESETS.map(p => (
-          <button key={p} type="button" className={`pt-chat-preset ${p === preset ? 'is-active' : ''}`} onClick={() => setPreset(p)}>{p}</button>
+        {CHAT_PRESETS.map((p) => (
+          <button
+            key={p}
+            type="button"
+            className={`pt-chat-preset ${p === preset ? 'is-active' : ''}`}
+            onClick={() => setPreset(p)}
+          >
+            {p}
+          </button>
         ))}
       </div>
       <div className="pt-chat-body">
         {CHAT_INITIAL.map((m, i) => (
-          <div key={i} className={`pt-chat-msg ${m.role === 'user' ? 'is-user' : 'is-bot'}`}>{m.text}</div>
+          <div key={i} className={`pt-chat-msg ${m.role === 'user' ? 'is-user' : 'is-bot'}`}>
+            {m.text}
+          </div>
         ))}
       </div>
       <div className="pt-chat-foot">
-        <input className="pt-chat-input" placeholder={`Ask for a ${preset.toLowerCase()}…`} value={draft} onChange={(e) => setDraft(e.target.value)} />
-        <button type="button" className="pt-chat-send" aria-label="Send"><PtIcon name="send" w={16} /></button>
+        <input
+          className="pt-chat-input"
+          placeholder={`Ask for a ${preset.toLowerCase()}…`}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+        />
+        <button type="button" className="pt-chat-send" aria-label="Send">
+          <PtIcon name="send" w={16} />
+        </button>
       </div>
     </aside>
   );
@@ -1565,9 +2136,9 @@ const PERSONALIZE_DEFAULT_BALANCE: DemoBalance = { credits: { images: 0, songs: 
 function PersonalizeApp({
   openModal = false,
   resumeDraftId = null,
-  initialModalStep = "photo",
+  initialModalStep = 'photo',
   accountBalance = PERSONALIZE_DEFAULT_BALANCE,
-  creditStatus = "idle",
+  creditStatus = 'idle',
   refreshCredits,
   requireAuthToContinue = false,
 }: PersonalizeAppProps) {
@@ -1581,7 +2152,7 @@ function PersonalizeApp({
   const [generationPending, setGenerationPending] = React.useState(false);
   const [uploadPending, setUploadPending] = React.useState(false);
   const [reviewAssets, setReviewAssets] = React.useState<CardDraftAsset[]>([]);
-  const [reviewAssetsStatus, setReviewAssetsStatus] = React.useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [reviewAssetsStatus, setReviewAssetsStatus] = React.useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const [reviewAssetsError, setReviewAssetsError] = React.useState<string | null>(null);
   const [currentDraftId, setCurrentDraftId] = React.useState<string | null>(null);
   const [resumeDraftInput, setResumeDraftInput] = React.useState<PersonalizeDraftInput | null>(null);
@@ -1589,7 +2160,7 @@ function PersonalizeApp({
   const currentDraftIdRef = React.useRef<string | null>(null);
   const draftSavePromiseRef = React.useRef<Promise<string> | null>(null);
   const draftSaveVersionRef = React.useRef(0);
-  const uploadedReferenceSignatureRef = React.useRef<string>("");
+  const uploadedReferenceSignatureRef = React.useRef<string>('');
   const totalCredits = getTotalDemoCredits(accountBalance);
 
   const rememberDraftId = React.useCallback((draftId: string | null) => {
@@ -1611,27 +2182,30 @@ function PersonalizeApp({
 
   const applyReviewAssets = React.useCallback((cardDraftId: string, assets: CardDraftAsset[]) => {
     setReviewAssets(assets);
-    setReviewAssetsStatus("ready");
+    setReviewAssetsStatus('ready');
     setReviewAssetsError(null);
     rememberGeneratedAssets(cardDraftId, assets);
   }, []);
 
-  const refreshReviewAssets = React.useCallback(async (cardDraftId: string) => {
-    setReviewAssetsStatus("loading");
-    setReviewAssetsError(null);
+  const refreshReviewAssets = React.useCallback(
+    async (cardDraftId: string) => {
+      setReviewAssetsStatus('loading');
+      setReviewAssetsError(null);
 
-    try {
-      const assets = await fetchCardDraftAssets(cardDraftId);
-      applyReviewAssets(cardDraftId, assets);
-      return assets;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Generated assets could not be loaded.";
-      setReviewAssets([]);
-      setReviewAssetsStatus("error");
-      setReviewAssetsError(message);
-      throw error;
-    }
-  }, [applyReviewAssets]);
+      try {
+        const assets = await fetchCardDraftAssets(cardDraftId);
+        applyReviewAssets(cardDraftId, assets);
+        return assets;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Generated assets could not be loaded.';
+        setReviewAssets([]);
+        setReviewAssetsStatus('error');
+        setReviewAssetsError(message);
+        throw error;
+      }
+    },
+    [applyReviewAssets],
+  );
 
   const uploadReferenceImages = React.useCallback(async (cardDraftId: string, draftInput: PersonalizeDraftInput) => {
     const uploads = getReferenceImageUploads(draftInput);
@@ -1643,12 +2217,14 @@ function PersonalizeApp({
     setUploadPending(true);
     try {
       await Promise.all(
-        uploads.map((upload) => mockUpload({
-          cardDraftId,
-          filename: upload.filename,
-          mimeType: upload.mimeType,
-          size: upload.size,
-        })),
+        uploads.map((upload) =>
+          mockUpload({
+            cardDraftId,
+            filename: upload.filename,
+            mimeType: upload.mimeType,
+            size: upload.size,
+          }),
+        ),
       );
       uploadedReferenceSignatureRef.current = signature;
       await refreshCardDraftBackendState(cardDraftId);
@@ -1657,68 +2233,71 @@ function PersonalizeApp({
     }
   }, []);
 
-  const ensureDraftSaved = React.useCallback(async (
-    draftInput: PersonalizeDraftInput,
-    includeSong = true,
-  ) => {
-    if (currentDraftIdRef.current) {
-      await updateCardDraft(currentDraftIdRef.current, {
+  const ensureDraftSaved = React.useCallback(
+    async (draftInput: PersonalizeDraftInput, includeSong = true) => {
+      if (currentDraftIdRef.current) {
+        await updateCardDraft(currentDraftIdRef.current, {
+          occasion: draftInput.occasion,
+          relationship: draftInput.relationship,
+          creativeBrief: {
+            ...draftInput.creativeBrief,
+            includeSong,
+          },
+        });
+        return currentDraftIdRef.current;
+      }
+      if (draftSavePromiseRef.current) return draftSavePromiseRef.current;
+
+      const saveVersion = draftSaveVersionRef.current;
+      const savePromise = createCardDraft({
         occasion: draftInput.occasion,
         relationship: draftInput.relationship,
         creativeBrief: {
           ...draftInput.creativeBrief,
           includeSong,
         },
-      });
-      return currentDraftIdRef.current;
-    }
-    if (draftSavePromiseRef.current) return draftSavePromiseRef.current;
-
-    const saveVersion = draftSaveVersionRef.current;
-    const savePromise = createCardDraft({
-      occasion: draftInput.occasion,
-      relationship: draftInput.relationship,
-      creativeBrief: {
-        ...draftInput.creativeBrief,
-        includeSong,
-      },
-    })
-      .then(async (cardDraft) => {
-        if (saveVersion === draftSaveVersionRef.current) {
-          rememberDraftId(cardDraft.id);
-          resetMockMvpOrderState(cardDraft.id);
-        }
-        await refreshCardDraftBackendState(cardDraft.id);
-        return cardDraft.id;
       })
-      .finally(() => {
-        if (draftSavePromiseRef.current === savePromise) {
-          draftSavePromiseRef.current = null;
-        }
+        .then(async (cardDraft) => {
+          if (saveVersion === draftSaveVersionRef.current) {
+            rememberDraftId(cardDraft.id);
+            resetMockMvpOrderState(cardDraft.id);
+          }
+          await refreshCardDraftBackendState(cardDraft.id);
+          return cardDraft.id;
+        })
+        .finally(() => {
+          if (draftSavePromiseRef.current === savePromise) {
+            draftSavePromiseRef.current = null;
+          }
+        });
+
+      draftSavePromiseRef.current = savePromise;
+      return savePromise;
+    },
+    [rememberDraftId],
+  );
+
+  const beginTemplateDraft = React.useCallback(
+    (template: Template) => {
+      draftSaveVersionRef.current += 1;
+      draftSavePromiseRef.current = null;
+      setResumeDraftInput(null);
+      setReviewAssets([]);
+      setReviewAssetsStatus('idle');
+      setReviewAssetsError(null);
+      uploadedReferenceSignatureRef.current = '';
+      rememberDraftId(null);
+      setChosen(template);
+      setModalOpen(true);
+
+      if (requireAuthToContinue) return;
+
+      ensureDraftSaved(buildTemplateDraftInput(template)).catch(() => {
+        // The create action will surface backend save errors if the user continues.
       });
-
-    draftSavePromiseRef.current = savePromise;
-    return savePromise;
-  }, [rememberDraftId]);
-
-  const beginTemplateDraft = React.useCallback((template: Template) => {
-    draftSaveVersionRef.current += 1;
-    draftSavePromiseRef.current = null;
-    setResumeDraftInput(null);
-    setReviewAssets([]);
-    setReviewAssetsStatus("idle");
-    setReviewAssetsError(null);
-    uploadedReferenceSignatureRef.current = "";
-    rememberDraftId(null);
-    setChosen(template);
-    setModalOpen(true);
-
-    if (requireAuthToContinue) return;
-
-    ensureDraftSaved(buildTemplateDraftInput(template)).catch(() => {
-      // The create action will surface backend save errors if the user continues.
-    });
-  }, [ensureDraftSaved, rememberDraftId, requireAuthToContinue]);
+    },
+    [ensureDraftSaved, rememberDraftId, requireAuthToContinue],
+  );
 
   React.useEffect(() => {
     if (!openModal) return;
@@ -1729,7 +2308,7 @@ function PersonalizeApp({
         .then((draft) => {
           if (cancelled) return;
           const brief = asRecord(draft.creative_brief);
-          const template = nestedRecord(brief, "template");
+          const template = nestedRecord(brief, 'template');
           const templateId = textValue(template.id);
           setResumeDraftInput({
             occasion: textValue(draft.occasion) || textValue(template.occasion) || undefined,
@@ -1743,8 +2322,8 @@ function PersonalizeApp({
         .catch((error) => {
           if (!cancelled) {
             bmcError(
-              error instanceof Error ? error.message : "That draft could not be loaded. Please try again.",
-              "Draft could not be loaded",
+              error instanceof Error ? error.message : 'That draft could not be loaded. Please try again.',
+              'Draft could not be loaded',
             );
           }
         });
@@ -1789,27 +2368,30 @@ function PersonalizeApp({
     }
     const generationCost = includeSong ? CARD_WITH_QR_SONG_CREDITS : MIN_GENERATION_CREDITS;
 
-    if (creditStatus === "loading") {
-      bmcError("We are still checking your credit balance. Try again in a moment.", "Checking credits");
+    if (creditStatus === 'loading') {
+      bmcError('We are still checking your credit balance. Try again in a moment.', 'Checking credits');
       return;
     }
 
-    if (creditStatus === "error") {
-      bmcError("We could not reach your backend credit balance. Start the local backend and try again.", "Credits unavailable");
+    if (creditStatus === 'error') {
+      bmcError(
+        'We could not reach your backend credit balance. Start the local backend and try again.',
+        'Credits unavailable',
+      );
       await refreshCredits?.();
       return;
     }
 
     if (totalCredits < generationCost) {
       bmcError(
-        `You need ${generationCost} ${generationCost === 1 ? "credit" : "credits"} to generate this card. Your current backend balance is ${totalCredits}.`,
-        "Not enough credits",
+        `You need ${generationCost} ${generationCost === 1 ? 'credit' : 'credits'} to generate this card. Your current backend balance is ${totalCredits}.`,
+        'Not enough credits',
       );
       return;
     }
 
     setGenerationPending(true);
-    setReviewAssetsStatus("loading");
+    setReviewAssetsStatus('loading');
     setReviewAssetsError(null);
 
     try {
@@ -1829,20 +2411,20 @@ function PersonalizeApp({
         await refreshCredits?.();
       }
 
-    setReviewIncludeSong(includeSong);
-    setModalOpen(false);
-    setView('review');
-    setReviewGen(true);
-    window.scrollTo(0, 0);
-    // Assets finish rendering after a few seconds — then the panels become approvable.
-    setTimeout(() => setReviewGen(false), 5200);
+      setReviewIncludeSong(includeSong);
+      setModalOpen(false);
+      setView('review');
+      setReviewGen(true);
+      window.scrollTo(0, 0);
+      // Assets finish rendering after a few seconds — then the panels become approvable.
+      setTimeout(() => setReviewGen(false), 5200);
     } catch (error) {
       setReviewGen(false);
-      setReviewAssetsStatus("error");
-      setReviewAssetsError(error instanceof Error ? error.message : "Generation could not start.");
+      setReviewAssetsStatus('error');
+      setReviewAssetsError(error instanceof Error ? error.message : 'Generation could not start.');
       bmcError(
-        error instanceof Error ? error.message : "Generation could not start. Please try again.",
-        "Generation could not start",
+        error instanceof Error ? error.message : 'Generation could not start. Please try again.',
+        'Generation could not start',
       );
       await refreshCredits?.();
     } finally {
@@ -1853,13 +2435,13 @@ function PersonalizeApp({
     rememberDraftId(null);
     setReviewGen(false);
     setReviewAssets([]);
-    setReviewAssetsStatus("idle");
+    setReviewAssetsStatus('idle');
     setReviewAssetsError(null);
     setView('marketplace');
     window.scrollTo(0, 0);
   };
   React.useEffect(() => {
-    if (view !== "review" || !currentDraftId) return;
+    if (view !== 'review' || !currentDraftId) return;
 
     refreshReviewAssets(currentDraftId).catch(() => {
       // The review screen shows the friendly error state.
@@ -1868,7 +2450,7 @@ function PersonalizeApp({
 
   const spendRegenerationCredit = async () => {
     if (totalCredits < MIN_GENERATION_CREDITS) {
-      bmcError("You need at least 1 credit to regenerate an asset.", "Not enough credits");
+      bmcError('You need at least 1 credit to regenerate an asset.', 'Not enough credits');
       return false;
     }
 
@@ -1891,8 +2473,8 @@ function PersonalizeApp({
       return true;
     } catch (error) {
       bmcError(
-        error instanceof Error ? error.message : "Regeneration could not start. Please try again.",
-        "Regeneration could not start",
+        error instanceof Error ? error.message : 'Regeneration could not start. Please try again.',
+        'Regeneration could not start',
       );
       await refreshCredits?.();
       return false;
@@ -1913,7 +2495,10 @@ function PersonalizeApp({
           onStartOver={backToMarketplace}
           onApproveAll={(selectedAssetId) => {
             if (!currentDraftId || !selectedAssetId) {
-              bmcError("Generated image assets are not ready yet. Try again after the review assets finish loading.", "Review assets unavailable");
+              bmcError(
+                'Generated image assets are not ready yet. Try again after the review assets finish loading.',
+                'Review assets unavailable',
+              );
               return;
             }
 
@@ -1932,7 +2517,7 @@ function PersonalizeApp({
     <div className="pt-page">
       <PtMarketplace onPersonalize={onPersonalize} />
       <PtPersonalizeModal
-        key={`${currentDraftId || chosen?.id || "new"}-${initialModalStep}`}
+        key={`${currentDraftId || chosen?.id || 'new'}-${initialModalStep}`}
         tmpl={chosen}
         open={modalOpen}
         onClose={onClose}

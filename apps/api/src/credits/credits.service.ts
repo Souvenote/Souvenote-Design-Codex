@@ -23,12 +23,7 @@ export class CreditsService {
     };
   }
 
-  async grant(
-    userId: string,
-    amount: number,
-    source: string,
-    idempotencyKey: string,
-  ) {
+  async grant(userId: string, amount: number, source: string, idempotencyKey: string) {
     if (amount <= 0) {
       throw new BadRequestException('Grant amount must be greater than 0.');
     }
@@ -57,13 +52,7 @@ export class CreditsService {
     };
   }
 
-  async grantOnce(
-    userId: string,
-    amount: number,
-    source: string,
-    idempotencyKey: string,
-    eventType = 'manual_grant',
-  ) {
+  async grantOnce(userId: string, amount: number, source: string, idempotencyKey: string, eventType = 'manual_grant') {
     if (amount <= 0) {
       throw new BadRequestException('Grant amount must be greater than 0.');
     }
@@ -85,14 +74,18 @@ export class CreditsService {
       [userId, eventType, amount, source, idempotencyKey, null],
     );
 
-    const ledgerEntry = result.rows[0] ?? (await this.databaseService.query(
-      `
+    const ledgerEntry =
+      result.rows[0] ??
+      (
+        await this.databaseService.query(
+          `
         SELECT id, user_id, event_type, amount, source, idempotency_key, created_at
         FROM credit_ledger
         WHERE idempotency_key = $1;
       `,
-      [idempotencyKey],
-    )).rows[0];
+          [idempotencyKey],
+        )
+      ).rows[0];
 
     const updatedBalance = await this.findBalance(userId);
 
@@ -103,12 +96,7 @@ export class CreditsService {
     };
   }
 
-  async deduct(
-    userId: string,
-    amount: number,
-    source: string,
-    idempotencyKey: string,
-  ) {
+  async deduct(userId: string, amount: number, source: string, idempotencyKey: string) {
     if (amount <= 0) {
       throw new BadRequestException('Deduction amount must be greater than 0.');
     }
@@ -143,15 +131,9 @@ export class CreditsService {
     };
   }
 
-  async refund (
-    userId: string,
-    amount: number,
-    source: string,
-    idempotencyKey: string,
-  ) {
-
+  async refund(userId: string, amount: number, source: string, idempotencyKey: string) {
     const refundAmount = await this.databaseService.query(
-        `
+      `
         INSERT INTO credit_ledger (
         user_id,
         event_type,
@@ -163,7 +145,7 @@ export class CreditsService {
       VALUES ($1, 'generation_refund', $2, $3, $4, $5)
       RETURNING id, user_id, event_type, amount, source, idempotency_key, created_at;
         `,
-        [userId, amount, source, idempotencyKey, null],
+      [userId, amount, source, idempotencyKey, null],
     );
     const updatedBalance = await this.findBalance(userId);
 

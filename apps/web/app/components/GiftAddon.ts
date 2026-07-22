@@ -1,9 +1,9 @@
-import * as React from "react";
+import * as React from 'react';
 
-export const BLANK_SOUVENOTE_GIFT_CART_ID = "addon-blank-souvenote";
+export const BLANK_SOUVENOTE_GIFT_CART_ID = 'addon-blank-souvenote';
 export const BLANK_SOUVENOTE_GIFT_PRICE = 6.99;
-export const BLANK_SOUVENOTE_GIFT_PENDING_KEY = "souv_blank_souvenote_pending";
-export const BLANK_SOUVENOTE_GIFT_EVENT = "souv-blank-souvenote-gift";
+export const BLANK_SOUVENOTE_GIFT_PENDING_KEY = 'souv_blank_souvenote_pending';
+export const BLANK_SOUVENOTE_GIFT_EVENT = 'souv-blank-souvenote-gift';
 
 export function isBlankSouvenoteGiftId(id: unknown): boolean {
   return id === BLANK_SOUVENOTE_GIFT_CART_ID;
@@ -19,7 +19,7 @@ function notifyBlankGiftCount(count: number): void {
 }
 
 export function readBlankSouvenoteGiftCount(): number {
-  if (typeof window === "undefined") return 0;
+  if (typeof window === 'undefined') return 0;
 
   try {
     return normalizeGiftCount(window.localStorage.getItem(BLANK_SOUVENOTE_GIFT_PENDING_KEY));
@@ -29,7 +29,7 @@ export function readBlankSouvenoteGiftCount(): number {
 }
 
 export function writeBlankSouvenoteGiftCount(count: unknown): number {
-  if (typeof window === "undefined") return 0;
+  if (typeof window === 'undefined') return 0;
 
   const next = normalizeGiftCount(count);
   try {
@@ -57,10 +57,10 @@ export function useBlankSouvenoteGiftCount(): number {
   React.useEffect(() => {
     const sync = () => setCount(readBlankSouvenoteGiftCount());
     sync();
-    window.addEventListener("storage", sync);
+    window.addEventListener('storage', sync);
     window.addEventListener(BLANK_SOUVENOTE_GIFT_EVENT, sync);
     return () => {
-      window.removeEventListener("storage", sync);
+      window.removeEventListener('storage', sync);
       window.removeEventListener(BLANK_SOUVENOTE_GIFT_EVENT, sync);
     };
   }, []);

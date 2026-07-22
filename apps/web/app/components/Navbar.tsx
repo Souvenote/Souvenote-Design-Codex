@@ -1,12 +1,12 @@
-"use client";
+'use client';
 
-import * as React from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useAuth } from "./AuthProvider";
-import { useCreditBalance } from "../lib/creditBalance";
-import type { CreditBalanceStatus } from "../lib/creditBalance";
-import type { DemoCredits, DemoUser } from "./DemoUser";
+import * as React from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useAuth } from './AuthProvider';
+import { useCreditBalance } from '../lib/creditBalance';
+import type { CreditBalanceStatus } from '../lib/creditBalance';
+import type { DemoCredits, DemoUser } from './DemoUser';
 
 type NavLink = {
   label: string;
@@ -16,7 +16,7 @@ type NavLink = {
   href: string;
 };
 
-type CurrencyCode = "CAD" | "USD";
+type CurrencyCode = 'CAD' | 'USD';
 
 type CurrencyOption = {
   code: CurrencyCode;
@@ -63,20 +63,50 @@ type NavbarProps = {
 };
 
 const NAV_LINKS: NavLink[] = [
-  { label: "Personalize a Template", stackedLabel: ["Personalize", "a Template"], sub: "Curated designs, ready to make yours.", signedOutSub: "Browse card styles, then sign up to save, purchase credits, and generate.", href: "/create/personalize-a-template" },
-  { label: "Build My Card", stackedLabel: ["Build", "My Card"], sub: "Start from scratch: photo, moment, optional QR song.", signedOutSub: "Preview step one, then sign up and purchase credits to continue.", href: "/create/build-my-card" },
-  { label: "Saved Cards & Songs", stackedLabel: ["Saved", "Cards & Songs"], sub: "Saved cards, drafts, songs, and send-ready creations.", signedOutSub: "Sign up or log in to purchase cards and tokens, then save everything you make.", href: "/create/my-cards-and-songs" },
-  { label: "Pricing", sub: "Card packs, credits, and what shipping covers.", signedOutSub: "Pricing is public. Purchase buttons ask you to sign up or log in first.", href: "/pricing" },
+  {
+    label: 'Personalize a Template',
+    stackedLabel: ['Personalize', 'a Template'],
+    sub: 'Curated designs, ready to make yours.',
+    signedOutSub: 'Browse card styles, then sign up to save, purchase credits, and generate.',
+    href: '/create/personalize-a-template',
+  },
+  {
+    label: 'Build My Card',
+    stackedLabel: ['Build', 'My Card'],
+    sub: 'Start from scratch: photo, moment, optional QR song.',
+    signedOutSub: 'Preview step one, then sign up and purchase credits to continue.',
+    href: '/create/build-my-card',
+  },
+  {
+    label: 'Saved Cards & Songs',
+    stackedLabel: ['Saved', 'Cards & Songs'],
+    sub: 'Saved cards, drafts, songs, and send-ready creations.',
+    signedOutSub: 'Sign up or log in to purchase cards and tokens, then save everything you make.',
+    href: '/create/my-cards-and-songs',
+  },
+  {
+    label: 'Pricing',
+    sub: 'Card packs, credits, and what shipping covers.',
+    signedOutSub: 'Pricing is public. Purchase buttons ask you to sign up or log in first.',
+    href: '/pricing',
+  },
 ];
 
 const CURRENCIES: CurrencyOption[] = [
-  { code: "CAD", flag: "\uD83C\uDDE8\uD83C\uDDE6" },
-  { code: "USD", flag: "\uD83C\uDDFA\uD83C\uDDF8" },
+  { code: 'CAD', flag: '\uD83C\uDDE8\uD83C\uDDE6' },
+  { code: 'USD', flag: '\uD83C\uDDFA\uD83C\uDDF8' },
 ];
 
 function IconUser() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <circle cx="12" cy="8" r="4" />
       <path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8" />
     </svg>
@@ -85,7 +115,14 @@ function IconUser() {
 
 function IconCart() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <path d="M3 5h2.4l2.3 11.2a2 2 0 0 0 2 1.6h7.6a2 2 0 0 0 1.96-1.6L21 9H6" />
       <circle cx="10" cy="21" r="1.4" />
       <circle cx="17" cy="21" r="1.4" />
@@ -101,33 +138,37 @@ function IconMenu() {
   );
 }
 
-function CreditsTicker({ credits = 0, cardBank = 0, status = "idle" }: CreditsTickerProps) {
-  const loading = status === "loading";
-  const error = status === "error";
-  const creditLabel = loading ? "Loading" : error ? "Offline" : "Credits";
-  const creditValue = loading ? "..." : credits;
-  const linkTitle = error
-    ? "Credit balance unavailable."
-    : "View Saved Cards & Songs";
+function CreditsTicker({ credits = 0, cardBank = 0, status = 'idle' }: CreditsTickerProps) {
+  const loading = status === 'loading';
+  const error = status === 'error';
+  const creditLabel = loading ? 'Loading' : error ? 'Offline' : 'Credits';
+  const creditValue = loading ? '...' : credits;
+  const linkTitle = error ? 'Credit balance unavailable.' : 'View Saved Cards & Songs';
 
   return (
     <div className="souv-balance-wrap">
       <Link
-        className={`souv-credits souv-credits-stack souv-credits-link ${loading ? "is-loading" : ""} ${error ? "is-error" : ""}`}
+        className={`souv-credits souv-credits-stack souv-credits-link ${loading ? 'is-loading' : ''} ${error ? 'is-error' : ''}`}
         href="/create/my-cards-and-songs"
         title={linkTitle}
         aria-label={linkTitle}
       >
-        <span className="souv-credit"><em>{creditLabel}</em><b>{creditValue}</b></span>
+        <span className="souv-credit">
+          <em>{creditLabel}</em>
+          <b>{creditValue}</b>
+        </span>
         <span className="souv-credit souv-credit-bank">
-          <em>Cards</em><b>{cardBank}</b>
+          <em>Cards</em>
+          <b>{cardBank}</b>
         </span>
       </Link>
       <div className="souv-cardbank-pop">
         <div className="souv-cardbank-pop-card">
           <div className="souv-cardbank-pop-arrow" />
           <div className="souv-rule-gold" />
-          <Link className="souv-cardbank-sendlink" href="/create/my-cards-and-songs">Saved Cards &amp; Songs</Link>
+          <Link className="souv-cardbank-sendlink" href="/create/my-cards-and-songs">
+            Saved Cards &amp; Songs
+          </Link>
         </div>
       </div>
     </div>
@@ -140,14 +181,22 @@ function CurrencySelect({ currency, setCurrency, open, setOpen }: CurrencySelect
   return (
     <div className="souv-iconbtn-wrap">
       <button
-        className={`souv-currency ${open ? "is-open" : ""}`}
+        className={`souv-currency ${open ? 'is-open' : ''}`}
         onClick={() => setOpen(!open)}
         aria-label="Change currency"
         aria-haspopup="listbox"
         aria-expanded={open}
       >
         <span className="souv-currency-code">{active.code}</span>
-        <svg className="souv-currency-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <svg
+          className="souv-currency-chev"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
           <path d="M6 9l6 6 6-6" />
         </svg>
       </button>
@@ -160,16 +209,27 @@ function CurrencySelect({ currency, setCurrency, open, setOpen }: CurrencySelect
                 key={option.code}
                 role="option"
                 aria-selected={option.code === currency}
-                className={`souv-popmenu-item souv-currency-option ${option.code === currency ? "is-active" : ""}`}
+                className={`souv-popmenu-item souv-currency-option ${option.code === currency ? 'is-active' : ''}`}
                 onClick={() => {
                   setCurrency(option.code);
                   setOpen(false);
                 }}
               >
-                <span className="souv-currency-flag" aria-hidden="true">{option.flag}</span>
+                <span className="souv-currency-flag" aria-hidden="true">
+                  {option.flag}
+                </span>
                 <span>{option.code}</span>
                 {option.code === currency && (
-                  <svg className="souv-currency-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <svg
+                    className="souv-currency-check"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
                     <path d="M5 12l4 4 10-10" />
                   </svg>
                 )}
@@ -204,8 +264,12 @@ function NavRight({
   if (!loggedIn) {
     return (
       <div className="souv-nav-right">
-        <Link className="souv-nav-login" href="/login">Log In</Link>
-        <Link className="souv-cta-flow" href="/signup"><span>Start for Free</span></Link>
+        <Link className="souv-nav-login" href="/login">
+          Log In
+        </Link>
+        <Link className="souv-cta-flow" href="/signup">
+          <span>Start for Free</span>
+        </Link>
       </div>
     );
   }
@@ -231,7 +295,7 @@ function NavRight({
 
       <div className="souv-iconbtn-wrap">
         <button
-          className={`souv-iconbtn ${profileOpen ? "is-open" : ""}`}
+          className={`souv-iconbtn ${profileOpen ? 'is-open' : ''}`}
           onClick={() => {
             setProfileOpen(!profileOpen);
             setMenuOpen(false);
@@ -253,13 +317,25 @@ function NavRight({
                 </div>
               </div>
               <div className="souv-popmenu-sep" />
-              <Link href="/account/profile" className="souv-popmenu-item">Profile</Link>
-              <Link href="/create/my-cards-and-songs" className="souv-popmenu-item">Saved Cards &amp; Songs</Link>
+              <Link href="/account/profile" className="souv-popmenu-item">
+                Profile
+              </Link>
+              <Link href="/create/my-cards-and-songs" className="souv-popmenu-item">
+                Saved Cards &amp; Songs
+              </Link>
               <div className="souv-popmenu-sep" />
-              <Link href="/pricing" className="souv-popmenu-item">Top Up Cards/Credits</Link>
-              <Link href="/gift" className="souv-popmenu-item souv-popmenu-item-send">Gift a Souvenote</Link>
-              <Link href="/refer" className="souv-popmenu-item">Refer a Friend</Link>
-              <Link href="/account/settings" className="souv-popmenu-item">Account Settings</Link>
+              <Link href="/pricing" className="souv-popmenu-item">
+                Top Up Cards/Credits
+              </Link>
+              <Link href="/gift" className="souv-popmenu-item souv-popmenu-item-send">
+                Gift a Souvenote
+              </Link>
+              <Link href="/refer" className="souv-popmenu-item">
+                Refer a Friend
+              </Link>
+              <Link href="/account/settings" className="souv-popmenu-item">
+                Account Settings
+              </Link>
               <div className="souv-popmenu-sep" />
               <button
                 type="button"
@@ -267,7 +343,7 @@ function NavRight({
                 onClick={() => {
                   const redirectingToHostedLogout = logout({ hostedUi: true });
                   setProfileOpen(false);
-                  if (!redirectingToHostedLogout) router.push("/");
+                  if (!redirectingToHostedLogout) router.push('/');
                 }}
               >
                 Sign Out
@@ -286,7 +362,7 @@ function NavRight({
 
       <div className="souv-iconbtn-wrap">
         <button
-          className={`souv-iconbtn ${menuOpen ? "is-open" : ""}`}
+          className={`souv-iconbtn ${menuOpen ? 'is-open' : ''}`}
           onClick={() => {
             setMenuOpen(!menuOpen);
             setProfileOpen(false);
@@ -300,13 +376,25 @@ function NavRight({
           <>
             <div className="souv-overlay" onClick={() => setMenuOpen(false)} />
             <div className="souv-popmenu">
-              <Link href="/faq" className="souv-popmenu-item">FAQ</Link>
-              <Link href="/contact" className="souv-popmenu-item">Contact Us</Link>
+              <Link href="/faq" className="souv-popmenu-item">
+                FAQ
+              </Link>
+              <Link href="/contact" className="souv-popmenu-item">
+                Contact Us
+              </Link>
               <div className="souv-popmenu-sep" />
-              <Link href="/legal/cookie-policy" className="souv-popmenu-item">Cookie Policy</Link>
-              <Link href="/legal/refund-policy" className="souv-popmenu-item">Refund Policy</Link>
-              <Link href="/legal/terms-of-service" className="souv-popmenu-item">Terms of Service</Link>
-              <Link href="/legal/privacy-policy" className="souv-popmenu-item">Privacy Policy</Link>
+              <Link href="/legal/cookie-policy" className="souv-popmenu-item">
+                Cookie Policy
+              </Link>
+              <Link href="/legal/refund-policy" className="souv-popmenu-item">
+                Refund Policy
+              </Link>
+              <Link href="/legal/terms-of-service" className="souv-popmenu-item">
+                Terms of Service
+              </Link>
+              <Link href="/legal/privacy-policy" className="souv-popmenu-item">
+                Privacy Policy
+              </Link>
             </div>
           </>
         )}
@@ -317,7 +405,7 @@ function NavRight({
 
 function Navbar({
   loggedIn: _loggedIn = false,
-  user = { name: "Amelia Hart", email: "amelia@souvenote.com", initials: "AH" },
+  user = { name: 'Amelia Hart', email: 'amelia@souvenote.com', initials: 'AH' },
   credits = { images: 0, songs: 0 },
   cardBank = 0,
   cartCount = 0,
@@ -327,11 +415,11 @@ function Navbar({
   const [hovered, setHovered] = React.useState<string | null>(null);
   const [menuOpen, setMenuOpen] = React.useState(false);
   const [profileOpen, setProfileOpen] = React.useState(false);
-  const [currency, setCurrency] = React.useState<CurrencyCode>("CAD");
+  const [currency, setCurrency] = React.useState<CurrencyCode>('CAD');
   const [currencyOpen, setCurrencyOpen] = React.useState(false);
-  const resolvedLoggedIn = auth.status === "authenticated";
+  const resolvedLoggedIn = auth.status === 'authenticated';
   const resolvedUser = auth.displayUser || user;
-  const logoSrc = resolvedLoggedIn ? "/assets/LogoMark.png" : "/assets/WordmarkLobster.png";
+  const logoSrc = resolvedLoggedIn ? '/assets/LogoMark.png' : '/assets/WordmarkLobster.png';
   const localCreditBalance = (credits.images ?? 0) + (credits.songs ?? 0);
   const creditBalance = useCreditBalance({
     enabled: resolvedLoggedIn,
@@ -339,21 +427,31 @@ function Navbar({
   });
 
   return (
-    <header className={`souv-nav ${resolvedLoggedIn ? "is-signed-in" : "is-signed-out"} ${followUserOnScroll ? "is-follow-user-on-scroll" : ""}`}>
-      <Link href="/" className={`souv-nav-logo ${resolvedLoggedIn ? "is-mark" : "is-wordmark"}`} aria-label="Souvenote home">
+    <header
+      className={`souv-nav ${resolvedLoggedIn ? 'is-signed-in' : 'is-signed-out'} ${followUserOnScroll ? 'is-follow-user-on-scroll' : ''}`}
+    >
+      <Link
+        href="/"
+        className={`souv-nav-logo ${resolvedLoggedIn ? 'is-mark' : 'is-wordmark'}`}
+        aria-label="Souvenote home"
+      >
         <img src={logoSrc} alt="Souvenote" />
       </Link>
 
       <nav className="souv-nav-links">
         {NAV_LINKS.map((link, index) => (
           <React.Fragment key={link.label}>
-            {index > 0 && <span className="souv-nav-dot">{"\u00b7"}</span>}
+            {index > 0 && <span className="souv-nav-dot">{'\u00b7'}</span>}
             <div
               className="souv-nav-link-wrap"
               onMouseEnter={() => setHovered(link.label)}
               onMouseLeave={() => setHovered(null)}
             >
-              <Link href={link.href} className={`souv-nav-link ${hovered === link.label ? "is-hover" : ""}`} aria-label={link.label}>
+              <Link
+                href={link.href}
+                className={`souv-nav-link ${hovered === link.label ? 'is-hover' : ''}`}
+                aria-label={link.label}
+              >
                 {link.stackedLabel ? (
                   <span className="souv-nav-label-stack">
                     <span>{link.stackedLabel[0]}</span>
@@ -371,7 +469,9 @@ function Navbar({
                   <div className="souv-nav-popover-body">
                     <div className="souv-nav-popover-title">{link.label}</div>
                     <div className="souv-nav-popover-rule" />
-                    <div className="souv-nav-popover-sub">{resolvedLoggedIn ? link.sub : link.signedOutSub || link.sub}</div>
+                    <div className="souv-nav-popover-sub">
+                      {resolvedLoggedIn ? link.sub : link.signedOutSub || link.sub}
+                    </div>
                   </div>
                 </div>
               )}
@@ -384,7 +484,7 @@ function Navbar({
         loggedIn={resolvedLoggedIn}
         user={resolvedUser}
         creditBalance={creditBalance.balance}
-        creditStatus={resolvedLoggedIn && creditBalance.status === "idle" ? "loading" : creditBalance.status}
+        creditStatus={resolvedLoggedIn && creditBalance.status === 'idle' ? 'loading' : creditBalance.status}
         cardBank={cardBank}
         cartCount={cartCount}
         profileOpen={profileOpen}

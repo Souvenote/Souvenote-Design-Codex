@@ -10,7 +10,7 @@ export type BigSenderTier = {
 
 export type PricingCartItem = {
   id: string;
-  type: "pack";
+  type: 'pack';
   name: string;
   meta: string;
   sub: string;
@@ -30,7 +30,7 @@ export type TryRiskFreeCartItemOptions = {
   holdDays?: number;
 };
 
-export const SOUV_CART_KEY = "souv_cart";
+export const SOUV_CART_KEY = 'souv_cart';
 
 export type BigSenderPricing = {
   qty: number;
@@ -40,9 +40,9 @@ export type BigSenderPricing = {
 };
 
 export const BIG_SENDER_TIERS: BigSenderTier[] = [
-  { min: 1, max: 10, pricePerCard: 8.99, label: "1-10 cards" },
-  { min: 11, max: 20, pricePerCard: 7.99, label: "11-20 cards" },
-  { min: 21, max: 30, pricePerCard: 6.99, label: "21-30+ cards" },
+  { min: 1, max: 10, pricePerCard: 8.99, label: '1-10 cards' },
+  { min: 11, max: 20, pricePerCard: 7.99, label: '11-20 cards' },
+  { min: 21, max: 30, pricePerCard: 6.99, label: '21-30+ cards' },
 ];
 
 export function clampBigSenderQuantity(
@@ -54,20 +54,18 @@ export function clampBigSenderQuantity(
   return Math.max(min, Math.min(max, parsed));
 }
 
-export function getBigSenderTier(
-  quantity: unknown,
-  tiers: BigSenderTier[] = BIG_SENDER_TIERS,
-): BigSenderTier {
+export function getBigSenderTier(quantity: unknown, tiers: BigSenderTier[] = BIG_SENDER_TIERS): BigSenderTier {
   const min = tiers[0]?.min ?? MIN_BIG_SENDER_CARDS;
   const max = tiers[tiers.length - 1]?.max ?? MAX_BIG_SENDER_CARDS;
   const qty = clampBigSenderQuantity(quantity, min, max);
-  return tiers.find((tier) => qty >= tier.min && qty <= tier.max) || tiers[tiers.length - 1] || BIG_SENDER_TIERS[BIG_SENDER_TIERS.length - 1];
+  return (
+    tiers.find((tier) => qty >= tier.min && qty <= tier.max) ||
+    tiers[tiers.length - 1] ||
+    BIG_SENDER_TIERS[BIG_SENDER_TIERS.length - 1]
+  );
 }
 
-export function getBigSenderPricing(
-  quantity: unknown,
-  tiers: BigSenderTier[] = BIG_SENDER_TIERS,
-): BigSenderPricing {
+export function getBigSenderPricing(quantity: unknown, tiers: BigSenderTier[] = BIG_SENDER_TIERS): BigSenderPricing {
   const min = tiers[0]?.min ?? MIN_BIG_SENDER_CARDS;
   const max = tiers[tiers.length - 1]?.max ?? MAX_BIG_SENDER_CARDS;
   const qty = clampBigSenderQuantity(quantity, min, max);
@@ -81,60 +79,55 @@ export function getBigSenderPricing(
   };
 }
 
-export function makeBigSenderCartItem(
-  quantity: unknown,
-  tiers: BigSenderTier[] = BIG_SENDER_TIERS,
-): PricingCartItem {
+export function makeBigSenderCartItem(quantity: unknown, tiers: BigSenderTier[] = BIG_SENDER_TIERS): PricingCartItem {
   const pricing = getBigSenderPricing(quantity, tiers);
   return {
-    id: "pack-bigsender",
-    type: "pack",
-    name: "Big Sender",
+    id: 'pack-bigsender',
+    type: 'pack',
+    name: 'Big Sender',
     meta: `${pricing.qty} cards · shipping included`,
-    sub: "Send multiple different cards, 10 AI credits per card.",
+    sub: 'Send multiple different cards, 10 AI credits per card.',
     price: pricing.total,
     qty: 1,
     cardCount: pricing.qty,
     creditsPerCard: 10,
     lockedQuantity: true,
-    replaceGroup: "pack-bigsender",
+    replaceGroup: 'pack-bigsender',
     unitNote: `$${pricing.tier.pricePerCard.toFixed(2)} / card`,
   };
 }
 
-export function makeTryRiskFreeCartItem(
-  options: TryRiskFreeCartItemOptions = {},
-): PricingCartItem {
-  const price = Number.isFinite(options.priceCents)
-    ? Number(((options.priceCents ?? 999) / 100).toFixed(2))
-    : 9.99;
+export function makeTryRiskFreeCartItem(options: TryRiskFreeCartItemOptions = {}): PricingCartItem {
+  const price = Number.isFinite(options.priceCents) ? Number(((options.priceCents ?? 999) / 100).toFixed(2)) : 9.99;
   const credits = options.creditsPerCard ?? 10;
   const holdDays = options.holdDays ?? 5;
 
   return {
-    id: "pack-try-risk-free",
-    type: "pack",
-    name: options.name ?? "Try Risk-Free",
-    meta: "1 card · shipping included",
+    id: 'pack-try-risk-free',
+    type: 'pack',
+    name: options.name ?? 'Try Risk-Free',
+    meta: '1 card · shipping included',
     sub: `Temporary ${holdDays}-day hold. Includes ${credits} AI credits and finalizes only if the card is sent.`,
     price,
     qty: 1,
     cardCount: 1,
     creditsPerCard: credits,
     lockedQuantity: true,
-    replaceGroup: "pack-try-risk-free",
+    replaceGroup: 'pack-try-risk-free',
     unitNote: `$${price.toFixed(2)} hold`,
   };
 }
 
 export function addPricingCartItemToCart(item: PricingCartItem): void {
-  if (typeof window === "undefined") return;
+  if (typeof window === 'undefined') return;
 
   try {
-    const raw = JSON.parse(window.localStorage.getItem(SOUV_CART_KEY) || "[]");
+    const raw = JSON.parse(window.localStorage.getItem(SOUV_CART_KEY) || '[]');
     let current = Array.isArray(raw) ? raw : [];
     if (item.replaceGroup) {
-      current = current.filter((candidate) => candidate?.replaceGroup !== item.replaceGroup && candidate?.id !== item.id);
+      current = current.filter(
+        (candidate) => candidate?.replaceGroup !== item.replaceGroup && candidate?.id !== item.id,
+      );
     }
     const existing = item.replaceGroup ? null : current.find((candidate) => candidate?.id === item.id);
     if (existing) existing.qty += item.qty || 1;

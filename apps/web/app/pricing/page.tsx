@@ -1,8 +1,8 @@
-import { Footer } from "../components/Footer";
-import { DemoNavbar } from "../components/DemoNavbar";
-import { OrnamentDivider } from "../components/Ornaments";
-import { BackButton, CardPacks, CreditPacks } from "../components/Options";
-import { PageChrome } from "../components/PageChrome";
+import { Footer } from '../components/Footer';
+import { DemoNavbar } from '../components/DemoNavbar';
+import { OrnamentDivider } from '../components/Ornaments';
+import { BackButton, CardPacks, CreditPacks } from '../components/Options';
+import { PageChrome } from '../components/PageChrome';
 
 export default function PricingPage() {
   return (

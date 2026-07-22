@@ -1,11 +1,11 @@
-"use client";
+'use client';
 
-import * as React from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { fetchPricingOffers, type PricingOffer } from "../lib/api";
-import { StampCorners } from "./Ornaments";
-import { useAuth } from "./AuthProvider";
+import * as React from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { fetchPricingOffers, type PricingOffer } from '../lib/api';
+import { StampCorners } from './Ornaments';
+import { useAuth } from './AuthProvider';
 import {
   BIG_SENDER_TIERS,
   type BigSenderTier,
@@ -15,8 +15,8 @@ import {
   getBigSenderPricing,
   makeBigSenderCartItem,
   makeTryRiskFreeCartItem,
-} from "./pricingCatalog";
-import { MIN_GENERATION_CREDITS } from "./createFlowRules";
+} from './pricingCatalog';
+import { MIN_GENERATION_CREDITS } from './createFlowRules';
 
 // Options.tsx - dedicated to the create-options, pricing, referral, and modal surfaces.
 // Independent copy: edits here do NOT affect the "0 Credits · Modal" view (Options.intercept.jsx).
@@ -25,7 +25,7 @@ import { MIN_GENERATION_CREDITS } from "./createFlowRules";
 // ============================================================
 // ICONS — single-path strokes, currentColor, viewBox 0 0 24 24
 // ============================================================
-type CurrencyCode = "CAD" | "USD" | (string & {});
+type CurrencyCode = 'CAD' | 'USD' | (string & {});
 
 type BackButtonProps = {
   href?: string;
@@ -38,7 +38,7 @@ type OptionsHeaderProps = {
   lowBalance: boolean;
 };
 
-type OptionTileTone = "gold" | "rose" | "silver" | "bronze";
+type OptionTileTone = 'gold' | 'rose' | 'silver' | 'bronze';
 
 type OptionTileBase = {
   id: string;
@@ -118,7 +118,7 @@ type CreditPack = {
 
 type CartItem = {
   id: string;
-  type: "credits" | "pack";
+  type: 'credits' | 'pack';
   name: string;
   meta: string;
   sub: string;
@@ -138,12 +138,12 @@ type CardPacksProps = {
 
 type CreditPacksProps = {
   currency: CurrencyCode;
-  variant?: "lowCredits";
+  variant?: 'lowCredits';
 };
 
 type PackCardProps = {
   pack: CardPack | CreditPack;
-  kind: "card" | "credit";
+  kind: 'card' | 'credit';
   compact?: boolean;
   wide?: boolean;
 };
@@ -188,7 +188,14 @@ type RiskFreeCalloutProps = {
 
 function IconTemplate() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <rect x="3.5" y="3.5" width="17" height="17" rx="2" />
       <path d="M3.5 9h17" />
       <path d="M9 9v11.5" />
@@ -198,7 +205,14 @@ function IconTemplate() {
 }
 function IconBuild() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <path d="M4 7h12l4 4v9H4z" />
       <path d="M16 7v4h4" />
       <path d="M8 14h6M8 17h4" />
@@ -208,7 +222,14 @@ function IconBuild() {
 }
 function IconCommunity() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <circle cx="8" cy="9" r="3.2" />
       <circle cx="17" cy="10.5" r="2.6" />
       <path d="M2.5 19c.6-3 3-4.6 5.5-4.6S13 16 13.5 19" />
@@ -218,7 +239,14 @@ function IconCommunity() {
 }
 function IconLibrary() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <rect x="3.5" y="6" width="13" height="14" rx="1.5" />
       <path d="M7 6V4.5h13V18" />
       <path d="M7 11h6M7 15h4" />
@@ -228,7 +256,14 @@ function IconLibrary() {
 }
 function IconGift() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <rect x="3.5" y="8" width="17" height="5" />
       <path d="M5 13v8h14v-8" />
       <path d="M12 8v13" />
@@ -238,14 +273,30 @@ function IconGift() {
 }
 function IconSparkArrow() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
       <path d="M5 12h13M13 6l6 6-6 6" />
     </svg>
   );
 }
 function IconToken() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
       <circle cx="12" cy="12" r="8" />
       <path d="M12 7v10M9 9h4.2a1.8 1.8 0 0 1 0 3.6H9M9 12.6h5a1.8 1.8 0 0 1 0 3.6H9" />
     </svg>
@@ -260,7 +311,14 @@ function IconStar() {
 }
 function IconClose() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden="true">
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      aria-hidden="true"
+    >
       <path d="M6 6l12 12M18 6L6 18" />
     </svg>
   );
@@ -273,7 +331,15 @@ function BackButton({ href = '/', label = 'Back' }: BackButtonProps) {
   return (
     <div className="opt-back-row" data-screen-label="Back">
       <Link className="opt-back" href={href}>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.7"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
           <path d="M15 5l-7 7 7 7" />
         </svg>
         <span>{label}</span>
@@ -290,12 +356,9 @@ function OptionsHeader({ user, credits, lowBalance }: OptionsHeaderProps) {
     <section className="opt-head" data-screen-label="01 Header">
       <div className="opt-head-inner">
         <h1 className="souv-hero-title opt-title">
-          Choose how to{' '}
-          <span className="souv-hero-italic text-metallic-rose-gold">create your card</span>
+          Choose how to <span className="souv-hero-italic text-metallic-rose-gold">create your card</span>
         </h1>
-        <p className="opt-lede">
-          Every generation path lets you add an optional personalized song by QR code.
-        </p>
+        <p className="opt-lede">Every generation path lets you add an optional personalized song by QR code.</p>
       </div>
     </section>
   );
@@ -362,9 +425,7 @@ function TileGrid({ credits, cardBank = 0, onGated = undefined, onSelect = undef
                 </span>
               )}
               <div className="opt-tile-body">
-                <div className="opt-tile-title">
-                  {t.title}
-                </div>
+                <div className="opt-tile-title">{t.title}</div>
                 <div className="opt-tile-sub">{t.sub}</div>
               </div>
               <span className="opt-tile-music" aria-hidden="true">
@@ -380,13 +441,7 @@ function TileGrid({ credits, cardBank = 0, onGated = undefined, onSelect = undef
 
           if (comingSoon) {
             return (
-              <button
-                key={t.id}
-                type="button"
-                className={tileClassName}
-                disabled
-                aria-label={`${t.title} coming soon`}
-              >
+              <button key={t.id} type="button" className={tileClassName} disabled aria-label={`${t.title} coming soon`}>
                 {tileContent}
               </button>
             );
@@ -423,7 +478,15 @@ function TileGrid({ credits, cardBank = 0, onGated = undefined, onSelect = undef
 
 function IconMusic() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
       <path d="M9 18V6l11-2v12" />
       <circle cx="6.5" cy="18" r="2.5" fill="currentColor" stroke="none" />
       <circle cx="17.5" cy="16" r="2.5" fill="currentColor" stroke="none" />
@@ -433,7 +496,15 @@ function IconMusic() {
 
 function LockGlyph() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
       <rect x="5" y="11" width="14" height="9" rx="1.6" />
       <path d="M8 11V7.5a4 4 0 0 1 8 0V11" />
     </svg>
@@ -452,24 +523,37 @@ function ReferralBlock() {
         <div className="opt-referral-copy">
           <div className="souv-eyebrow opt-eyebrow">REFERRAL</div>
           <h2 className="souv-h1 opt-h2">
-            Invite a friend,{' '}
-            <span className="souv-hero-italic text-metallic-rose-gold">give 3, get 3</span>
+            Invite a friend, <span className="souv-hero-italic text-metallic-rose-gold">give 3, get 3</span>
           </h2>
           <p className="opt-lede opt-referral-lede">
-            Each friend who signs up adds <em>three credits</em> to your balance and starts theirs
-            with two.
+            Each friend who signs up adds <em>three credits</em> to your balance and starts theirs with two.
           </p>
           <ul className="opt-referral-ticks">
-            <li><Tick /> +3 credits per successful signup</li>
-            <li><Tick /> No cap, keep inviting</li>
-            <li><Tick /> Delivered by Sendgrid, never spammy</li>
+            <li>
+              <Tick /> +3 credits per successful signup
+            </li>
+            <li>
+              <Tick /> No cap, keep inviting
+            </li>
+            <li>
+              <Tick /> Delivered by Sendgrid, never spammy
+            </li>
           </ul>
         </div>
         <form
           className="opt-referral-form"
-          onSubmit={(event: React.FormEvent<HTMLFormElement>) => { event.preventDefault(); if (email) { setSent(true); setTimeout(() => setSent(false), 2400); setEmail(''); } }}
+          onSubmit={(event: React.FormEvent<HTMLFormElement>) => {
+            event.preventDefault();
+            if (email) {
+              setSent(true);
+              setTimeout(() => setSent(false), 2400);
+              setEmail('');
+            }
+          }}
         >
-          <label className="opt-referral-label" htmlFor="ref-email">Their email</label>
+          <label className="opt-referral-label" htmlFor="ref-email">
+            Their email
+          </label>
           <div className="opt-referral-row">
             <input
               id="ref-email"
@@ -501,7 +585,15 @@ function ReferralBlock() {
 }
 function Tick() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
       <path d="M5 12.5l4 4 10-10" />
     </svg>
   );
@@ -530,7 +622,8 @@ const CARD_PACKS_DATA: CardPacksData = {
     minCards: MIN_BIG_SENDER_CARDS,
     maxCards: MAX_BIG_SENDER_CARDS,
     tiers: BIG_SENDER_TIERS,
-    blurb: 'Stock up at your own pace. The more cards you grab, the lower the per-card price. Twelve-month send window.',
+    blurb:
+      'Stock up at your own pace. The more cards you grab, the lower the per-card price. Twelve-month send window.',
     accent: 'gold',
   },
   family: {
@@ -541,7 +634,8 @@ const CARD_PACKS_DATA: CardPacksData = {
     creditsPerCard: '10',
     minCards: 3,
     maxCards: 30,
-    blurb: 'Buy cards to send to others to create their own. You may keep one for yourself. 12-month claim window across every recipient.',
+    blurb:
+      'Buy cards to send to others to create their own. You may keep one for yourself. 12-month claim window across every recipient.',
     accent: 'gold',
   },
   twentyfive: null,
@@ -579,12 +673,9 @@ function formatCents(cents?: number) {
   return dollars === null ? undefined : `$${dollars.toFixed(2)}`;
 }
 
-function getNumberMetadata(
-  metadata: Record<string, unknown> | undefined,
-  key: string,
-) {
+function getNumberMetadata(metadata: Record<string, unknown> | undefined, key: string) {
   const value = metadata?.[key];
-  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
 }
 
 function formatCardRange(min: number, max: number) {
@@ -593,12 +684,12 @@ function formatCardRange(min: number, max: number) {
 }
 
 function formatTierLabel(min: number, max: number) {
-  if (min === max) return `${min} ${min === 1 ? "card" : "cards"}`;
-  return `${min}-${max}${max >= MAX_BIG_SENDER_CARDS ? "+" : ""} cards`;
+  if (min === max) return `${min} ${min === 1 ? 'card' : 'cards'}`;
+  return `${min}-${max}${max >= MAX_BIG_SENDER_CARDS ? '+' : ''} cards`;
 }
 
 function parseFirstNumber(value: unknown): number | undefined {
-  const match = String(value ?? "").match(/\d+/);
+  const match = String(value ?? '').match(/\d+/);
   if (!match) return undefined;
 
   const next = Number(match[0]);
@@ -607,17 +698,14 @@ function parseFirstNumber(value: unknown): number | undefined {
 
 function buildCardPacksData(offers: PricingOffer[]): CardPacksData {
   const tryRiskFreeOffer = offers.find(
-    (offer) => offer.id === "try_risk_free_one_card" || offer.type === "try_risk_free",
+    (offer) => offer.id === 'try_risk_free_one_card' || offer.type === 'try_risk_free',
   );
   const bigSenderOffers = offers
-    .filter((offer) => offer.type === "big_sender")
+    .filter((offer) => offer.type === 'big_sender')
     .sort((a, b) => a.cardCountMin - b.cardCountMin);
 
-  const holdDays = getNumberMetadata(tryRiskFreeOffer?.metadata, "hold_days");
-  const noSendFeeCents = getNumberMetadata(
-    tryRiskFreeOffer?.metadata,
-    "no_send_fee_cents",
-  );
+  const holdDays = getNumberMetadata(tryRiskFreeOffer?.metadata, 'hold_days');
+  const noSendFeeCents = getNumberMetadata(tryRiskFreeOffer?.metadata, 'no_send_fee_cents');
 
   const bigSenderTiers = bigSenderOffers.map((offer) => ({
     min: offer.cardCountMin,
@@ -640,24 +728,19 @@ function buildCardPacksData(offers: PricingOffer[]): CardPacksData {
           priceCents: tryRiskFreeOffer.priceCents,
           noSendFeeCents,
           holdDays,
-          priceUnit: tryRiskFreeOffer.shippingIncluded
-            ? "shipping included"
-            : CARD_PACKS_DATA.trf.priceUnit,
+          priceUnit: tryRiskFreeOffer.shippingIncluded ? 'shipping included' : CARD_PACKS_DATA.trf.priceUnit,
           tokens: String(tryRiskFreeOffer.creditsPerCard),
-          cards: formatCardRange(
-            tryRiskFreeOffer.cardCountMin,
-            tryRiskFreeOffer.cardCountMax,
-          ),
+          cards: formatCardRange(tryRiskFreeOffer.cardCountMin, tryRiskFreeOffer.cardCountMax),
           creditsPerCard: String(tryRiskFreeOffer.creditsPerCard),
         }
       : CARD_PACKS_DATA.trf,
     tiered: bigSenderOffers.length
       ? {
           ...CARD_PACKS_DATA.tiered,
-          id: "big_sender",
-          name: "Big Sender",
+          id: 'big_sender',
+          name: 'Big Sender',
           priceUnit: firstBigSender?.shippingIncluded
-            ? "Sliding Scale - Includes shipping and AI creation credits"
+            ? 'Sliding Scale - Includes shipping and AI creation credits'
             : CARD_PACKS_DATA.tiered.priceUnit,
           creditsPerCard: firstBigSender
             ? String(firstBigSender.creditsPerCard)
@@ -672,7 +755,7 @@ function buildCardPacksData(offers: PricingOffer[]): CardPacksData {
 
 function CardPacks({ currency }: CardPacksProps) {
   const [pricingOffers, setPricingOffers] = React.useState<PricingOffer[]>([]);
-  const [pricingStatus, setPricingStatus] = React.useState<"loading" | "ready" | "error">("loading");
+  const [pricingStatus, setPricingStatus] = React.useState<'loading' | 'ready' | 'error'>('loading');
   const [pricingError, setPricingError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
@@ -682,17 +765,13 @@ function CardPacks({ currency }: CardPacksProps) {
       .then((offers) => {
         if (!active) return;
         setPricingOffers(offers);
-        setPricingStatus("ready");
+        setPricingStatus('ready');
         setPricingError(null);
       })
       .catch((error: unknown) => {
         if (!active) return;
-        setPricingStatus("error");
-        setPricingError(
-          error instanceof Error
-            ? error.message
-            : "Pricing could not be loaded from the backend.",
-        );
+        setPricingStatus('error');
+        setPricingError(error instanceof Error ? error.message : 'Pricing could not be loaded from the backend.');
       });
 
     return () => {
@@ -701,7 +780,7 @@ function CardPacks({ currency }: CardPacksProps) {
   }, []);
 
   const cardPacksData = React.useMemo(() => {
-    if (pricingStatus !== "ready" || pricingOffers.length === 0) return null;
+    if (pricingStatus !== 'ready' || pricingOffers.length === 0) return null;
     return buildCardPacksData(pricingOffers);
   }, [pricingOffers, pricingStatus]);
 
@@ -710,25 +789,27 @@ function CardPacks({ currency }: CardPacksProps) {
       <div className="opt-pricing-head">
         <div className="souv-eyebrow opt-eyebrow">PRICING · CARD PACKS</div>
         <h2 className="souv-h1 opt-h2 opt-h2-cardpacks">
-          Physical cards,<br />
+          Physical cards,
+          <br />
           <span className="souv-hero-italic text-metallic-rose-gold">printed and posted</span>
         </h2>
         <p className="opt-pricing-lede">
-          Shipping is always included with your card, along with <span className="text-metallic-rose-gold">10 AI creation credits</span> for image, edit, and optional QR-song actions.
-          Snag just one or grab a bulk pack to save.
+          Shipping is always included with your card, along with{' '}
+          <span className="text-metallic-rose-gold">10 AI creation credits</span> for image, edit, and optional QR-song
+          actions. Snag just one or grab a bulk pack to save.
         </p>
       </div>
 
       {/* Two larger cards, centred — Try Risk-Free · Big Sender */}
-      {pricingStatus === "loading" && (
+      {pricingStatus === 'loading' && (
         <p className="opt-pricing-state" aria-live="polite">
           Loading live pricing from the local backend...
         </p>
       )}
-      {pricingStatus === "error" && (
+      {pricingStatus === 'error' && (
         <p className="opt-pricing-state is-error" role="status">
           Could not load live backend pricing. Start the backend to see card pack prices.
-          {pricingError ? ` ${pricingError}` : ""}
+          {pricingError ? ` ${pricingError}` : ''}
         </p>
       )}
 
@@ -741,13 +822,14 @@ function CardPacks({ currency }: CardPacksProps) {
       )}
 
       <ul className="opt-pricing-notes">
-        <li>Each card has a 12 month send window and are saved in Saved Cards &amp; Songs so you can send when the time is right.</li>
+        <li>
+          Each card has a 12 month send window and are saved in Saved Cards &amp; Songs so you can send when the time is
+          right.
+        </li>
       </ul>
 
       {currency === 'USD' && (
-        <p className="opt-pricing-fx">
-          Displayed in USD; billed in CAD at the day-of exchange rate.
-        </p>
+        <p className="opt-pricing-fx">Displayed in USD; billed in CAD at the day-of exchange rate.</p>
       )}
     </section>
   );
@@ -757,9 +839,32 @@ function CardPacks({ currency }: CardPacksProps) {
 // SECTION — AI CREDIT PACKS
 // ============================================================
 const AI_PACKS: CreditPack[] = [
-  { id: 'starter', name: 'Starter', price: '$2.00', tokens: '10',  blurb: 'Top off a short session.',           accent: 'platinum' },
-  { id: 'creator', name: 'Creator', price: '$10.00', tokens: '80',  blurb: 'A full evening of iteration.',      accent: 'gold', featured: true, badge: 'Most popular' },
-  { id: 'power',   name: 'Power',   price: '$25.00', tokens: '250', blurb: 'For repeat senders and remixers.', accent: 'rose' },
+  {
+    id: 'starter',
+    name: 'Starter',
+    price: '$2.00',
+    tokens: '10',
+    blurb: 'Top off a short session.',
+    accent: 'platinum',
+  },
+  {
+    id: 'creator',
+    name: 'Creator',
+    price: '$10.00',
+    tokens: '80',
+    blurb: 'A full evening of iteration.',
+    accent: 'gold',
+    featured: true,
+    badge: 'Most popular',
+  },
+  {
+    id: 'power',
+    name: 'Power',
+    price: '$25.00',
+    tokens: '250',
+    blurb: 'For repeat senders and remixers.',
+    accent: 'rose',
+  },
 ];
 
 function CreditPacks({ currency, variant = undefined }: CreditPacksProps) {
@@ -770,31 +875,31 @@ function CreditPacks({ currency, variant = undefined }: CreditPacksProps) {
         <div className="souv-eyebrow opt-eyebrow">PRICING · AI CREDITS</div>
         {lowCredits ? (
           <h2 className="souv-h1 opt-h2 opt-h2-topup opt-h2-whoops">
-            <span className="souv-hero-italic text-metallic-rose-gold">Whoops!</span>{' '}
-            You need more{' '}
-            <span className="souv-hero-italic text-metallic-rose-gold">credits</span>{' '}
-            to continue generating.
+            <span className="souv-hero-italic text-metallic-rose-gold">Whoops!</span> You need more{' '}
+            <span className="souv-hero-italic text-metallic-rose-gold">credits</span> to continue generating.
           </h2>
         ) : (
           <>
             <h2 className="souv-h1 opt-h2 opt-h2-topup">
-              Top up{' '}
-              <span className="souv-hero-italic text-metallic-rose-gold">credits</span>
+              Top up <span className="souv-hero-italic text-metallic-rose-gold">credits</span>
             </h2>
             <p className="opt-pricing-lede">
-              Bring your card to life.<br />
-              <span style={{ whiteSpace: 'nowrap' }}>1 credit = 1 action for design generation, image editing, or optional QR-song creation.</span>
+              Bring your card to life.
+              <br />
+              <span style={{ whiteSpace: 'nowrap' }}>
+                1 credit = 1 action for design generation, image editing, or optional QR-song creation.
+              </span>
             </p>
           </>
         )}
       </div>
       <div className="opt-pricing-grid opt-pricing-grid-3">
-        {AI_PACKS.map((p) => <PackCard key={p.id} pack={p} kind="credit" />)}
+        {AI_PACKS.map((p) => (
+          <PackCard key={p.id} pack={p} kind="credit" />
+        ))}
       </div>
       {currency === 'USD' && (
-        <p className="opt-pricing-fx">
-          Displayed in USD; billed in CAD at the day-of exchange rate.
-        </p>
+        <p className="opt-pricing-fx">Displayed in USD; billed in CAD at the day-of exchange rate.</p>
       )}
     </section>
   );
@@ -823,28 +928,33 @@ function souvAddToCart(item: CartItem) {
 function useSouvBuyAndGo() {
   const router = useRouter();
   const auth = useAuth();
-  return React.useCallback((item: CartItem) => {
-    if (auth.status !== "authenticated") {
-      router.push(`/signup?returnTo=${encodeURIComponent("/pricing")}`);
-      return;
-    }
-    souvAddToCart(item);
-    router.push('/cart');
-  }, [auth.status, router]);
+  return React.useCallback(
+    (item: CartItem) => {
+      if (auth.status !== 'authenticated') {
+        router.push(`/signup?returnTo=${encodeURIComponent('/pricing')}`);
+        return;
+      }
+      souvAddToCart(item);
+      router.push('/cart');
+    },
+    [auth.status, router],
+  );
 }
 
 function PackCard({ pack, kind, compact, wide }: PackCardProps) {
   const buyAndGo = useSouvBuyAndGo();
   const isCardPack = kind === 'card';
-  const cardPack = isCardPack ? pack as CardPack : null;
+  const cardPack = isCardPack ? (pack as CardPack) : null;
   const priceUnit = cardPack?.priceUnit;
   const cardCount = cardPack ? parseFirstNumber(cardPack.cards) : undefined;
   const rawCreditsPerCard = cardPack?.creditsPerCard ?? cardPack?.tokens;
   const creditsPerCard = cardPack
-    ? parseFirstNumber(rawCreditsPerCard) ?? (rawCreditsPerCard ? 0 : undefined)
+    ? (parseFirstNumber(rawCreditsPerCard) ?? (rawCreditsPerCard ? 0 : undefined))
     : undefined;
   return (
-    <article className={`opt-pack opt-pack-${pack.accent} ${pack.featured ? 'is-featured' : ''} ${compact ? 'is-compact' : ''} ${wide ? 'is-wide' : ''}`}>
+    <article
+      className={`opt-pack opt-pack-${pack.accent} ${pack.featured ? 'is-featured' : ''} ${compact ? 'is-compact' : ''} ${wide ? 'is-wide' : ''}`}
+    >
       {pack.featured && (
         <span className="opt-pack-badge">
           <IconStar />
@@ -887,19 +997,27 @@ function PackCard({ pack, kind, compact, wide }: PackCardProps) {
         )}
       </ul>
       <p className="opt-pack-blurb">{pack.blurb}</p>
-      <button className={`opt-pack-cta ${pack.featured ? 'is-gold' : ''}`} onClick={() => buyAndGo({
-        id: `${kind}-${pack.id}`,
-        type: kind === 'credit' ? 'credits' : 'pack',
-        name: kind === 'credit' ? `${pack.name} credits` : pack.name,
-        meta: kind === 'credit' ? `${pack.tokens} AI credits · image, edit, or QR song actions` : `${cardPack?.cards || '1'} cards · shipping included`,
-        sub: pack.blurb,
-        price: parseFloat(String(pack.price).replace(/[^0-9.]/g, '')) || 0,
-        qty: 1,
-        unitNote: kind === 'credit' ? 'one-time top-up' : 'card pack',
-        ...(kind === 'credit' ? { tokens: pack.tokens } : {}),
-        ...(cardCount ? { cardCount } : {}),
-        ...(creditsPerCard !== undefined ? { creditsPerCard } : {}),
-      })}>
+      <button
+        className={`opt-pack-cta ${pack.featured ? 'is-gold' : ''}`}
+        onClick={() =>
+          buyAndGo({
+            id: `${kind}-${pack.id}`,
+            type: kind === 'credit' ? 'credits' : 'pack',
+            name: kind === 'credit' ? `${pack.name} credits` : pack.name,
+            meta:
+              kind === 'credit'
+                ? `${pack.tokens} AI credits · image, edit, or QR song actions`
+                : `${cardPack?.cards || '1'} cards · shipping included`,
+            sub: pack.blurb,
+            price: parseFloat(String(pack.price).replace(/[^0-9.]/g, '')) || 0,
+            qty: 1,
+            unitNote: kind === 'credit' ? 'one-time top-up' : 'card pack',
+            ...(kind === 'credit' ? { tokens: pack.tokens } : {}),
+            ...(cardCount ? { cardCount } : {}),
+            ...(creditsPerCard !== undefined ? { creditsPerCard } : {}),
+          })
+        }
+      >
         <span>Choose {pack.name}</span>
         <IconSparkArrow />
       </button>
@@ -956,7 +1074,9 @@ function ScalePicker({ qty, setQty, min, max, total, helper }: ScalePickerProps)
         <span className="opt-pack-family-label">How many cards?</span>
         <b className="opt-pk-row-total">${total}</b>
         <div className="opt-pack-family-stepper">
-          <button type="button" aria-label="Decrease" onClick={() => setQty(qty - 1)} disabled={qty <= min}>−</button>
+          <button type="button" aria-label="Decrease" onClick={() => setQty(qty - 1)} disabled={qty <= min}>
+            −
+          </button>
           <input
             type="number"
             min={min}
@@ -965,7 +1085,9 @@ function ScalePicker({ qty, setQty, min, max, total, helper }: ScalePickerProps)
             onChange={(e) => setQty(e.target.value)}
             className="opt-pack-family-qty"
           />
-          <button type="button" aria-label="Increase" onClick={() => setQty(qty + 1)} disabled={qty >= max}>+</button>
+          <button type="button" aria-label="Increase" onClick={() => setQty(qty + 1)} disabled={qty >= max}>
+            +
+          </button>
         </div>
       </label>
       {helper && <div className="opt-pk-helper">{helper}</div>}
@@ -998,7 +1120,15 @@ function TieredPackCard({ pack }: TieredPackCardProps) {
     <article className="opt-pack opt-pack-unified opt-pack-gold" data-screen-label="04b Big Sender">
       <header className="opt-pk-head">
         <h3 className="opt-pk-name">Big Sender</h3>
-        <MetaBullets items={['Send multiple different cards', 'Includes shipping', <span key="credits-per-card" className="text-metallic-rose-gold">10 AI creation credits per card</span>]} />
+        <MetaBullets
+          items={[
+            'Send multiple different cards',
+            'Includes shipping',
+            <span key="credits-per-card" className="text-metallic-rose-gold">
+              10 AI creation credits per card
+            </span>,
+          ]}
+        />
       </header>
 
       {/* Cost — all three tier prices, in gold */}
@@ -1014,33 +1144,41 @@ function TieredPackCard({ pack }: TieredPackCardProps) {
               onClick={() => setQtyClamped(t.min)}
             >
               <span className="opt-pack-tier-range">{t.label}</span>
-              <span className="opt-pack-tier-price">${t.pricePerCard.toFixed(2)}<em> / card</em></span>
+              <span className="opt-pack-tier-price">
+                ${t.pricePerCard.toFixed(2)}
+                <em> / card</em>
+              </span>
             </button>
           );
         })}
       </div>
 
       {/* Scale picker — directly below pricing */}
-      <ScalePicker
-        qty={displayQty}
-        setQty={setQtyClamped}
-        min={minCards}
-        max={maxCards}
-        total={total}
-      />
+      <ScalePicker qty={displayQty} setQty={setQtyClamped} min={minCards} max={maxCards} total={total} />
 
       <div className="opt-pk-rule" />
 
       <HowItWorks
         items={[
-          { label: 'Share the Love', body: 'Send a completed card to your loved ones, or gift a Souvenote so someone else can create their own.' },
+          {
+            label: 'Share the Love',
+            body: 'Send a completed card to your loved ones, or gift a Souvenote so someone else can create their own.',
+          },
           { label: 'Flexible Sending Options', body: 'Send the same card to everyone, or a unique card to each.' },
-          { label: 'Always saved', body: 'Design now and send later. Your creations will be saved in "Saved Cards & Songs" for 12 months' },
+          {
+            label: 'Always saved',
+            body: 'Design now and send later. Your creations will be saved in "Saved Cards & Songs" for 12 months',
+          },
         ]}
       />
 
-      <button className="opt-pack-cta is-gold opt-pk-cta" onClick={() => buyAndGo(makeBigSenderCartItem(displayQty, tiers))}>
-        <span>Reserve {qty} cards · ${total}</span>
+      <button
+        className="opt-pack-cta is-gold opt-pk-cta"
+        onClick={() => buyAndGo(makeBigSenderCartItem(displayQty, tiers))}
+      >
+        <span>
+          Reserve {qty} cards · ${total}
+        </span>
         <IconSparkArrow />
       </button>
     </article>
@@ -1079,9 +1217,23 @@ function FamilyPackCard({ pack }: FamilyPackCardProps) {
 
       <HowItWorks
         items={[
-          { label: 'Family Discount', body: 'Buy 3 to 30 cards at a deep discount for your family to design their own.' },
-          { label: 'Keep 1 for yourself', body: 'For every 3 cards you buy, you can choose to keep 1 for yourself or gift them all.' },
-          { label: 'The Rules', body: <>Cards include <b>10 AI credits</b> and a 12-month expiry. Gifted cards must go to phone numbers or emails not linked to your account.</> },
+          {
+            label: 'Family Discount',
+            body: 'Buy 3 to 30 cards at a deep discount for your family to design their own.',
+          },
+          {
+            label: 'Keep 1 for yourself',
+            body: 'For every 3 cards you buy, you can choose to keep 1 for yourself or gift them all.',
+          },
+          {
+            label: 'The Rules',
+            body: (
+              <>
+                Cards include <b>10 AI credits</b> and a 12-month expiry. Gifted cards must go to phone numbers or
+                emails not linked to your account.
+              </>
+            ),
+          },
         ]}
       />
 
@@ -1091,22 +1243,33 @@ function FamilyPackCard({ pack }: FamilyPackCardProps) {
         min={minCards}
         max={maxCards}
         total={total}
-        helper={<>Keep up to <b>{keep}</b> for yourself, gift the rest.</>}
+        helper={
+          <>
+            Keep up to <b>{keep}</b> for yourself, gift the rest.
+          </>
+        }
       />
 
-      <button className="opt-pack-cta is-gold opt-pk-cta" onClick={() => buyAndGo({
-        id: 'pack-family',
-        type: 'pack',
-        name: 'Share the Love',
-        meta: `${qty} cards · shipping included`,
-        sub: `Keep up to ${keep} for yourself, gift the rest.`,
-        price: parseFloat(total) || 0,
-        qty: 1,
-        cardCount: qty,
-        creditsPerCard: parseFirstNumber(pack.creditsPerCard) ?? 10,
-        unitNote: `$${pricePerCard.toFixed(2)} / card`,
-      })}>
-        <span>Reserve {qty} cards · ${total}</span>
+      <button
+        className="opt-pack-cta is-gold opt-pk-cta"
+        onClick={() =>
+          buyAndGo({
+            id: 'pack-family',
+            type: 'pack',
+            name: 'Share the Love',
+            meta: `${qty} cards · shipping included`,
+            sub: `Keep up to ${keep} for yourself, gift the rest.`,
+            price: parseFloat(total) || 0,
+            qty: 1,
+            cardCount: qty,
+            creditsPerCard: parseFirstNumber(pack.creditsPerCard) ?? 10,
+            unitNote: `$${pricePerCard.toFixed(2)} / card`,
+          })
+        }
+      >
+        <span>
+          Reserve {qty} cards · ${total}
+        </span>
         <IconSparkArrow />
       </button>
     </article>
@@ -1118,45 +1281,82 @@ function FamilyPackCard({ pack }: FamilyPackCardProps) {
 // ============================================================
 function TryRiskFreeCard({ pack }: TryRiskFreeCardProps) {
   const buyAndGo = useSouvBuyAndGo();
-  const holdPrice = pack.price ?? "$9.99";
-  const noSendPrice = formatCents(pack.noSendFeeCents) ?? "$2.00";
+  const holdPrice = pack.price ?? '$9.99';
+  const noSendPrice = formatCents(pack.noSendFeeCents) ?? '$2.00';
   const holdDays = pack.holdDays ?? 5;
-  const credits = pack.creditsPerCard ?? pack.tokens ?? "10";
-  const shippingLabel = pack.priceUnit === "shipping included"
-    ? "Includes shipping"
-    : pack.priceUnit ?? "Includes shipping";
-  const cardLabel = pack.cards?.startsWith("1")
-    ? "Send 1 card"
-    : pack.cards ?? "Send 1 card";
+  const credits = pack.creditsPerCard ?? pack.tokens ?? '10';
+  const shippingLabel =
+    pack.priceUnit === 'shipping included' ? 'Includes shipping' : (pack.priceUnit ?? 'Includes shipping');
+  const cardLabel = pack.cards?.startsWith('1') ? 'Send 1 card' : (pack.cards ?? 'Send 1 card');
 
   return (
     <article className="opt-pack opt-pack-unified opt-pack-gold" data-screen-label="04a Try Risk-Free">
       <header className="opt-pk-head">
         <h3 className="opt-pk-name">{pack.name}</h3>
-        <MetaBullets items={[cardLabel, shippingLabel, <span key="credits" className="text-metallic-rose-gold">{credits} AI creation credits</span>]} />
+        <MetaBullets
+          items={[
+            cardLabel,
+            shippingLabel,
+            <span key="credits" className="text-metallic-rose-gold">
+              {credits} AI creation credits
+            </span>,
+          ]}
+        />
       </header>
 
       <div className="opt-pk-cost opt-pk-cost-split">
-        <div className="opt-pk-cost-line"><b>{holdPrice}</b><em>if you love it.</em></div>
-        <div className="opt-pk-cost-line"><b>{noSendPrice}</b><em>if you don't.</em></div>
+        <div className="opt-pk-cost-line">
+          <b>{holdPrice}</b>
+          <em>if you love it.</em>
+        </div>
+        <div className="opt-pk-cost-line">
+          <b>{noSendPrice}</b>
+          <em>if you don't.</em>
+        </div>
       </div>
 
       <div className="opt-pk-rule" />
 
       <HowItWorks
         items={[
-          { label: 'Unlock instantly', body: <>A temporary {holdDays}-day hold of <b>{holdPrice}</b> is placed on your card to unlock your <b>{credits} design credits</b> immediately.</> },
-          { label: 'If you send the card', body: `The ${holdPrice} hold is finalized. Your card is printed and shipped with no extra fees.` },
-          { label: "If you don't send", body: <>The hold is released after {holdDays} days. You are only charged <b>{noSendPrice}</b> for the {credits} AI credits.</> },
+          {
+            label: 'Unlock instantly',
+            body: (
+              <>
+                A temporary {holdDays}-day hold of <b>{holdPrice}</b> is placed on your card to unlock your{' '}
+                <b>{credits} design credits</b> immediately.
+              </>
+            ),
+          },
+          {
+            label: 'If you send the card',
+            body: `The ${holdPrice} hold is finalized. Your card is printed and shipped with no extra fees.`,
+          },
+          {
+            label: "If you don't send",
+            body: (
+              <>
+                The hold is released after {holdDays} days. You are only charged <b>{noSendPrice}</b> for the {credits}{' '}
+                AI credits.
+              </>
+            ),
+          },
         ]}
       />
 
-      <button className="opt-pack-cta is-gold opt-pk-cta" onClick={() => buyAndGo(makeTryRiskFreeCartItem({
-        name: pack.name,
-        priceCents: pack.priceCents,
-        creditsPerCard: Number(credits) || 10,
-        holdDays,
-      }))}>
+      <button
+        className="opt-pack-cta is-gold opt-pk-cta"
+        onClick={() =>
+          buyAndGo(
+            makeTryRiskFreeCartItem({
+              name: pack.name,
+              priceCents: pack.priceCents,
+              creditsPerCard: Number(credits) || 10,
+              holdDays,
+            }),
+          )
+        }
+      >
         <span>Choose {pack.name}</span>
         <IconSparkArrow />
       </button>
@@ -1190,7 +1390,9 @@ function RiskFreeCallout({ inline }: RiskFreeCalloutProps) {
           <div className="opt-trf-step">
             <div className="opt-trf-num">03</div>
             <div className="opt-trf-title">Don't send → pay-per-use</div>
-            <div className="opt-trf-body">After seven days or ten credits used we capture only credits used × $0.20.</div>
+            <div className="opt-trf-body">
+              After seven days or ten credits used we capture only credits used × $0.20.
+            </div>
           </div>
         </div>
       </div>

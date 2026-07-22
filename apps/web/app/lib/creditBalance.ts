@@ -1,11 +1,11 @@
-"use client";
+'use client';
 
-import * as React from "react";
-import { fetchCreditBalance } from "./api";
-import type { CreditBalance } from "./api";
-import { AUTH_SESSION_UPDATED_EVENT, getStoredLocalUser } from "./cognitoAuth";
+import * as React from 'react';
+import { fetchCreditBalance } from './api';
+import type { CreditBalance } from './api';
+import { AUTH_SESSION_UPDATED_EVENT, getStoredLocalUser } from './cognitoAuth';
 
-export type CreditBalanceStatus = "idle" | "loading" | "ready" | "error";
+export type CreditBalanceStatus = 'idle' | 'loading' | 'ready' | 'error';
 
 type UseCreditBalanceOptions = {
   enabled?: boolean;
@@ -15,7 +15,7 @@ type UseCreditBalanceOptions = {
 
 type CreditBalanceEvent = CustomEvent<CreditBalance>;
 
-const CREDIT_BALANCE_EVENT = "souv-credit-balance";
+const CREDIT_BALANCE_EVENT = 'souv-credit-balance';
 
 let cachedCreditBalance: CreditBalance | null = null;
 
@@ -25,15 +25,15 @@ function normalizeBalance(value: unknown, fallback = 0) {
 }
 
 function isCreditBalance(value: unknown): value is CreditBalance {
-  if (!value || typeof value !== "object") return false;
+  if (!value || typeof value !== 'object') return false;
   const candidate = value as Partial<CreditBalance>;
-  return typeof candidate.userId === "string"
-    && typeof candidate.balance === "number"
-    && Number.isFinite(candidate.balance);
+  return (
+    typeof candidate.userId === 'string' && typeof candidate.balance === 'number' && Number.isFinite(candidate.balance)
+  );
 }
 
 function resolveCreditUserId(userId?: string) {
-  return userId || getStoredLocalUser()?.id || "";
+  return userId || getStoredLocalUser()?.id || '';
 }
 
 export function publishCreditBalance(balance: CreditBalance) {
@@ -42,7 +42,7 @@ export function publishCreditBalance(balance: CreditBalance) {
     balance: normalizeBalance(balance.balance),
   };
 
-  if (typeof window === "undefined") return;
+  if (typeof window === 'undefined') return;
   window.dispatchEvent(new CustomEvent<CreditBalance>(CREDIT_BALANCE_EVENT, { detail: cachedCreditBalance }));
 }
 
@@ -52,15 +52,11 @@ export function publishCreditBalanceValue(balance: number, userId?: string) {
   publishCreditBalance({ userId: resolvedUserId, balance });
 }
 
-export function useCreditBalance({
-  enabled = true,
-  fallbackBalance = 0,
-  userId,
-}: UseCreditBalanceOptions = {}) {
+export function useCreditBalance({ enabled = true, fallbackBalance = 0, userId }: UseCreditBalanceOptions = {}) {
   const [resolvedUserId, setResolvedUserId] = React.useState(() => resolveCreditUserId(userId));
   const initialCached = cachedCreditBalance?.userId === resolvedUserId ? cachedCreditBalance.balance : null;
   const [balance, setBalance] = React.useState(() => initialCached ?? normalizeBalance(fallbackBalance));
-  const [status, setStatus] = React.useState<CreditBalanceStatus>(() => initialCached == null ? "idle" : "ready");
+  const [status, setStatus] = React.useState<CreditBalanceStatus>(() => (initialCached == null ? 'idle' : 'ready'));
   const [error, setError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
@@ -74,7 +70,7 @@ export function useCreditBalance({
       if (!getStoredLocalUser()) {
         cachedCreditBalance = null;
         setBalance(normalizeBalance(fallbackBalance));
-        setStatus("idle");
+        setStatus('idle');
         setError(null);
       }
 
@@ -87,13 +83,13 @@ export function useCreditBalance({
 
   const refresh = React.useCallback(async () => {
     if (!enabled || !resolvedUserId) {
-      setStatus("idle");
+      setStatus('idle');
       setError(null);
       setBalance(normalizeBalance(fallbackBalance));
       return null;
     }
 
-    setStatus(cachedCreditBalance?.userId === resolvedUserId ? "ready" : "loading");
+    setStatus(cachedCreditBalance?.userId === resolvedUserId ? 'ready' : 'loading');
     setError(null);
 
     try {
@@ -101,10 +97,8 @@ export function useCreditBalance({
       publishCreditBalance(next);
       return next;
     } catch (unknownError) {
-      const message = unknownError instanceof Error
-        ? unknownError.message
-        : "Credit balance is unavailable.";
-      setStatus("error");
+      const message = unknownError instanceof Error ? unknownError.message : 'Credit balance is unavailable.';
+      setStatus('error');
       setError(message);
       setBalance(normalizeBalance(fallbackBalance));
       return null;
@@ -116,7 +110,7 @@ export function useCreditBalance({
       const detail = (event as CreditBalanceEvent).detail;
       if (!isCreditBalance(detail) || detail.userId !== resolvedUserId) return;
       setBalance(normalizeBalance(detail.balance));
-      setStatus("ready");
+      setStatus('ready');
       setError(null);
     }
 
@@ -128,7 +122,7 @@ export function useCreditBalance({
     let active = true;
 
     if (!enabled || !resolvedUserId) {
-      setStatus("idle");
+      setStatus('idle');
       setError(null);
       setBalance(normalizeBalance(fallbackBalance));
       return () => {
@@ -139,10 +133,10 @@ export function useCreditBalance({
     const cached = cachedCreditBalance?.userId === resolvedUserId ? cachedCreditBalance : null;
     if (cached) {
       setBalance(normalizeBalance(cached.balance));
-      setStatus("ready");
+      setStatus('ready');
       setError(null);
     } else {
-      setStatus("loading");
+      setStatus('loading');
       setError(null);
     }
 
@@ -153,10 +147,8 @@ export function useCreditBalance({
       })
       .catch((unknownError) => {
         if (!active) return;
-        const message = unknownError instanceof Error
-          ? unknownError.message
-          : "Credit balance is unavailable.";
-        setStatus("error");
+        const message = unknownError instanceof Error ? unknownError.message : 'Credit balance is unavailable.';
+        setStatus('error');
         setError(message);
         setBalance(normalizeBalance(fallbackBalance));
       });

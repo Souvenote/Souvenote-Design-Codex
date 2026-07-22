@@ -1,8 +1,4 @@
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { CreditsService } from '../credits/credits.service';
 import { DatabaseService } from '../database/database.service';
 import { StartGenerationDto } from './generation.controller';
@@ -121,9 +117,7 @@ export class GenerationService {
         `${dto.idempotencyKey}-refund`,
       );
 
-      throw new BadRequestException(
-        'Generation failed after credits were deducted. Credits were refunded.',
-      );
+      throw new BadRequestException('Generation failed after credits were deducted. Credits were refunded.');
     }
   }
 

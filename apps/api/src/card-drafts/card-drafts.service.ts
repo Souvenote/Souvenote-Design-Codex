@@ -57,12 +57,7 @@ export class CardDraftsService {
         VALUES ($1, $2, $3, $4, 'draft')
         RETURNING id, user_id, occasion, relationship, creative_brief, status, created_at, updated_at;
       `,
-      [
-        dto.userId,
-        dto.occasion ?? null,
-        dto.relationship ?? null,
-        JSON.stringify(dto.creativeBrief ?? {}),
-      ],
+      [dto.userId, dto.occasion ?? null, dto.relationship ?? null, JSON.stringify(dto.creativeBrief ?? {})],
     );
 
     return {

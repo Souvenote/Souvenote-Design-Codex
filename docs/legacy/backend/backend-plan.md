@@ -1,3 +1,6 @@
+> [!WARNING]
+> Historical and non-authoritative. This plan is preserved for traceability and does not override the decision register, MVP specification, agent guide, or current architecture.
+
 # Souvenote Backend Plan
 
 ## Current Goal

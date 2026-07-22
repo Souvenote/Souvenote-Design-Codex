@@ -1,1 +1,1 @@
-export { default } from "../create/my-cards-and-songs/page";
+export { default } from '../create/my-cards-and-songs/page';

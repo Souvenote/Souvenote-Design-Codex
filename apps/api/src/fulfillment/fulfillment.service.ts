@@ -1,8 +1,4 @@
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { DatabaseService } from '../database/database.service';
 import { OrdersService } from '../orders/orders.service';
@@ -32,15 +28,10 @@ export class FulfillmentService {
 
   async submitFulfillment(dto: SubmitFulfillmentDto) {
     const order = await this.ordersService.findOrderRow(dto.orderId);
-    this.ordersService.assertOrderStatus(
-      order,
-      ['paid_mock'],
-      'submit fulfillment',
-    );
+    this.ordersService.assertOrderStatus(order, ['paid_mock'], 'submit fulfillment');
 
     const mockFulfillmentId = `mock_fulfillment_${randomUUID()}`;
-    const estimatedDelivery =
-      dto.estimatedDelivery ?? 'Mock delivery estimate: 5-7 business days.';
+    const estimatedDelivery = dto.estimatedDelivery ?? 'Mock delivery estimate: 5-7 business days.';
 
     await this.ordersService.markFulfillmentStarted(order.id);
 
@@ -94,11 +85,7 @@ export class FulfillmentService {
       );
 
       const fulfillment = fulfillmentResult.rows[0];
-      const updatedOrder = await this.ordersService.markFulfilledMock(
-        order.id,
-        fulfillment.id,
-        mockFulfillmentId,
-      );
+      const updatedOrder = await this.ordersService.markFulfilledMock(order.id, fulfillment.id, mockFulfillmentId);
 
       return {
         fulfillment: this.toFulfillmentResponse(fulfillment),
@@ -107,9 +94,7 @@ export class FulfillmentService {
     } catch {
       await this.ordersService.markFailedMock(order.id).catch(() => undefined);
 
-      throw new BadRequestException(
-        'Mock fulfillment failed. Order was marked failed_mock.',
-      );
+      throw new BadRequestException('Mock fulfillment failed. Order was marked failed_mock.');
     }
   }
 

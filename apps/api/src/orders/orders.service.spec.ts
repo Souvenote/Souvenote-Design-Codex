@@ -30,18 +30,12 @@ describe('OrdersService', () => {
   };
 
   it('allows valid order status transitions', () => {
-    expect(() =>
-      service.assertOrderStatus(order, ['pending'], 'start checkout'),
-    ).not.toThrow();
+    expect(() => service.assertOrderStatus(order, ['pending'], 'start checkout')).not.toThrow();
   });
 
   it('rejects invalid order status transitions with a clear error', () => {
     expect(() =>
-      service.assertOrderStatus(
-        { ...order, status: 'fulfilled_mock' },
-        ['pending'],
-        'start checkout',
-      ),
+      service.assertOrderStatus({ ...order, status: 'fulfilled_mock' }, ['pending'], 'start checkout'),
     ).toThrow(BadRequestException);
   });
 
@@ -62,11 +56,9 @@ describe('OrdersService', () => {
       .spyOn(databaseService, 'query')
       .mockResolvedValueOnce({ rows: [{ ...order, status: 'fulfillment_started' }] } as never);
 
-    await expect(service.markFulfillmentStarted(order.id)).resolves.toMatchObject(
-      {
-        status: 'fulfillment_started',
-      },
-    );
+    await expect(service.markFulfillmentStarted(order.id)).resolves.toMatchObject({
+      status: 'fulfillment_started',
+    });
   });
 
   it('marks an order as failed in mock mode', async () => {

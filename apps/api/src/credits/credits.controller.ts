@@ -27,31 +27,16 @@ export class CreditsController {
 
   @Post('grant')
   async grant(@Body() dto: CreditActionDto) {
-    return this.creditsService.grant(
-      dto.userId,
-      dto.amount,
-      dto.source,
-      dto.idempotencyKey,
-    );
+    return this.creditsService.grant(dto.userId, dto.amount, dto.source, dto.idempotencyKey);
   }
 
   @Post('deduct')
   async deduct(@Body() dto: CreditActionDto) {
-    return this.creditsService.deduct(
-      dto.userId,
-      dto.amount,
-      dto.source,
-      dto.idempotencyKey,
-    );
+    return this.creditsService.deduct(dto.userId, dto.amount, dto.source, dto.idempotencyKey);
   }
 
   @Post('refund')
   async refund(@Body() dto: CreditActionDto) {
-    return this.creditsService.refund(
-      dto.userId,
-      dto.amount,
-      dto.source,
-      dto.idempotencyKey,
-    );
+    return this.creditsService.refund(dto.userId, dto.amount, dto.source, dto.idempotencyKey);
   }
 }

@@ -134,7 +134,7 @@ function parseJsonClaim(value: string) {
   }
 }
 
-function claimArray(claims: CognitoJwtClaims, key: string) {
+function claimArray(claims: CognitoJwtClaims, key: string): unknown[] {
   const value = claims[key];
   if (Array.isArray(value)) return value;
   if (typeof value === 'string') {

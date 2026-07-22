@@ -1,0 +1,53 @@
+{
+  "name": "souvenote",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "npm@10.9.8",
+  "engines": {
+    "node": ">=22 <25",
+    "npm": ">=10 <12"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "dev:web": "npm run dev --workspace=@souvenote/web",
+    "dev:api": "npm run dev --workspace=@souvenote/api",
+    "dev:worker": "npm run dev --workspace=@souvenote/worker",
+    "dev:down": "docker compose down --remove-orphans",
+    "db:up": "docker compose up -d --wait postgres",
+    "db:down": "docker compose down --remove-orphans",
+    "db:logs": "docker compose logs postgres",
+    "health": "node scripts/healthcheck.mjs",
+    "smoke:stack": "node scripts/dev.mjs --smoke",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "eslint \"scripts/**/*.mjs\" \"*.config.mjs\" --max-warnings=0 && npm run lint --workspaces --if-present",
+    "lint:fix": "npm run lint:fix --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test:scripts": "node --test scripts/lib/local-runtime.test.mjs",
+    "test": "npm run test:scripts && npm run test --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present",
+    "audit:prod": "npm audit --omit=dev --audit-level=high",
+    "verify": "npm run format:check && npm run lint && npm run typecheck && npm run test && npm run build && npm run audit:prod"
+  },
+  "overrides": {
+    "body-parser": "2.3.0",
+    "postcss": "8.5.15",
+    "sharp": "0.35.3"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "3.3.6",
+    "@eslint/js": "9.39.5",
+    "@types/node": "22.20.1",
+    "eslint": "9.39.5",
+    "eslint-config-next": "15.5.21",
+    "eslint-config-prettier": "10.1.8",
+    "globals": "17.7.0",
+    "prettier": "3.9.6",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.65.0"
+  }
+}

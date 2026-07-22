@@ -1,6 +1,7 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Inject, Injectable, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createPublicKey, verify, type JsonWebKey, type KeyObject } from 'crypto';
+import { type AuthMode, type ConfigurationReader, readString, resolveAuthMode } from '../config/runtime-config';
 import type { CognitoJwtClaims } from './auth.types';
 
 type JwksResponse = {
@@ -14,22 +15,37 @@ type JwtHeader = {
 
 @Injectable()
 export class CognitoJwtService {
-  private readonly region: string;
-  private readonly userPoolId: string;
-  private readonly clientId: string;
-  private readonly issuer: string;
-  private readonly jwksUri: string;
+  private readonly authMode: AuthMode;
+  private readonly clientId: string | null;
+  private readonly issuer: string | null;
+  private readonly jwksUri: string | null;
   private readonly keys = new Map<string, KeyObject>();
 
-  constructor(private readonly configService: ConfigService) {
-    this.region = this.readConfig('COGNITO_REGION', 'AWS_REGION');
-    this.userPoolId = this.readConfig('COGNITO_USER_POOL_ID', 'AWS_COGNITO_USER_POOL_ID');
+  constructor(
+    @Inject(ConfigService)
+    private readonly configService: ConfigurationReader,
+  ) {
+    this.authMode = resolveAuthMode(this.configService);
+
+    if (this.authMode === 'disabled') {
+      this.clientId = null;
+      this.issuer = null;
+      this.jwksUri = null;
+      return;
+    }
+
+    const region = this.readConfig('COGNITO_REGION', 'AWS_REGION');
+    const userPoolId = this.readConfig('COGNITO_USER_POOL_ID', 'AWS_COGNITO_USER_POOL_ID');
     this.clientId = this.readConfig('COGNITO_CLIENT_ID', 'AWS_COGNITO_CLIENT_ID');
-    this.issuer = `https://cognito-idp.${this.region}.amazonaws.com/${this.userPoolId}`;
+    this.issuer = `https://cognito-idp.${region}.amazonaws.com/${userPoolId}`;
     this.jwksUri = `${this.issuer}/.well-known/jwks.json`;
   }
 
   async verifyToken(token: string): Promise<CognitoJwtClaims> {
+    if (this.authMode === 'disabled') {
+      throw new ServiceUnavailableException('Authentication is disabled in this development environment.');
+    }
+
     const parts = token.split('.');
     if (parts.length !== 3) {
       throw new UnauthorizedException('Invalid bearer token.');
@@ -55,12 +71,11 @@ export class CognitoJwtService {
     }
 
     this.assertClaims(claims);
-    return claims as CognitoJwtClaims;
+    return claims;
   }
 
   private readConfig(primaryKey: string, fallbackKey: string) {
-    const value = this.configService.get<string>(primaryKey)
-      ?? this.configService.get<string>(fallbackKey);
+    const value = readString(this.configService, primaryKey) ?? readString(this.configService, fallbackKey);
 
     if (!value) {
       throw new Error(`${primaryKey} is missing from environment variables.`);
@@ -78,6 +93,10 @@ export class CognitoJwtService {
   }
 
   private async getSigningKey(kid: string) {
+    if (!this.jwksUri) {
+      throw new ServiceUnavailableException('Cognito authentication is unavailable.');
+    }
+
     const cached = this.keys.get(kid);
     if (cached) return cached;
 
@@ -86,7 +105,7 @@ export class CognitoJwtService {
       throw new UnauthorizedException('Could not load Cognito signing keys.');
     }
 
-    const jwks = await response.json() as JwksResponse;
+    const jwks = (await response.json()) as JwksResponse;
     for (const jwk of jwks.keys ?? []) {
       if (!jwk.kid) continue;
       this.keys.set(jwk.kid, createPublicKey({ key: jwk, format: 'jwk' }));
@@ -103,7 +122,7 @@ export class CognitoJwtService {
   private assertClaims(claims: Partial<CognitoJwtClaims>): asserts claims is CognitoJwtClaims {
     const now = Math.floor(Date.now() / 1000);
 
-    if (claims.iss !== this.issuer) {
+    if (!this.issuer || claims.iss !== this.issuer) {
       throw new UnauthorizedException('Cognito token issuer did not match.');
     }
 
@@ -111,7 +130,7 @@ export class CognitoJwtService {
       throw new UnauthorizedException('Use the Cognito ID token for this API.');
     }
 
-    if (claims.aud !== this.clientId) {
+    if (!this.clientId || claims.aud !== this.clientId) {
       throw new UnauthorizedException('Cognito token audience did not match.');
     }
 

@@ -1,12 +1,12 @@
-"use client";
+'use client';
 
-import * as React from "react";
-import { createPortal } from "react-dom";
-import { useRouter } from "next/navigation";
-import { BmcIcon, bmcError } from "./BmcShared";
-import type { CardDraftAsset } from "../lib/api";
-import { findGeneratedImageAsset, hasGeneratedAsset } from "../lib/mockMvpFlow";
-import { GENRE_GROUPS } from "./BmcSteps";
+import * as React from 'react';
+import { createPortal } from 'react-dom';
+import { useRouter } from 'next/navigation';
+import { BmcIcon, bmcError } from './BmcShared';
+import type { CardDraftAsset } from '../lib/api';
+import { findGeneratedImageAsset, hasGeneratedAsset } from '../lib/mockMvpFlow';
+import { GENRE_GROUPS } from './BmcSteps';
 
 // BmcReview.tsx - Build My Card Review page.
 // Front Card, Song, Inside Message panels + bottom action bar + "Are you sure?" modal.
@@ -35,7 +35,7 @@ type GenreGroup = {
   genres: [string, string][];
 };
 
-type InviteStatus = "form" | "sending" | "error";
+type InviteStatus = 'form' | 'sending' | 'error';
 
 type ModalProps = {
   open: boolean;
@@ -61,7 +61,7 @@ type BmcReviewProps = {
   includeSong?: boolean;
   cardDraftId?: string | null;
   assets?: CardDraftAsset[];
-  assetsStatus?: "idle" | "loading" | "ready" | "error";
+  assetsStatus?: 'idle' | 'loading' | 'ready' | 'error';
   assetsError?: string | null;
 };
 
@@ -96,14 +96,27 @@ A pair of shoes by the door...
 [00:25-00:41 Chorus]
 To the moon and back, to the moon and back...`;
 
-function BmcReviewFront({ approved, onApprove, onInvalidate, onRegenerate, editing, setEditing, generating }: ReviewPanelProps) {
+function BmcReviewFront({
+  approved,
+  onApprove,
+  onInvalidate,
+  onRegenerate,
+  editing,
+  setEditing,
+  generating,
+}: ReviewPanelProps) {
   const [instr, setInstr] = React.useState(INITIAL_IMAGE_EDIT);
   const [regenerating, setRegenerating] = React.useState(false);
   const timer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const editMade = instr.trim() !== INITIAL_IMAGE_EDIT.trim();
   const panelGenerating = generating || regenerating;
 
-  React.useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
+  React.useEffect(
+    () => () => {
+      if (timer.current) clearTimeout(timer.current);
+    },
+    [],
+  );
 
   async function regenerate() {
     if (!editMade || panelGenerating) return;
@@ -134,7 +147,9 @@ function BmcReviewFront({ approved, onApprove, onInvalidate, onRegenerate, editi
       <div className="bmc-front-art">
         <div className="bmc-front-noise" />
         <div className="bmc-front-glyph">
-          To the moon<br/>and back
+          To the moon
+          <br />
+          and back
         </div>
         <div className="bmc-front-fig" />
       </div>
@@ -143,7 +158,12 @@ function BmcReviewFront({ approved, onApprove, onInvalidate, onRegenerate, editi
       {editing && (
         <div className="bmc-edit-inst">
           <label className="bmc-label">Edit instruction</label>
-          <textarea className="bmc-textarea" value={instr} onChange={(e) => updateInstruction(e.target.value)} placeholder="Describe what to change. Composition stays as-is." />
+          <textarea
+            className="bmc-textarea"
+            value={instr}
+            onChange={(e) => updateInstruction(e.target.value)}
+            placeholder="Describe what to change. Composition stays as-is."
+          />
           <p className="bmc-help" style={{ marginTop: 8 }}>
             Image edits cost <b style={{ color: 'var(--gold-hi)', fontStyle: 'normal' }}>1 credit</b> if successful.
           </p>
@@ -159,9 +179,15 @@ function BmcReviewFront({ approved, onApprove, onInvalidate, onRegenerate, editi
 
       <div className="bmc-panel-acts">
         <button type="button" className="bmc-cta" onClick={onApprove} disabled={approved || panelGenerating}>
-          <BmcIcon name="check" w={14} /> {panelGenerating ? 'Generating\u2026' : approved ? 'Approved' : 'Approve Image'}
+          <BmcIcon name="check" w={14} />{' '}
+          {panelGenerating ? 'Generating\u2026' : approved ? 'Approved' : 'Approve Image'}
         </button>
-        <button type="button" className="bmc-cta-secondary" onClick={() => setEditing(!editing)} disabled={panelGenerating}>
+        <button
+          type="button"
+          className="bmc-cta-secondary"
+          onClick={() => setEditing(!editing)}
+          disabled={panelGenerating}
+        >
           <BmcIcon name="edit" w={14} /> {editing ? 'Close' : 'Edit'}
         </button>
       </div>
@@ -177,21 +203,32 @@ function BmcGenreSelect({ value, onChange }: BmcGenreSelectProps) {
     const onDoc = (event: MouseEvent) => {
       if (ref.current && event.target instanceof Node && !ref.current.contains(event.target)) setOpen(false);
     };
-    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') setOpen(false); };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false);
+    };
     document.addEventListener('mousedown', onDoc);
     document.addEventListener('keydown', onKey);
-    return () => { document.removeEventListener('mousedown', onDoc); document.removeEventListener('keydown', onKey); };
+    return () => {
+      document.removeEventListener('mousedown', onDoc);
+      document.removeEventListener('keydown', onKey);
+    };
   }, [open]);
   const groups = GENRE_GROUPS as GenreGroup[];
   return (
     <div className="bmc-gsel" ref={ref}>
-      <button type="button" className={`bmc-gsel-trigger ${open ? 'is-open' : ''}`} onClick={() => setOpen(o => !o)} aria-haspopup="listbox" aria-expanded={open}>
+      <button
+        type="button"
+        className={`bmc-gsel-trigger ${open ? 'is-open' : ''}`}
+        onClick={() => setOpen((o) => !o)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+      >
         <span>{value}</span>
         <BmcIcon name="chevron" w={16} />
       </button>
       {open && (
         <div className="bmc-gsel-panel" role="listbox">
-          {groups.map(group => (
+          {groups.map((group) => (
             <div key={group.title} className="bmc-gsel-group">
               <div className="bmc-gsel-group-title">{group.title}</div>
               {group.genres.map(([name, voice]) => (
@@ -201,7 +238,11 @@ function BmcGenreSelect({ value, onChange }: BmcGenreSelectProps) {
                   role="option"
                   aria-selected={name === value}
                   className={`bmc-gsel-opt ${name === value ? 'is-active' : ''}`}
-                  onClick={() => { onChange(name); setOpen(false); }}>
+                  onClick={() => {
+                    onChange(name);
+                    setOpen(false);
+                  }}
+                >
                   <span className="bmc-gsel-opt-name">{name}</span>
                   <span className="bmc-gsel-opt-voice">{voice}</span>
                   {name === value && <BmcIcon name="check" w={14} />}
@@ -215,7 +256,15 @@ function BmcGenreSelect({ value, onChange }: BmcGenreSelectProps) {
   );
 }
 
-function BmcReviewSong({ approved, onApprove, onInvalidate, onRegenerate, editing, setEditing, generating }: ReviewPanelProps) {
+function BmcReviewSong({
+  approved,
+  onApprove,
+  onInvalidate,
+  onRegenerate,
+  editing,
+  setEditing,
+  generating,
+}: ReviewPanelProps) {
   const [playing, setPlaying] = React.useState(false);
   const [genre, setGenre] = React.useState(INITIAL_SONG_GENRE);
   const [lyrics, setLyrics] = React.useState(INITIAL_SONG_LYRICS);
@@ -223,9 +272,17 @@ function BmcReviewSong({ approved, onApprove, onInvalidate, onRegenerate, editin
   const timer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const editMade = genre !== INITIAL_SONG_GENRE || lyrics.trim() !== INITIAL_SONG_LYRICS.trim();
   const panelGenerating = generating || regenerating;
-  const BARS = [12,18,24,16,30,22,12,26,20,32,14,26,10,22,30,16,24,11,20,28,14,24,18,30,11,22,16,26,20,12,24,30,14,20,10,26,18,30,14,22,12,24,20,28,10,16,26,18,22,14,24,18,30,22];
+  const BARS = [
+    12, 18, 24, 16, 30, 22, 12, 26, 20, 32, 14, 26, 10, 22, 30, 16, 24, 11, 20, 28, 14, 24, 18, 30, 11, 22, 16, 26, 20,
+    12, 24, 30, 14, 20, 10, 26, 18, 30, 14, 22, 12, 24, 20, 28, 10, 16, 26, 18, 22, 14, 24, 18, 30, 22,
+  ];
 
-  React.useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
+  React.useEffect(
+    () => () => {
+      if (timer.current) clearTimeout(timer.current);
+    },
+    [],
+  );
 
   async function regenerate() {
     if (!editMade || panelGenerating) return;
@@ -260,7 +317,11 @@ function BmcReviewSong({ approved, onApprove, onInvalidate, onRegenerate, editin
 
       <div className="bmc-song-player">
         <div className="bmc-song-meta">
-          <button className="bmc-song-fab" onClick={() => setPlaying(p => !p)} aria-label={playing ? 'Pause' : 'Play'}>
+          <button
+            className="bmc-song-fab"
+            onClick={() => setPlaying((p) => !p)}
+            aria-label={playing ? 'Pause' : 'Play'}
+          >
             <BmcIcon name={playing ? 'pause' : 'play'} w={18} />
           </button>
           <div>
@@ -269,10 +330,16 @@ function BmcReviewSong({ approved, onApprove, onInvalidate, onRegenerate, editin
           </div>
         </div>
         <div className="bmc-song-wave">
-          {BARS.map((h, i) => <i key={i} style={{ height: h + 'px' }} />)}
+          {BARS.map((h, i) => (
+            <i key={i} style={{ height: h + 'px' }} />
+          ))}
         </div>
         <div className="bmc-song-times">
-          <span>0:00</span><span>0:08</span><span>0:25</span><span>0:41</span><span>0:45</span>
+          <span>0:00</span>
+          <span>0:08</span>
+          <span>0:25</span>
+          <span>0:41</span>
+          <span>0:45</span>
         </div>
       </div>
 
@@ -285,7 +352,8 @@ function BmcReviewSong({ approved, onApprove, onInvalidate, onRegenerate, editin
           <label className="bmc-label">Lyrics</label>
           <textarea className="bmc-textarea" value={lyrics} onChange={(e) => updateLyrics(e.target.value)} />
           <p className="bmc-help" style={{ marginTop: 8 }}>
-            QR song edits cost <b style={{ color: 'var(--gold-hi)', fontStyle: 'normal', margin: '0 3px' }}>1 credit</b> if successful.
+            QR song edits cost <b style={{ color: 'var(--gold-hi)', fontStyle: 'normal', margin: '0 3px' }}>1 credit</b>{' '}
+            if successful.
           </p>
           {editMade && (
             <div className="bmc-panel-acts bmc-regenerate-acts">
@@ -299,9 +367,15 @@ function BmcReviewSong({ approved, onApprove, onInvalidate, onRegenerate, editin
 
       <div className="bmc-panel-acts">
         <button type="button" className="bmc-cta" onClick={onApprove} disabled={approved || panelGenerating}>
-          <BmcIcon name="check" w={14} /> {panelGenerating ? 'Generating\u2026' : approved ? 'Approved' : 'Approve QR Song'}
+          <BmcIcon name="check" w={14} />{' '}
+          {panelGenerating ? 'Generating\u2026' : approved ? 'Approved' : 'Approve QR Song'}
         </button>
-        <button type="button" className="bmc-cta-secondary" onClick={() => setEditing(!editing)} disabled={panelGenerating}>
+        <button
+          type="button"
+          className="bmc-cta-secondary"
+          onClick={() => setEditing(!editing)}
+          disabled={panelGenerating}
+        >
           <BmcIcon name="edit" w={14} /> {editing ? 'Close' : 'Edit'}
         </button>
       </div>
@@ -324,7 +398,8 @@ function BmcReviewMessage({ approved, onApprove, editing, setEditing, generating
           <label className="bmc-label">Edit message</label>
           <textarea className="bmc-textarea" defaultValue={INSIDE_MESSAGE} style={{ minHeight: 180 }} />
           <p className="bmc-help" style={{ marginTop: 8 }}>
-            Message edits and regenerations are always <b style={{ color: 'var(--gold-hi)', fontStyle: 'normal', marginLeft: '3px' }}>free</b>.
+            Message edits and regenerations are always{' '}
+            <b style={{ color: 'var(--gold-hi)', fontStyle: 'normal', marginLeft: '3px' }}>free</b>.
           </p>
           <div className="bmc-panel-acts" style={{ marginTop: 14, marginBottom: 0 }}>
             <button type="button" className="bmc-cta-secondary">
@@ -360,17 +435,26 @@ function BmcConfirmModal({ open, onClose, onConfirm, includeSong = true }: BmcCo
           <span className="souv-hero-italic text-metallic-rose-gold">you sure?</span>
         </h2>
         <p className="bmc-modal-sub">
-          Starting from scratch will cost another <b className="text-metallic-gold">{generationCost} {generationCost === 1 ? 'credit' : 'credits'}</b> when you can edit
-          {includeSong ? ' just the image or QR song' : ' the image'} for <b className="text-metallic-gold">1 credit</b>.
+          Starting from scratch will cost another{' '}
+          <b className="text-metallic-gold">
+            {generationCost} {generationCost === 1 ? 'credit' : 'credits'}
+          </b>{' '}
+          when you can edit
+          {includeSong ? ' just the image or QR song' : ' the image'} for <b className="text-metallic-gold">1 credit</b>
+          .
         </p>
         <div className="bmc-modal-acts">
-          <button type="button" className="bmc-cta-secondary" onClick={onClose}>Keep editing</button>
-          <button type="button" className="bmc-cta" onClick={onConfirm}>Yes, start over</button>
+          <button type="button" className="bmc-cta-secondary" onClick={onClose}>
+            Keep editing
+          </button>
+          <button type="button" className="bmc-cta" onClick={onConfirm}>
+            Yes, start over
+          </button>
         </div>
       </div>
     </div>
   );
-  if (typeof document === "undefined") return null;
+  if (typeof document === 'undefined') return null;
   return createPortal(ui, document.body);
 }
 
@@ -381,22 +465,33 @@ function BmcInviteModal({ open, onClose, includeSong = true }: BmcInviteModalPro
   const timer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   React.useEffect(() => {
-    if (open) { setStatus('form'); setEmail(''); setSent([]); }
-    return () => { if (timer.current) clearTimeout(timer.current); };
+    if (open) {
+      setStatus('form');
+      setEmail('');
+      setSent([]);
+    }
+    return () => {
+      if (timer.current) clearTimeout(timer.current);
+    };
   }, [open]);
 
   if (!open) return null;
 
-  const clearError = () => { if (status === 'error') setStatus('form'); };
+  const clearError = () => {
+    if (status === 'error') setStatus('form');
+  };
   const send = () => {
     if (status === 'sending') return;
     // No email → surface the error state.
-    if (!email.trim()) { setStatus('error'); return; }
+    if (!email.trim()) {
+      setStatus('error');
+      return;
+    }
     const invited = email.trim();
     setStatus('sending');
     timer.current = setTimeout(() => {
       // Invite sent: record it and reveal a fresh blank field for the next friend.
-      setSent(s => [...s, invited]);
+      setSent((s) => [...s, invited]);
       setEmail('');
       setStatus('form');
     }, 1400);
@@ -408,7 +503,9 @@ function BmcInviteModal({ open, onClose, includeSong = true }: BmcInviteModalPro
     <div className="bmc-modal-wrap" role="dialog" aria-modal="true" data-screen-label="Modal · Invite A Friend">
       <div className="bmc-modal-scrim" onClick={onClose} />
       <div className="bmc-modal bmc-invite is-gold">
-        <button type="button" className="bmc-modal-close" onClick={onClose} aria-label="Close"><BmcIcon name="close" w={16} /></button>
+        <button type="button" className="bmc-modal-close" onClick={onClose} aria-label="Close">
+          <BmcIcon name="close" w={16} />
+        </button>
 
         <div className="bmc-invite-progress" aria-live="polite">
           <span className="bmc-invite-loader" aria-hidden="true" />
@@ -427,9 +524,17 @@ function BmcInviteModal({ open, onClose, includeSong = true }: BmcInviteModalPro
         </h2>
 
         <div className="bmc-invite-assets" aria-label="Assets being generated">
-          <span aria-label="Card" title="Card"><BmcIcon name="image" w={23} /></span>
-          {includeSong && <span aria-label="Song" title="Song"><BmcIcon name="note" w={23} /></span>}
-          <span aria-label="Message" title="Message"><BmcIcon name="message" w={23} /></span>
+          <span aria-label="Card" title="Card">
+            <BmcIcon name="image" w={23} />
+          </span>
+          {includeSong && (
+            <span aria-label="Song" title="Song">
+              <BmcIcon name="note" w={23} />
+            </span>
+          )}
+          <span aria-label="Message" title="Message">
+            <BmcIcon name="message" w={23} />
+          </span>
         </div>
 
         <p className="bmc-invite-while">
@@ -444,7 +549,9 @@ function BmcInviteModal({ open, onClose, includeSong = true }: BmcInviteModalPro
           <div className="bmc-invite-sent">
             {sent.map((addr, i) => (
               <div className="bmc-invite-sent-row" key={i}>
-                <span className="bmc-invite-sent-tick"><BmcIcon name="check" w={12} /></span>
+                <span className="bmc-invite-sent-tick">
+                  <BmcIcon name="check" w={12} />
+                </span>
                 <span className="bmc-invite-sent-addr">{addr}</span>
                 <span className="bmc-invite-sent-tag">Invite sent</span>
               </div>
@@ -455,21 +562,38 @@ function BmcInviteModal({ open, onClose, includeSong = true }: BmcInviteModalPro
 
         <div className="bmc-invite-fields">
           <input
-            className="bmc-input" type="email" inputMode="email"
+            className="bmc-input"
+            type="email"
+            inputMode="email"
             placeholder="Friend’s email address"
-            value={email} disabled={sending} autoFocus
-            onChange={(e) => { setEmail(e.target.value); clearError(); }}
-            onKeyDown={(e) => { if (e.key === 'Enter') send(); }}
+            value={email}
+            disabled={sending}
+            autoFocus
+            onChange={(e) => {
+              setEmail(e.target.value);
+              clearError();
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') send();
+            }}
           />
           {status === 'error' && (
-            <div className="bmc-invite-error" role="alert">Could not send invite. Try again.</div>
+            <div className="bmc-invite-error" role="alert">
+              Could not send invite. Try again.
+            </div>
           )}
         </div>
 
         <button type="button" className="bmc-cta bmc-invite-cta" onClick={send} disabled={sending}>
-          {sending
-            ? <><span className="bmc-invite-btn-spin" aria-hidden="true" /> Sending…</>
-            : <><BmcIcon name="spark2" w={16} /> Send Invite &amp; Earn Credits</>}
+          {sending ? (
+            <>
+              <span className="bmc-invite-btn-spin" aria-hidden="true" /> Sending…
+            </>
+          ) : (
+            <>
+              <BmcIcon name="spark2" w={16} /> Send Invite &amp; Earn Credits
+            </>
+          )}
         </button>
         <button type="button" className="bmc-text-link bmc-invite-later" onClick={onClose}>
           {sent.length > 0 ? 'Done' : 'Maybe Later'}
@@ -477,12 +601,12 @@ function BmcInviteModal({ open, onClose, includeSong = true }: BmcInviteModalPro
       </div>
     </div>
   );
-  if (typeof document === "undefined") return null;
+  if (typeof document === 'undefined') return null;
   return createPortal(ui, document.body);
 }
 
 function shortAssetId(asset?: CardDraftAsset | null) {
-  return asset?.id ? asset.id.slice(0, 8) : "";
+  return asset?.id ? asset.id.slice(0, 8) : '';
 }
 
 function BmcReview({
@@ -495,7 +619,7 @@ function BmcReview({
   includeSong = true,
   cardDraftId = null,
   assets = [],
-  assetsStatus = "idle",
+  assetsStatus = 'idle',
   assetsError = null,
 }: BmcReviewProps) {
   const router = useRouter();
@@ -506,15 +630,19 @@ function BmcReview({
   const [confirm, setConfirm] = React.useState(false);
   const [inviteOpen, setInviteOpen] = React.useState(false);
   const generatedImageAsset = React.useMemo(() => findGeneratedImageAsset(assets), [assets]);
-  const hasSongAsset = React.useMemo(() => hasGeneratedAsset(assets, "song"), [assets]);
-  const hasMessageAsset = React.useMemo(() => hasGeneratedAsset(assets, "message"), [assets]);
-  const assetsLoading = assetsStatus === "loading";
-  const assetsUnavailable = assetsStatus === "error";
+  const hasSongAsset = React.useMemo(() => hasGeneratedAsset(assets, 'song'), [assets]);
+  const hasMessageAsset = React.useMemo(() => hasGeneratedAsset(assets, 'message'), [assets]);
+  const assetsLoading = assetsStatus === 'loading';
+  const assetsUnavailable = assetsStatus === 'error';
 
   // Open the "while you wait" invite modal as soon as generation kicks off.
-  React.useEffect(() => { if (generating) setInviteOpen(true); }, [generating]);
+  React.useEffect(() => {
+    if (generating) setInviteOpen(true);
+  }, [generating]);
   // Let the dev switcher preview the invite modal on demand.
-  React.useEffect(() => { window.__bmcShowInvite = () => setInviteOpen(true); }, []);
+  React.useEffect(() => {
+    window.__bmcShowInvite = () => setInviteOpen(true);
+  }, []);
 
   const approvedCount = [imgApproved, msgApproved, includeSong && songApproved].filter(Boolean).length;
   const requiredApprovalCount = includeSong ? 3 : 2;
@@ -535,9 +663,9 @@ function BmcReview({
     if (!generatedImageAsset?.id) {
       bmcError(
         assetsUnavailable
-          ? `We could not load generated assets from the backend. ${assetsError || ""}`.trim()
-          : "The backend has not returned a generated image asset for this draft yet.",
-        "Generated image needed",
+          ? `We could not load generated assets from the backend. ${assetsError || ''}`.trim()
+          : 'The backend has not returned a generated image asset for this draft yet.',
+        'Generated image needed',
       );
       return;
     }
@@ -589,7 +717,7 @@ function BmcReview({
             return spent;
           }}
           editing={editing.image}
-          setEditing={(v) => setEditing(s => ({ ...s, image: v }))}
+          setEditing={(v) => setEditing((s) => ({ ...s, image: v }))}
         />
         <div className="bmc-review-stack">
           {includeSong && (
@@ -604,7 +732,7 @@ function BmcReview({
                 return spent;
               }}
               editing={editing.song}
-              setEditing={(v) => setEditing(s => ({ ...s, song: v }))}
+              setEditing={(v) => setEditing((s) => ({ ...s, song: v }))}
             />
           )}
           <BmcReviewMessage
@@ -612,7 +740,7 @@ function BmcReview({
             generating={generating || assetsLoading}
             onApprove={() => setMsgApproved(true)}
             editing={editing.message}
-            setEditing={(v) => setEditing(s => ({ ...s, message: v }))}
+            setEditing={(v) => setEditing((s) => ({ ...s, message: v }))}
           />
         </div>
       </div>
@@ -621,8 +749,8 @@ function BmcReview({
         <div className="bmc-review-left">
           <span className="bmc-help" style={{ margin: 0 }}>
             Backend assets: image {generatedImageAsset ? 'ready' : 'pending'}
-            {includeSong ? `, song ${hasSongAsset ? 'ready' : 'pending'}` : ''}
-            , message {hasMessageAsset ? 'ready' : 'pending'}
+            {includeSong ? `, song ${hasSongAsset ? 'ready' : 'pending'}` : ''}, message{' '}
+            {hasMessageAsset ? 'ready' : 'pending'}
           </span>
         </div>
       </div>
@@ -638,9 +766,13 @@ function BmcReview({
         </div>
         <div className="bmc-review-right">
           <span className="bmc-foot-cost" style={{ marginRight: 4 }}>
-            {allApproved
-              ? <span style={{ color: 'var(--gold-hi)' }}>All set · ready to deliver</span>
-              : <>{approvedCount} / {requiredApprovalCount} approved</>}
+            {allApproved ? (
+              <span style={{ color: 'var(--gold-hi)' }}>All set · ready to deliver</span>
+            ) : (
+              <>
+                {approvedCount} / {requiredApprovalCount} approved
+              </>
+            )}
           </span>
           <button type="button" className="bmc-cta" onClick={handleApproveAll} disabled={generating || assetsLoading}>
             {assetsLoading ? 'Loading assets...' : 'Approve All'} <BmcIcon name="arrow" w={16} />
@@ -651,7 +783,10 @@ function BmcReview({
       <BmcConfirmModal
         open={confirm}
         onClose={() => setConfirm(false)}
-        onConfirm={() => { setConfirm(false); startOver(); }}
+        onConfirm={() => {
+          setConfirm(false);
+          startOver();
+        }}
         includeSong={includeSong}
       />
 

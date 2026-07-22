@@ -1,3 +1,6 @@
+> [!WARNING]
+> Historical and non-authoritative. Do not run these commands or copy these APIs, identity fields, money values, or mock-success behavior. Start with `docs/legacy/README.md` and the current durable sources.
+
 # Souvenote Backend API Contracts
 
 Base URL in local development:

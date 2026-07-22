@@ -1,18 +1,9 @@
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
 import { CreateOrderDto } from './orders.controller';
 
 export type OrderStatus =
-  | 'pending'
-  | 'checkout_started'
-  | 'paid_mock'
-  | 'fulfillment_started'
-  | 'fulfilled_mock'
-  | 'failed_mock';
+  'pending' | 'checkout_started' | 'paid_mock' | 'fulfillment_started' | 'fulfilled_mock' | 'failed_mock';
 
 export type OrderRow = {
   id: string;
@@ -41,11 +32,7 @@ export class OrdersService {
 
   async createOrder(dto: CreateOrderDto) {
     await this.ensureCardDraftExists(dto.userId, dto.cardDraftId);
-    await this.ensureSelectedAssetExists(
-      dto.userId,
-      dto.cardDraftId,
-      dto.selectedAssetId,
-    );
+    await this.ensureSelectedAssetExists(dto.userId, dto.cardDraftId, dto.selectedAssetId);
 
     const result = await this.databaseService.query<OrderRow>(
       `
@@ -136,11 +123,7 @@ export class OrdersService {
     return result.rows[0];
   }
 
-  async markCheckoutStarted(
-    orderId: string,
-    checkoutSessionId: string,
-    paymentId: string,
-  ) {
+  async markCheckoutStarted(orderId: string, checkoutSessionId: string, paymentId: string) {
     return this.updateOrder(orderId, 'checkout_started', {
       checkoutSessionId,
       paymentId,
@@ -157,11 +140,7 @@ export class OrdersService {
     return this.updateOrder(orderId, 'fulfillment_started', {});
   }
 
-  async markFulfilledMock(
-    orderId: string,
-    fulfillmentJobId: string,
-    scribelessJobId: string,
-  ) {
+  async markFulfilledMock(orderId: string, fulfillmentJobId: string, scribelessJobId: string) {
     return this.updateOrder(orderId, 'fulfilled_mock', {
       fulfillmentJobId,
       scribelessJobId,
@@ -172,11 +151,7 @@ export class OrdersService {
     return this.updateOrder(orderId, 'failed_mock', {});
   }
 
-  assertOrderStatus(
-    order: OrderRow,
-    allowedStatuses: OrderStatus[],
-    action: string,
-  ) {
+  assertOrderStatus(order: OrderRow, allowedStatuses: OrderStatus[], action: string) {
     if (!allowedStatuses.includes(order.status)) {
       throw new BadRequestException(
         `Order must be in ${allowedStatuses.join(' or ')} status to ${action}. Current status: ${order.status}.`,
@@ -287,11 +262,7 @@ export class OrdersService {
     }
   }
 
-  private async ensureSelectedAssetExists(
-    userId: string,
-    cardDraftId: string,
-    selectedAssetId: string,
-  ) {
+  private async ensureSelectedAssetExists(userId: string, cardDraftId: string, selectedAssetId: string) {
     const result = await this.databaseService.query(
       `
         SELECT id
