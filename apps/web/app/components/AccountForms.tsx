@@ -1,18 +1,9 @@
 'use client';
 
 import * as React from 'react';
-import Link from 'next/link';
 import type { DemoUser } from './DemoUser';
 import { useAuth } from './AuthProvider';
-import {
-  createPaymentMethod,
-  deletePaymentMethod,
-  fetchPaymentMethods,
-  updateAuthenticatedUser,
-  updatePaymentMethod,
-  type PaymentMethod,
-  type SavePaymentMethodRequest,
-} from '../lib/api';
+import { updateAuthenticatedUser } from '../lib/api';
 
 type AccountUserProps = {
   user?: DemoUser;
@@ -248,30 +239,15 @@ function splitDisplayName(name: string) {
   };
 }
 
-function cleanLast4(value: string) {
-  return value.replace(/\D/g, '').slice(0, 4);
-}
-
-function paymentMethodLabel(method: PaymentMethod) {
-  return `${method.brand.toUpperCase()} ending in ${method.last4}`;
-}
-
-function paymentMethodExpiry(method: PaymentMethod) {
-  return `${String(method.exp_month).padStart(2, '0')} / ${method.exp_year}`;
-}
-
 // ============================================================
 // GIFT A SOUVENOTE
-// The signed-in user buys a $6.99 gift and sends a redemption link.
-// The recipient redeems it for a full card pack (10 credits + 1
-// physical send) and creates a card for someone *they* love.
+// Polished placeholder only. Gift payments, sends, and redemptions
+// are explicitly outside the physical-card MVP.
 // ============================================================
 function GiftSouvenotePage({ user }: AccountUserProps) {
   const accountUser = useAccountDisplayUser(user);
   const [via, setVia] = React.useState<GiftDeliveryMethod>('email');
   const [name, setName] = React.useState('');
-  const [sent, setSent] = React.useState(false);
-  const firstName = name.trim().split(' ')[0] || 'them';
 
   return (
     <div className="bmc-shell" data-screen-label="Gift a Souvenote">
@@ -285,18 +261,12 @@ function GiftSouvenotePage({ user }: AccountUserProps) {
           Gift a <span className="souv-hero-italic text-metallic-gold">Souvenote</span>
         </h1>
         <p className="bmc-lede">
-          Give someone the whole experience. They'll receive a full card pack of ten creation credits and a physical
-          card send, enough to make a card and add an optional QR-code song for someone <em>they</em> love. Your treat.
+          Coming soon. Gift purchases, redemption links, credit grants, and gift fulfillment are not active in this
+          build.
         </p>
       </div>
 
-      <form
-        className="acc-gift-grid"
-        onSubmit={(event: React.FormEvent<HTMLFormElement>) => {
-          event.preventDefault();
-          setSent(true);
-        }}
-      >
+      <form className="acc-gift-grid" onSubmit={(event) => event.preventDefault()}>
         {/* LEFT - what they get + where to send */}
         <div className="acc-gift-main">
           <div className="acc-panel">
@@ -395,18 +365,12 @@ function GiftSouvenotePage({ user }: AccountUserProps) {
                 <span className="v">{accountUser.name}</span>
               </div>
             </div>
-            <button type="submit" className={`bmc-cta acc-gift-cta ${sent ? 'is-sent' : ''}`}>
-              {sent ? <>Gift on its way ✓</> : <>{GiftIco.send} Send gift · $6.99</>}
+            <button type="submit" className="bmc-cta acc-gift-cta" disabled>
+              {GiftIco.send} Coming soon
             </button>
-            {sent ? (
-              <p className="acc-gift-foot">
-                We've sent {firstName} a redemption link by {via}. They'll sign up and find a full card pack waiting.
-              </p>
-            ) : (
-              <p className="acc-gift-foot">
-                Prefer to bundle it? <b>Gift a Souvenote</b> also appears as an add-on at checkout.
-              </p>
-            )}
+            <p className="acc-gift-foot">
+              No payment, email, text message, credit, or redemption link will be created.
+            </p>
           </div>
         </aside>
       </form>
@@ -415,9 +379,7 @@ function GiftSouvenotePage({ user }: AccountUserProps) {
 }
 
 // ============================================================
-// REDEEM A GIFTED SOUVENOTE  (recipient's landing page)
-// Reached from the link in the gift email/text. Sign up to
-// redeem, then land on the options page with the pack applied.
+// REDEEM A GIFTED SOUVENOTE (placeholder only)
 // ============================================================
 function RedeemGiftPage({ sender = 'A friend' }: RedeemGiftPageProps) {
   const senderFirst = sender.trim().split(' ')[0];
@@ -439,8 +401,8 @@ function RedeemGiftPage({ sender = 'A friend' }: RedeemGiftPageProps) {
           {senderFirst} gifted you a <span className="souv-hero-italic text-metallic-rose-gold">Souvenote</span>
         </h1>
         <p className="bmc-lede acc-redeem-lede">
-          There's a full card pack waiting in your name: ten creation credits and a physical card send. Make a card, add
-          an optional QR-code song for someone you love, and we'll mail it for you.
+          Gift redemption is coming soon. This preview does not grant credits, create an entitlement, or schedule a
+          physical card send.
         </p>
       </div>
 
@@ -455,17 +417,11 @@ function RedeemGiftPage({ sender = 'A friend' }: RedeemGiftPageProps) {
       </div>
 
       <div className="acc-redeem-cta">
-        <Link className="bmc-cta acc-redeem-btn" href="/signup">
-          {GiftIco.heart} Sign up to redeem
-        </Link>
-        <Link className="bmc-text-link" href="/login">
-          Already have an account? Log in
-        </Link>
+        <button type="button" className="bmc-cta acc-redeem-btn" disabled>
+          {GiftIco.heart} Coming soon
+        </button>
       </div>
-      <p className="acc-redeem-note">
-        Your gift applies the moment you sign up, and you'll land on your options page with <b>10 credits</b> ready to
-        spend.
-      </p>
+      <p className="acc-redeem-note">No gift, credits, or physical-send entitlement is active in this build.</p>
     </div>
   );
 }
@@ -540,10 +496,9 @@ function SettingsPersonal({ user }: RequiredAccountUserProps) {
         lastName,
         phone,
         birthday,
-        country,
-        currency,
         language,
         marketingOptIn,
+        preferences: { country, currency },
       });
       await auth.refreshUser();
       setMessage('Profile saved.');
@@ -715,282 +670,20 @@ function SettingsNotifs() {
   );
 }
 
-function LegacySettingsPayments() {
-  return (
-    <div className="acc-set-group">
-      <h2 className="acc-set-h">Payment methods</h2>
-      <p className="acc-set-sub">Saved cards for faster checkout.</p>
-      <div className="acc-pay">
-        <div className="acc-pay-brand">VISA</div>
-        <div className="acc-pay-info">
-          <div className="acc-pay-num">•••• •••• •••• 4242</div>
-          <div className="acc-pay-exp">Expires 08 / 28 · Default</div>
-        </div>
-        <button type="button" className="bmc-cta-secondary">
-          Edit
-        </button>
-      </div>
-      <div className="acc-pay">
-        <div className="acc-pay-brand">MC</div>
-        <div className="acc-pay-info">
-          <div className="acc-pay-num">•••• •••• •••• 8810</div>
-          <div className="acc-pay-exp">Expires 12 / 26</div>
-        </div>
-        <button type="button" className="bmc-cta-secondary">
-          Edit
-        </button>
-      </div>
-      <button type="button" className="bmc-cta" style={{ marginTop: 8 }}>
-        + Add payment method
-      </button>
-    </div>
-  );
-}
-
 function SettingsPayments() {
-  const [methods, setMethods] = React.useState<PaymentMethod[]>([]);
-  const [status, setStatus] = React.useState<'loading' | 'ready' | 'error'>('loading');
-  const [editingId, setEditingId] = React.useState<string | null>(null);
-  const [brand, setBrand] = React.useState('Visa');
-  const [last4, setLast4] = React.useState('');
-  const [expMonth, setExpMonth] = React.useState('01');
-  const [expYear, setExpYear] = React.useState(String(new Date().getFullYear() + 1));
-  const [billingName, setBillingName] = React.useState('');
-  const [billingPostalCode, setBillingPostalCode] = React.useState('');
-  const [isDefault, setIsDefault] = React.useState(true);
-  const [saving, setSaving] = React.useState(false);
-  const [message, setMessage] = React.useState<string | null>(null);
-  const [error, setError] = React.useState<string | null>(null);
-
-  const resetForm = React.useCallback(() => {
-    setEditingId(null);
-    setBrand('Visa');
-    setLast4('');
-    setExpMonth('01');
-    setExpYear(String(new Date().getFullYear() + 1));
-    setBillingName('');
-    setBillingPostalCode('');
-    setIsDefault(methods.length === 0);
-  }, [methods.length]);
-
-  const loadMethods = React.useCallback(async () => {
-    setStatus('loading');
-    setError(null);
-
-    try {
-      const next = await fetchPaymentMethods();
-      setMethods(next);
-      setStatus('ready');
-    } catch (unknownError) {
-      setStatus('error');
-      setError(unknownError instanceof Error ? unknownError.message : 'Payment methods could not be loaded.');
-    }
-  }, []);
-
-  React.useEffect(() => {
-    void loadMethods();
-  }, [loadMethods]);
-
-  function editMethod(method: PaymentMethod) {
-    setEditingId(method.id);
-    setBrand(method.brand);
-    setLast4(method.last4);
-    setExpMonth(String(method.exp_month).padStart(2, '0'));
-    setExpYear(String(method.exp_year));
-    setBillingName(method.billing_name || '');
-    setBillingPostalCode(method.billing_postal_code || '');
-    setIsDefault(method.is_default);
-    setMessage(null);
-    setError(null);
-  }
-
-  async function saveMethod() {
-    const cleanDigits = cleanLast4(last4);
-    if (cleanDigits.length !== 4) {
-      setError('Enter the last four digits from the card.');
-      return;
-    }
-
-    const payload: SavePaymentMethodRequest = {
-      brand,
-      last4: cleanDigits,
-      expMonth: Number(expMonth),
-      expYear: Number(expYear),
-      billingName,
-      billingPostalCode,
-      isDefault,
-    };
-
-    setSaving(true);
-    setError(null);
-    setMessage(null);
-
-    try {
-      if (editingId) {
-        await updatePaymentMethod(editingId, payload);
-        setMessage('Payment method updated.');
-      } else {
-        await createPaymentMethod(payload);
-        setMessage('Payment method saved.');
-      }
-      await loadMethods();
-      resetForm();
-    } catch (unknownError) {
-      setError(unknownError instanceof Error ? unknownError.message : 'Payment method could not be saved.');
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function removeMethod(method: PaymentMethod) {
-    setSaving(true);
-    setError(null);
-    setMessage(null);
-
-    try {
-      await deletePaymentMethod(method.id);
-      await loadMethods();
-      setMessage(`${paymentMethodLabel(method)} removed.`);
-      if (editingId === method.id) resetForm();
-    } catch (unknownError) {
-      setError(unknownError instanceof Error ? unknownError.message : 'Payment method could not be removed.');
-    } finally {
-      setSaving(false);
-    }
-  }
-
   return (
     <div className="acc-set-group">
       <h2 className="acc-set-h">Payment methods</h2>
       <p className="acc-set-sub">
-        Saved payment methods use vault metadata only. Full card numbers are handled by the payment provider at
-        checkout.
+        Coming soon with the approved Stripe test integration. Souvenote does not collect payment details here.
       </p>
-
-      {status === 'loading' && <p className="acc-save-state">Loading payment methods...</p>}
-      {status === 'error' && (
-        <p className="acc-save-state is-error">{error || 'Payment methods could not be loaded.'}</p>
-      )}
-
-      {status === 'ready' && methods.length === 0 && (
-        <div className="acc-pay-empty">
-          <div className="acc-pay-empty-title">No saved payment methods yet</div>
-          <p>Add a card summary now, or save a vaulted payment method after checkout once Stripe is connected.</p>
-        </div>
-      )}
-
-      {methods.map((method) => (
-        <div className="acc-pay" key={method.id}>
-          <div className="acc-pay-brand">{method.brand.slice(0, 4).toUpperCase()}</div>
-          <div className="acc-pay-info">
-            <div className="acc-pay-num">Card ending in {method.last4}</div>
-            <div className="acc-pay-exp">
-              Expires {paymentMethodExpiry(method)}
-              {method.is_default ? ' - Default' : ''}
-            </div>
-            {method.billing_name && <div className="acc-pay-exp">Billing name: {method.billing_name}</div>}
-          </div>
-          <div className="acc-pay-actions">
-            <button type="button" className="bmc-cta-secondary" onClick={() => editMethod(method)}>
-              Edit
-            </button>
-            <button
-              type="button"
-              className="acc-pay-remove"
-              onClick={() => void removeMethod(method)}
-              disabled={saving}
-            >
-              Remove
-            </button>
-          </div>
-        </div>
-      ))}
-
-      <div className="acc-pay-form">
-        <div className="acc-panel-title">{editingId ? 'Edit payment method' : 'Add payment method'}</div>
-        <div className="acc-field-row">
-          <div className="acc-field">
-            <span className="acc-flabel">Brand</span>
-            <select className="input-dark" value={brand} onChange={(event) => setBrand(event.target.value)}>
-              <option>Visa</option>
-              <option>Mastercard</option>
-              <option>Amex</option>
-              <option>Discover</option>
-              <option>Other</option>
-            </select>
-          </div>
-          <div className="acc-field">
-            <span className="acc-flabel">Last four digits</span>
-            <input
-              className="input-dark"
-              inputMode="numeric"
-              maxLength={4}
-              value={last4}
-              onChange={(event) => setLast4(cleanLast4(event.target.value))}
-              placeholder="1234"
-            />
-          </div>
-        </div>
-        <div className="acc-field-row">
-          <div className="acc-field">
-            <span className="acc-flabel">Expiry month</span>
-            <select className="input-dark" value={expMonth} onChange={(event) => setExpMonth(event.target.value)}>
-              {Array.from({ length: 12 }, (_, index) => String(index + 1).padStart(2, '0')).map((month) => (
-                <option key={month} value={month}>
-                  {month}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="acc-field">
-            <span className="acc-flabel">Expiry year</span>
-            <select className="input-dark" value={expYear} onChange={(event) => setExpYear(event.target.value)}>
-              {Array.from({ length: 12 }, (_, index) => String(new Date().getFullYear() + index)).map((year) => (
-                <option key={year} value={year}>
-                  {year}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-        <div className="acc-field-row">
-          <div className="acc-field">
-            <span className="acc-flabel">Billing name</span>
-            <input
-              className="input-dark"
-              value={billingName}
-              onChange={(event) => setBillingName(event.target.value)}
-            />
-          </div>
-          <div className="acc-field">
-            <span className="acc-flabel">Postal / ZIP</span>
-            <input
-              className="input-dark"
-              value={billingPostalCode}
-              onChange={(event) => setBillingPostalCode(event.target.value)}
-            />
-          </div>
-        </div>
-        <div className="acc-row">
-          <div className="acc-row-info">
-            <div className="acc-row-label">Default payment method</div>
-            <div className="acc-row-desc">Use this first for card packs, credits, and shipped cards.</div>
-          </div>
-          <AccToggle on={isDefault} onChange={setIsDefault} />
-        </div>
-        {message && <p className="acc-save-state is-success">{message}</p>}
-        {error && <p className="acc-save-state is-error">{error}</p>}
-        <div className="acc-pay-form-actions">
-          <button type="button" className="bmc-cta" onClick={saveMethod} disabled={saving}>
-            {saving ? 'Saving...' : editingId ? 'Save payment method' : 'Add payment method'}
-          </button>
-          {editingId && (
-            <button type="button" className="bmc-cta-secondary" onClick={resetForm} disabled={saving}>
-              Cancel edit
-            </button>
-          )}
-        </div>
+      <div className="acc-pay-empty">
+        <div className="acc-pay-empty-title">Payment methods are not active</div>
+        <p>Stripe-hosted test components will be added in Section 5 after separate approval.</p>
       </div>
+      <button type="button" className="bmc-cta" style={{ marginTop: 8 }} disabled>
+        Coming soon
+      </button>
     </div>
   );
 }

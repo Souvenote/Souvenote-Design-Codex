@@ -1,6 +1,6 @@
 # Souvenote engineering architecture
 
-Status: approved architecture; the Section 1 workspace migration and local lifecycle are implemented and verified on `codex/section-1-workspace`.
+Status: approved architecture; the Section 2 schema, contracts, and security boundary is implemented on `codex/section-2-schema-contracts-security` pending final stacked-PR checks.
 
 ## Current workspace layout
 
@@ -10,14 +10,14 @@ apps/
   api/              NestJS HTTP API
   worker/           async worker process; health-only/idle until later sections
 packages/
-  contracts/        placeholder; generated OpenAPI client begins in Section 2
+  contracts/        generated OpenAPI document, TypeScript schemas, and web client
   config/           shared TypeScript, lint, and test configuration
-database/            database boundary; legacy SQL is not an approved baseline
+database/            verified MVP baseline, SHA-256 journal, runner, and isolated tests
 infra/               infrastructure boundary; presence does not authorize deployment
 docs/                product, engineering, operations, and runbooks
 ```
 
-The repository uses npm workspaces, one root lockfile, and Node.js 22 as the canonical runtime. Section 1 moves existing code without intentionally changing the visual system or customer journey. The verified MVP database baseline, generated API client, and operational job handlers belong to later bounded sections.
+The repository uses npm workspaces, one root lockfile, and Node.js 22/npm 10.9.8 as the canonical toolchain. Section 2 preserves the visual system while replacing browser token authority and legacy API authority with a generated, owner-scoped boundary. Operational worker job handlers remain later bounded sections.
 
 Historical backend and frontend notes live under `docs/legacy/` and are explicitly non-authoritative. Their commands, paths, APIs, and product behavior must not be copied into current implementation without reconciliation.
 
@@ -41,11 +41,11 @@ This is a modular monolith, not a microservice system. The API and worker are in
 For Section 1 local development, the native processes and database use these loopback endpoints:
 
 - Web health: `http://127.0.0.1:3000/api/health`
-- API liveness/readiness: `http://127.0.0.1:4000/api/health/live` and `http://127.0.0.1:4000/api/health/ready`
+- API liveness/readiness: `http://127.0.0.1:4000/api/v1/health/live` and `http://127.0.0.1:4000/api/v1/health/ready`
 - Worker liveness/readiness: `http://127.0.0.1:4001/health/live` and `http://127.0.0.1:4001/health/ready`
 - PostgreSQL 16: `127.0.0.1:55432`
 
-The worker deliberately performs no generation, payment, or fulfillment jobs yet. PostgreSQL readiness proves connectivity only; local startup does not execute legacy migrations.
+The worker deliberately performs no generation, payment, or fulfillment jobs yet. PostgreSQL readiness proves connectivity only. Ordinary startup verifies the migration journal without applying it; `dev:setup` and stack smoke are explicit migration actions.
 
 ## Dependency direction
 
@@ -93,7 +93,7 @@ export type ApiError = {
 
 Primary resource groups are `me`, `pricing`, `credits`, `card-entitlements`, `card-drafts`, `uploads`, `generation-jobs`, `assets`, `orders`, `checkout`, `fulfillment-jobs`, public share links, and provider webhooks.
 
-The existing API temporarily retains `/api` during Section 1 so workspace relocation does not masquerade as a contract/security migration. Section 2 introduces `/api/v1`, authentication-by-default, ownership enforcement, and the generated contract client as one reviewed boundary change.
+Section 2 uses `/api/v1` for all product and health routes. The Next.js BFF exposes generated-client calls at `/api/bff/api/v1/*`, injects the server-held access token, enforces same-origin CSRF checks on mutations, and never returns access or refresh tokens to browser code.
 
 ## State contracts
 
@@ -122,7 +122,7 @@ Use PostgreSQL and explicit SQL through repository modules.
 
 Local development uses PostgreSQL 16 bound only to `127.0.0.1:55432`. The normal shutdown path preserves its named Docker volume. No root startup, readiness, health, test, or CI command may auto-run the legacy draft migrations. The verified pre-launch baseline is a Section 2 deliverable.
 
-The pre-launch baseline includes users/auth identities, credit ledger, card entitlements, price books, drafts/revisions, uploads, generation jobs/provider attempts, assets/share metadata, orders/items, payments/webhook events, fulfillment jobs/tracking, notifications, feature flags, and audit events.
+The verified pre-launch baseline includes users/auth identities, hashed sessions, general idempotency records, credit ledger, card entitlements, price books, drafts/revisions, uploads, generation jobs/provider attempts, assets/share metadata, orders/items, payments/webhook events, fulfillment jobs/tracking, notifications, feature flags, and audit events. The deleted draft migrations were never production history.
 
 Rules:
 
@@ -137,14 +137,16 @@ Rules:
 
 ## Authentication and security
 
-- Next.js acts as a BFF for Cognito authorization-code/PKCE and stores application sessions in secure HTTP-only cookies.
+- Next.js acts as a BFF for Cognito authorization-code/PKCE and stores encrypted application sessions in secure HTTP-only SameSite cookies.
 - Nest validates Cognito access tokens, issuer, client, expiry, token use, and scopes.
-- Apply authentication and ownership globally by default.
+- Apply authentication and ownership globally by default. Only decorated health, public CAD pricing/share, and signature-verified webhook routes bypass customer authentication.
 - Use environment-specific CORS allowlists, secure headers, CSRF protection for cookie-backed mutations, rate limits, body limits, and redacted structured logs.
 - Use Stripe-hosted payment elements. Souvenote never handles raw card data.
 - Validate actual upload bytes, type, dimensions, and size; moderate before commit or fulfillment.
 
-During Section 1 only, authentication may be disabled in the explicit local environment because secure Cognito/BFF behavior is a Section 2 boundary. Startup must reject disabled authentication in any non-local environment; missing configuration must not silently choose a permissive mode.
+Credential-free local/test authentication signs a short-lived access token and exercises the same BFF cookie and repository ownership boundary. It is rejected outside development/test, and both BFF and API require loopback networking. Cognito mode fails closed when issuer, client, scope, key, or cookie configuration is missing.
+
+Production activation note: the selected Cognito user-pool access-token configuration must include the verified email identity claim expected by provisioning (for example through an approved pre-token-generation configuration). This is a staging activation gate, not a local fallback.
 
 ## Provider architecture
 

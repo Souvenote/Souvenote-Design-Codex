@@ -1,97 +1,36 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { DatabaseService } from '../database/database.service';
-import { CreateCardDraftDto, UpdateCardDraftDto } from './card-drafts.controller';
+import { Injectable } from '@nestjs/common';
+import { CardDraftsRepository } from './card-drafts.repository';
+
+export type CardDraftInput = {
+  creationRoute: 'personalize_template' | 'build_my_card';
+  occasion?: string;
+  relationship?: string;
+  creativeBrief?: Record<string, unknown>;
+};
+
+export type CardDraftUpdate = Omit<CardDraftInput, 'creationRoute'>;
 
 @Injectable()
 export class CardDraftsService {
-  constructor(private readonly databaseService: DatabaseService) {}
+  constructor(private readonly repository: CardDraftsRepository) {}
 
-  async getCardDraftsByUserId(userId: string) {
-    const result = await this.databaseService.query(
-      `
-        SELECT id, user_id, occasion, relationship, creative_brief, status, created_at, updated_at
-        FROM card_drafts
-        WHERE user_id = $1
-          AND deleted_at IS NULL
-        ORDER BY updated_at DESC;
-      `,
-      [userId],
-    );
-
+  async list(userId: string, limit: number, cursor?: string) {
+    const rows = await this.repository.list(userId, limit, cursor);
     return {
-      userId,
-      cardDrafts: result.rows,
+      data: rows.map((row) => CardDraftsRepository.toApi(row)),
+      nextCursor: rows.length === limit ? (rows.at(-1)?.id ?? null) : null,
     };
   }
 
-  async getCardDraftById(draftId: string) {
-    const result = await this.databaseService.query(
-      `
-        SELECT id, user_id, occasion, relationship, creative_brief, status, created_at, updated_at
-        FROM card_drafts
-        WHERE id = $1
-          AND deleted_at IS NULL;
-      `,
-      [draftId],
-    );
-
-    if (result.rows.length === 0) {
-      throw new NotFoundException('Card draft not found.');
-    }
-
-    return {
-      cardDraft: result.rows[0],
-    };
+  async get(userId: string, draftId: string) {
+    return { cardDraft: CardDraftsRepository.toApi(await this.repository.get(userId, draftId)) };
   }
 
-  async createCardDraft(dto: CreateCardDraftDto) {
-    const result = await this.databaseService.query(
-      `
-        INSERT INTO card_drafts (
-          user_id,
-          occasion,
-          relationship,
-          creative_brief,
-          status
-        )
-        VALUES ($1, $2, $3, $4, 'draft')
-        RETURNING id, user_id, occasion, relationship, creative_brief, status, created_at, updated_at;
-      `,
-      [dto.userId, dto.occasion ?? null, dto.relationship ?? null, JSON.stringify(dto.creativeBrief ?? {})],
-    );
-
-    return {
-      cardDraft: result.rows[0],
-    };
+  async create(userId: string, input: CardDraftInput) {
+    return { cardDraft: CardDraftsRepository.toApi(await this.repository.create(userId, input)) };
   }
 
-  async updateCardDraft(draftId: string, dto: UpdateCardDraftDto) {
-    const result = await this.databaseService.query(
-      `
-        UPDATE card_drafts
-        SET
-          occasion = COALESCE($2, occasion),
-          relationship = COALESCE($3, relationship),
-          creative_brief = COALESCE($4::jsonb, creative_brief),
-          updated_at = NOW()
-        WHERE id = $1
-          AND deleted_at IS NULL
-        RETURNING id, user_id, occasion, relationship, creative_brief, status, created_at, updated_at;
-      `,
-      [
-        draftId,
-        dto.occasion ?? null,
-        dto.relationship ?? null,
-        dto.creativeBrief === undefined ? null : JSON.stringify(dto.creativeBrief ?? {}),
-      ],
-    );
-
-    if (result.rows.length === 0) {
-      throw new NotFoundException('Card draft not found.');
-    }
-
-    return {
-      cardDraft: result.rows[0],
-    };
+  async update(userId: string, draftId: string, input: CardDraftUpdate) {
+    return { cardDraft: CardDraftsRepository.toApi(await this.repository.update(userId, draftId, input)) };
   }
 }

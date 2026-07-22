@@ -1,6 +1,6 @@
 # Local development
 
-Status: verified Section 1 local lifecycle contract.
+Status: verified Section 2 local lifecycle and security contract.
 
 This guide covers the credential-free local workspace only. It does not authorize AWS deployment, paid-provider traffic, live payments, email, or physical fulfillment.
 
@@ -29,17 +29,23 @@ Install the exact workspace dependency graph from the repository root:
 npm.cmd ci
 ```
 
-Do not add AWS or provider credentials for local startup. Provider modes remain deterministic mock or disabled. Authentication is disabled only in the explicit local environment; the API rejects that setting outside local development.
+Do not add AWS or provider credentials for local startup. Provider modes remain deterministic mock or disabled. Local authentication uses a short-lived, signed loopback-only access token through the same BFF cookie and API ownership boundary as Cognito. Both web and API reject local mode outside development/test, and the API refuses to bind local auth to a non-loopback host.
 
 ## One-command stack lifecycle
 
-Start PostgreSQL, web, API, and worker from the repository root:
+On the first start, or after an approved migration is added, explicitly apply the verified journal and start PostgreSQL, web, API, and worker:
+
+```powershell
+npm.cmd run dev:setup
+```
+
+For later starts when the journal is current:
 
 ```powershell
 npm.cmd run dev
 ```
 
-`dev` performs preflight checks, starts the owned local processes, and polls their health. It does not apply the legacy SQL migrations. The worker is intentionally idle except for health behavior until later sections add real jobs.
+`dev` performs preflight checks, starts PostgreSQL, verifies that no migration is pending, starts the owned local processes, and polls their health. It never applies a migration automatically. `dev:setup` is the explicit migration action. The worker is intentionally idle except for health behavior until later sections add real jobs.
 
 Check an already-running stack:
 
@@ -61,20 +67,20 @@ For a self-contained lifecycle check, use:
 npm.cmd run smoke:stack
 ```
 
-`smoke:stack` owns start, verification, and shutdown for its run. It must stop what it starts and must never delete the PostgreSQL volume.
+`smoke:stack` owns start, explicitly applies the verified baseline, verifies the full local boundary, and shuts down what it starts. It never deletes the PostgreSQL volume.
 
 ## Local endpoints
 
-| Service       | Liveness                                | Readiness or customer endpoint           |
-| ------------- | --------------------------------------- | ---------------------------------------- |
-| Web           | `http://127.0.0.1:3000/api/health`      | `http://127.0.0.1:3000`                  |
-| API           | `http://127.0.0.1:4000/api/health/live` | `http://127.0.0.1:4000/api/health/ready` |
-| Worker        | `http://127.0.0.1:4001/health/live`     | `http://127.0.0.1:4001/health/ready`     |
-| PostgreSQL 16 | Checked by the root health command      | `127.0.0.1:55432`                        |
+| Service       | Liveness                                   | Readiness or customer endpoint              |
+| ------------- | ------------------------------------------ | ------------------------------------------- |
+| Web           | `http://127.0.0.1:3000/api/health`         | `http://127.0.0.1:3000`                     |
+| API           | `http://127.0.0.1:4000/api/v1/health/live` | `http://127.0.0.1:4000/api/v1/health/ready` |
+| Worker        | `http://127.0.0.1:4001/health/live`        | `http://127.0.0.1:4001/health/ready`        |
+| PostgreSQL 16 | Checked by the root health command         | `127.0.0.1:55432`                           |
 
-The API keeps `http://127.0.0.1:4000/api/health` as a Section 1 compatibility health route. The worker may expose `http://127.0.0.1:4001/health` for the same purpose. New product APIs must wait for the Section 2 `/api/v1` contract rather than extending the transitional prefix casually.
+The API product contract and health routes use `/api/v1`. The worker may retain `http://127.0.0.1:4001/health` as a compatibility health route. Browser product calls use the generated client through `/api/bff/api/v1/*`; browser code never receives Cognito access or refresh tokens.
 
-Liveness answers whether a process is running. Readiness answers whether it can serve its current local responsibility; API readiness includes the database connectivity check. Readiness does not prove migrations or an MVP schema were applied.
+Liveness answers whether a process is running. Readiness answers whether it can serve its current local responsibility; API readiness includes a bounded database connectivity check. Migration status is checked separately before ordinary startup and is never inferred from health.
 
 ## Quality checks
 
@@ -93,9 +99,13 @@ npm.cmd run typecheck
 npm.cmd run test
 npm.cmd run build
 npm.cmd run audit:prod
+npm.cmd run contracts:check
+npm.cmd run test:database
 ```
 
-These checks must not deploy, mutate AWS, call paid providers, require production credentials, or rewrite source. The verified Section 1 evidence is recorded in `current-baseline.md`; every later section must produce fresh evidence for its own branch.
+`contracts:check` regenerates the Nest OpenAPI document and TypeScript client in memory and fails on drift. `test:database` uses an isolated, volume-free PostgreSQL 16 container to prove clean apply, repeat/no-op behavior, checksum tamper rejection, schema constraints, ownership, idempotency, and the API integration boundary.
+
+These checks must not deploy, mutate AWS, call paid providers, require production credentials, or rewrite source. Current milestone evidence is recorded in `current-baseline.md`; every later section must produce fresh evidence for its own branch.
 
 The build-plan and repository-policy tests run inside `npm.cmd run verify`. They
 protect the Sections 0-8 plan, canonical entry-point links, single lockfile,
@@ -118,9 +128,13 @@ When a collision occurs:
 
 Start Docker Desktop, wait until its engine reports ready, then run `npm.cmd run dev` again. Local development must fail closed rather than silently substitute an external database.
 
+### Migrations are pending
+
+Read the pending migration and checksum diff. If it belongs to the current reviewed branch, run `npm.cmd run dev:setup`. Never edit an applied baseline or bypass the journal.
+
 ### PostgreSQL is running but the API is not ready
 
-Run `npm.cmd run health` and use the reported failing check. A database connection failure can mean Docker is still starting, port `55432` is occupied, or the local configuration is inconsistent. Do not apply legacy migrations as a readiness fix; Section 1 readiness requires connectivity only.
+Run `npm.cmd run health` and use the reported failing check. A database connection failure can mean Docker is still starting, port `55432` is occupied, or the local configuration is inconsistent. Do not bypass the verified runner or apply SQL manually as a readiness fix.
 
 ### A process from an interrupted run remains
 
@@ -128,22 +142,24 @@ Run `npm.cmd run dev:down`, confirm the conflicting application is understood, a
 
 ### Web is ready but API pricing or product calls fail
 
-Use the API liveness and readiness URLs above. Section 1 proves workspace health, not a production-safe API. The existing product endpoints still contain documented legacy behavior and remain subject to Sections 2 through 5.
+Use the API liveness and readiness URLs above. Product routes authenticate by default. Open `/api/auth/login?returnTo=/create` on loopback to establish the deterministic local BFF session, then retry through the web application. Pricing remains intentionally public.
 
 ### Worker is healthy but no jobs run
 
-That is expected in Section 1. The worker is a process boundary and health surface only; generation, payment resolution, and fulfillment handlers are later deliverables.
+The worker is still an idle process boundary. Generation, payment resolution, and fulfillment job handling are later deliverables.
 
 ### Authentication appears unavailable
 
-That is expected only in the explicit local environment. Do not weaken non-local startup or introduce a fake authenticated user. Secure Cognito/BFF authentication and ownership enforcement are Section 2 work.
+Confirm the stack was started through the root supervisor so its exact local secrets and loopback configuration align between web and API. Never introduce a shared fallback user, expose the loopback server, or copy local secrets into another environment. Real Cognito activation requires an independently configured user pool/client and is not exercised by local tests.
 
 ## Safety summary
 
-- No legacy migration auto-run.
+- No migration auto-run during ordinary startup or health.
+- SHA-256 journal verification before any explicit migration.
 - No provider credentials or paid traffic.
 - No AWS mutation.
-- No permissive non-local auth fallback.
+- No permissive non-local or non-loopback auth fallback.
+- No browser-managed access or refresh tokens.
 - No automatic port killing.
 - No database reset or volume deletion in the normal lifecycle.
 - No later milestone completion claim may reuse Section 1 evidence; each branch must rerun its applicable verification and approval gates.

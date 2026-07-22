@@ -10,7 +10,7 @@ import { useCreditBalance } from '../lib/creditBalance';
 import { getCreateFlowGate } from './createFlowRules';
 import { goToPricingAfterPurchase } from './PricingReturn';
 
-const fallbackUser = { name: 'Souvenote User', email: 'user@souvenote.com', initials: 'SU' };
+const fallbackUser = { name: 'Souvenote User', email: '', initials: 'SU' };
 
 type CreateTile = {
   href: string;
@@ -22,7 +22,7 @@ export function CreateOptionsClient() {
   const router = useRouter();
   const auth = useAuth();
   const isAuthenticated = auth.status === 'authenticated';
-  const creditBalance = useCreditBalance({ enabled: isAuthenticated, fallbackBalance: 0, userId: auth.user?.id });
+  const creditBalance = useCreditBalance({ enabled: isAuthenticated, fallbackBalance: 0 });
   const user = auth.displayUser || fallbackUser;
   const accountBalance = {
     credits: { images: creditBalance.balance, songs: 0 },

@@ -515,56 +515,37 @@ function LockGlyph() {
 // SECTION — REFERRAL
 // ============================================================
 function ReferralBlock() {
-  const [email, setEmail] = React.useState('');
-  const [sent, setSent] = React.useState(false);
   return (
     <section className="opt-referral" data-screen-label="03 Referral">
       <div className="opt-referral-inner">
         <div className="opt-referral-copy">
           <div className="souv-eyebrow opt-eyebrow">REFERRAL</div>
           <h2 className="souv-h1 opt-h2">
-            Invite a friend, <span className="souv-hero-italic text-metallic-rose-gold">give 3, get 3</span>
+            Referrals are <span className="souv-hero-italic text-metallic-rose-gold">coming soon</span>
           </h2>
           <p className="opt-lede opt-referral-lede">
-            Each friend who signs up adds <em>three credits</em> to your balance and starts theirs with two.
+            Referral invitations, links, and reward credits are not active in this build.
           </p>
           <ul className="opt-referral-ticks">
             <li>
-              <Tick /> +3 credits per successful signup
+              <Tick /> No invitations are sent
             </li>
             <li>
-              <Tick /> No cap, keep inviting
+              <Tick /> No rewards are granted
             </li>
             <li>
-              <Tick /> Delivered by Sendgrid, never spammy
+              <Tick /> Availability will be announced later
             </li>
           </ul>
         </div>
-        <form
-          className="opt-referral-form"
-          onSubmit={(event: React.FormEvent<HTMLFormElement>) => {
-            event.preventDefault();
-            if (email) {
-              setSent(true);
-              setTimeout(() => setSent(false), 2400);
-              setEmail('');
-            }
-          }}
-        >
+        <form className="opt-referral-form" onSubmit={(event) => event.preventDefault()}>
           <label className="opt-referral-label" htmlFor="ref-email">
             Their email
           </label>
           <div className="opt-referral-row">
-            <input
-              id="ref-email"
-              type="email"
-              className="opt-input"
-              placeholder="friend@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-            <button type="submit" className="souv-cta-flow opt-referral-cta">
-              <span>{sent ? 'Sent ✓' : 'Invite a Friend'}</span>
+            <input id="ref-email" type="email" className="opt-input" placeholder="friend@example.com" disabled />
+            <button type="submit" className="souv-cta-flow opt-referral-cta" disabled>
+              <span>Coming soon</span>
             </button>
           </div>
           <div className="opt-referral-or">
@@ -572,12 +553,10 @@ function ReferralBlock() {
             <span>or</span>
             <span className="souv-rule-gold" />
           </div>
-          <button type="button" className="souv-btn-log opt-referral-copy-btn">
-            Copy My Referral Link
+          <button type="button" className="souv-btn-log opt-referral-copy-btn" disabled>
+            Referral links coming soon
           </button>
-          <div className="opt-referral-link" title="Tap copy button">
-            souvenote.com/?ref=<b>cameron-w</b>
-          </div>
+          <div className="opt-referral-link">No referral link has been created.</div>
         </form>
       </div>
     </section>

@@ -1,7 +1,6 @@
 'use client';
 
 import { Navbar } from './Navbar';
-import { demoUser } from './DemoUser';
 import { useAuth } from './AuthProvider';
 import type { NavbarProps } from './Navbar';
 
@@ -18,7 +17,7 @@ function DemoNavbar({ cartCount = 0, ...props }: DemoNavbarProps) {
   return (
     <Navbar
       loggedIn={auth.status === 'authenticated'}
-      user={demoUser}
+      user={auth.displayUser ?? undefined}
       credits={{ images: 0, songs: 0 }}
       cardBank={0}
       cartCount={cartCount}

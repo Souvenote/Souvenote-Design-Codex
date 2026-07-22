@@ -5,7 +5,6 @@ import Link from 'next/link';
 import type { DemoUser } from './DemoUser';
 import { useCreditBalance } from '../lib/creditBalance';
 import { fetchCardDraftAssets, fetchUserCardDrafts } from '../lib/api';
-import { useBlankSouvenoteGiftCount } from './GiftAddon';
 import { useAuth } from './AuthProvider';
 
 type AccountPageProps = {
@@ -184,8 +183,7 @@ function ProfilePage({ user }: AccountPageProps) {
     user || { name: 'Souvenote User', email: 'user@souvenote.com', initials: 'SU' };
   const isAuthenticated = auth.status === 'authenticated';
   const localUserId = auth.user?.id;
-  const creditBalance = useCreditBalance({ enabled: isAuthenticated, fallbackBalance: 0, userId: auth.user?.id });
-  const blankGiftCount = useBlankSouvenoteGiftCount();
+  const creditBalance = useCreditBalance({ enabled: isAuthenticated, fallbackBalance: 0 });
   const [cardDraftCount, setCardDraftCount] = React.useState(0);
   const [draftCountStatus, setDraftCountStatus] = React.useState<'loading' | 'ready' | 'error'>('loading');
 
@@ -208,7 +206,7 @@ function ProfilePage({ user }: AccountPageProps) {
     }
 
     setDraftCountStatus('loading');
-    fetchUserCardDrafts(localUserId)
+    fetchUserCardDrafts()
       .then(async (drafts) => {
         const assetGroups = await Promise.all(drafts.map((draft) => fetchCardDraftAssets(draft.id)));
         const completedCount = assetGroups.filter((assets) =>
@@ -241,27 +239,8 @@ function ProfilePage({ user }: AccountPageProps) {
     },
     { num: '0', label: 'Songs made' },
     { num: '0', label: 'Cards in bank' },
-    ...(blankGiftCount > 0 ? [{ num: String(blankGiftCount), label: 'Blank gifts', gold: true }] : []),
   ];
-  const profileActivity: ProfileActivity[] = [
-    ...(blankGiftCount > 0
-      ? [
-          {
-            ico: AccIco.gift,
-            title: (
-              <>
-                Bought{' '}
-                <b>
-                  {blankGiftCount} blank Souvenote {blankGiftCount === 1 ? 'gift' : 'gifts'}
-                </b>
-              </>
-            ),
-            time: 'Ready now',
-          },
-        ]
-      : []),
-    ...PROFILE_ACTIVITY,
-  ];
+  const profileActivity: ProfileActivity[] = PROFILE_ACTIVITY;
   const joinedAt = auth.user?.created_at ? new Date(auth.user.created_at) : null;
   const memberSince =
     joinedAt && !Number.isNaN(joinedAt.getTime())
@@ -311,50 +290,6 @@ function ProfilePage({ user }: AccountPageProps) {
           </div>
         ))}
       </div>
-
-      {blankGiftCount > 0 && (
-        <div className="acc-panel acc-profile-gift-card">
-          <div className="acc-profile-gift-copy">
-            <div className="acc-panel-title">Blank Souvenote Gift</div>
-            <h2 className="acc-profile-gift-title">
-              {blankGiftCount} blank {blankGiftCount === 1 ? 'Souvenote' : 'Souvenotes'} ready to give
-            </h2>
-            <p>
-              This blank gift also appears in Saved Cards &amp; Songs. When you send a card, we&apos;ll remind you to
-              choose who should receive it or keep it saved for later.
-            </p>
-          </div>
-          <div className="acc-profile-gift-summary">
-            <div className="acc-gift-token" aria-hidden="true">
-              <span className="acc-gift-token-label">
-                A Souvenote,
-                <br />
-                on you
-              </span>
-            </div>
-            <div className="acc-gift-name">Blank Souvenote Gift</div>
-            <div className="acc-gift-meta">
-              <div className="acc-summary-row">
-                <span className="k">Available</span>
-                <span className="v">
-                  {blankGiftCount} {blankGiftCount === 1 ? 'gift' : 'gifts'}
-                </span>
-              </div>
-              <div className="acc-summary-row">
-                <span className="k">Visible in</span>
-                <span className="v">Saved Cards &amp; Songs</span>
-              </div>
-              <div className="acc-summary-row">
-                <span className="k">Reminder</span>
-                <span className="v">Delivery step</span>
-              </div>
-            </div>
-            <Link className="bmc-cta acc-profile-gift-cta" href="/create/my-cards-and-songs">
-              View in Saved Cards &amp; Songs
-            </Link>
-          </div>
-        </div>
-      )}
 
       <div className="acc-grid-2">
         <div className="acc-panel">
@@ -419,25 +354,8 @@ const REFER_SHARE: ReferShare[] = [
 ];
 
 function ReferPage({ user }: AccountPageProps) {
-  const auth = useAuth();
-  const accountUser = auth.displayUser ||
-    user || { name: 'Souvenote User', email: 'user@souvenote.com', initials: 'SU' };
-  const [copied, setCopied] = React.useState(false);
-  const referralSeed = auth.user?.id || accountUser.email || accountUser.name;
-  const referralSlug =
-    referralSeed
-      .toLowerCase()
-      .replace(/@.*/, '')
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-|-$/g, '')
-      .slice(0, 24) || 'souvenote';
-  const link = `souvenote.com/r/${referralSlug}`;
-
-  function copy() {
-    navigator.clipboard?.writeText('https://' + link).catch(() => {});
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1800);
-  }
+  void user;
+  const link = 'Referral links are coming soon';
 
   return (
     <div className="bmc-shell" data-screen-label="Refer a Friend">
@@ -459,8 +377,7 @@ function ReferPage({ user }: AccountPageProps) {
           Share the <span className="souv-hero-italic text-metallic-rose-gold">love</span>
         </h1>
         <p className="bmc-lede" style={{ margin: '0 auto' }}>
-          Invite a friend to Souvenote. They get 10 credits to start, and you earn 10 credits the moment they send a
-          card.
+          Coming soon. Referral links, invitations, and reward grants are not active in this build.
         </p>
       </div>
 
@@ -480,8 +397,8 @@ function ReferPage({ user }: AccountPageProps) {
         </div>
         <div className="acc-referlink">
           <input className="input-dark" readOnly value={link} onFocus={(event) => event.target.select()} />
-          <button type="button" className="btn-matte acc-copybtn" onClick={copy}>
-            {copied ? 'Copied \u2713' : 'Copy link'}
+          <button type="button" className="btn-matte acc-copybtn" disabled>
+            Coming soon
           </button>
         </div>
         <div className="acc-share-row">
@@ -493,6 +410,7 @@ function ReferPage({ user }: AccountPageProps) {
               key={share.label}
               aria-label={share.label}
               title={share.label}
+              disabled
             >
               <svg
                 viewBox="0 0 24 24"

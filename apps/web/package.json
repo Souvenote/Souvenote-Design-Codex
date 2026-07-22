@@ -9,10 +9,12 @@
     "typegen": "next typegen",
     "typecheck": "next typegen && tsc --noEmit --incremental false",
     "lint": "eslint . --max-warnings=0",
-    "lint:fix": "eslint . --fix"
+    "lint:fix": "eslint . --fix",
+    "test": "jest --config ./jest.config.cjs --runInBand --no-cache"
   },
   "dependencies": {
-    "amazon-cognito-identity-js": "6.3.20",
+    "@souvenote/contracts": "0.1.0",
+    "jose": "6.2.4",
     "next": "15.5.21",
     "react": "19.0.0",
     "react-dom": "19.0.0",

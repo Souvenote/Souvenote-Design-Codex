@@ -19,14 +19,14 @@ describe('runtime configuration', () => {
     expect(resolveAuthMode(configuration({ NODE_ENV: 'development' }))).toBe('cognito');
   });
 
-  it('allows disabled authentication only in development and test', () => {
-    expect(resolveAuthMode(configuration({ NODE_ENV: 'development', AUTH_MODE: 'disabled' }))).toBe('disabled');
-    expect(resolveAuthMode(configuration({ NODE_ENV: 'test', AUTH_MODE: 'disabled' }))).toBe('disabled');
+  it('allows explicit local authentication only in development and test', () => {
+    expect(resolveAuthMode(configuration({ NODE_ENV: 'development', AUTH_MODE: 'local' }))).toBe('local');
+    expect(resolveAuthMode(configuration({ NODE_ENV: 'test', AUTH_MODE: 'local' }))).toBe('local');
   });
 
-  it('rejects disabled authentication in production', () => {
-    expect(() => resolveAuthMode(configuration({ NODE_ENV: 'production', AUTH_MODE: 'disabled' }))).toThrow(
-      'AUTH_MODE=disabled is permitted only',
+  it('rejects local authentication in production', () => {
+    expect(() => resolveAuthMode(configuration({ NODE_ENV: 'production', AUTH_MODE: 'local' }))).toThrow(
+      'AUTH_MODE=local is permitted only',
     );
   });
 
@@ -73,5 +73,12 @@ describe('runtime configuration', () => {
 
   it('accepts a configured hostname without a port or scheme', () => {
     expect(resolveHost(configuration({ HOST: 'api-1.souvenote.com' }))).toBe('api-1.souvenote.com');
+  });
+
+  it('keeps local authentication bound to loopback only', () => {
+    expect(resolveHost(configuration({ NODE_ENV: 'test', AUTH_MODE: 'local', HOST: '127.0.0.1' }))).toBe('127.0.0.1');
+    expect(() => resolveHost(configuration({ NODE_ENV: 'test', AUTH_MODE: 'local', HOST: '0.0.0.0' }))).toThrow(
+      'requires a loopback HOST',
+    );
   });
 });

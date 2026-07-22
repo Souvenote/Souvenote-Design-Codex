@@ -24,8 +24,7 @@ import {
   writeMockMvpFlowState,
 } from '../lib/mockMvpFlow';
 import type { CreditBalanceStatus } from '../lib/creditBalance';
-import { getTotalDemoCredits } from './DemoBalance';
-import type { DemoBalance } from './DemoBalance';
+import { getTotalCredits, type AccountBalance } from './createFlowRules';
 import { CARD_WITH_QR_SONG_CREDITS, MIN_GENERATION_CREDITS } from './createFlowRules';
 import { goToPricingAfterPurchase } from './PricingReturn';
 import { AuthGatePrompt } from './AuthGatePrompt';
@@ -139,7 +138,7 @@ type PersonalizeAppProps = {
   openModal?: boolean;
   resumeDraftId?: string | null;
   initialModalStep?: ModalStepId;
-  accountBalance?: DemoBalance;
+  accountBalance?: AccountBalance;
   creditStatus?: CreditBalanceStatus;
   refreshCredits?: () => Promise<unknown> | unknown;
   requireAuthToContinue?: boolean;
@@ -2131,7 +2130,7 @@ function PtChat({ open, setOpen }: PtChatProps) {
 // ============================================================
 // TOP-LEVEL APP
 // ============================================================
-const PERSONALIZE_DEFAULT_BALANCE: DemoBalance = { credits: { images: 0, songs: 0 }, cardBank: 0 };
+const PERSONALIZE_DEFAULT_BALANCE: AccountBalance = { credits: { images: 0, songs: 0 }, cardBank: 0 };
 
 function PersonalizeApp({
   openModal = false,
@@ -2161,7 +2160,7 @@ function PersonalizeApp({
   const draftSavePromiseRef = React.useRef<Promise<string> | null>(null);
   const draftSaveVersionRef = React.useRef(0);
   const uploadedReferenceSignatureRef = React.useRef<string>('');
-  const totalCredits = getTotalDemoCredits(accountBalance);
+  const totalCredits = getTotalCredits(accountBalance);
 
   const rememberDraftId = React.useCallback((draftId: string | null) => {
     currentDraftIdRef.current = draftId;
@@ -2449,36 +2448,11 @@ function PersonalizeApp({
   }, [currentDraftId, refreshReviewAssets, view]);
 
   const spendRegenerationCredit = async () => {
-    if (totalCredits < MIN_GENERATION_CREDITS) {
-      bmcError('You need at least 1 credit to regenerate an asset.', 'Not enough credits');
-      return false;
-    }
-
-    try {
-      const response = await startGeneration({
-        ...(currentDraftId ? { cardDraftId: currentDraftId } : {}),
-        idempotencyKey: `frontend-generation-${Date.now()}`,
-      });
-      if (currentDraftId) {
-        const backendState = await refreshCardDraftBackendState(currentDraftId);
-        applyReviewAssets(currentDraftId, backendState.assets);
-      }
-
-      if (response.balance) {
-        publishCreditBalance(response.balance);
-      } else {
-        await refreshCredits?.();
-      }
-
-      return true;
-    } catch (error) {
-      bmcError(
-        error instanceof Error ? error.message : 'Regeneration could not start. Please try again.',
-        'Regeneration could not start',
-      );
-      await refreshCredits?.();
-      return false;
-    }
+    bmcError(
+      'One-credit image and song regeneration is coming in the approved creation-workflow section. No credit was charged.',
+      'Regeneration coming soon',
+    );
+    return false;
   };
 
   if (view === 'review') {

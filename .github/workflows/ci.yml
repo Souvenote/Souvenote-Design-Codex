@@ -61,6 +61,12 @@ jobs:
       - name: Install the exact workspace graph
         run: npm ci
 
+      - name: Pull the pinned local PostgreSQL image
+        run: docker pull postgres:16-alpine
+
+      - name: Verify migrations, ownership, idempotency, and API security against PostgreSQL
+        run: npm run test:database
+
       - name: Validate the Docker Compose definition
         run: docker compose --project-name souvenote-local --file compose.yaml config --quiet
 

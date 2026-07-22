@@ -15,6 +15,7 @@ import { assertCanonicalToolchain } from './lib/toolchain.mjs';
 assertCanonicalToolchain();
 
 const smokeMode = process.argv.slice(2).includes('--smoke');
+const migrateMode = smokeMode || process.argv.slice(2).includes('--migrate');
 const ownedChildren = [];
 const environment = createSafeLocalEnvironment();
 let cleanupStarted = false;
@@ -114,6 +115,16 @@ const startWorkspace = (name, workspace) => {
   });
 };
 
+const runNpmScript = async (script) => {
+  const npmExecPath = environment.npm_execpath;
+  if (process.platform === 'win32') {
+    if (!npmExecPath) throw new Error('npm_execpath is unavailable. Start the stack through a root npm script.');
+    await runCommand(process.execPath, [npmExecPath, 'run', script], { stdio: 'inherit' });
+    return;
+  }
+  await runCommand('npm', ['run', script], { stdio: 'inherit' });
+};
+
 const terminateWindowsTree = async (processId) => {
   try {
     await runCommand('taskkill', ['/pid', String(processId), '/t', '/f'], { stdio: 'ignore' });
@@ -207,6 +218,17 @@ const main = async () => {
 
     if (stopSignal) {
       return;
+    }
+
+    if (migrateMode) {
+      console.log('Applying explicitly requested local database migrations...');
+      await runNpmScript('db:migrate');
+    } else {
+      try {
+        await runNpmScript('db:migrate:check');
+      } catch {
+        throw new Error('Local migrations are pending. Run npm run dev:setup to apply them explicitly.');
+      }
     }
 
     startWorkspace('web', '@souvenote/web');

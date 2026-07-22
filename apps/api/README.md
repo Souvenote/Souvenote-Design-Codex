@@ -4,17 +4,20 @@ This package is the NestJS HTTP process in the Souvenote modular monolith. Use i
 through the root workspace commands; do not install dependencies or deploy from this
 directory independently.
 
-## Section 1 boundary
+## Section 2 boundary
 
-- The API retains the transitional `/api` prefix.
-- `/api/health/live` proves process liveness.
-- `/api/health/ready` proves current PostgreSQL connectivity only.
-- Authentication may be disabled only in the explicit local/test environment.
-- The legacy draft migrations are never run by startup or health checks.
-- Existing product routes remain transitional and include documented identity,
-  credit, and ownership debt. They are not approved for a shared environment.
-- Section 2 owns `/api/v1`, Cognito/BFF security, ownership-by-default, the verified
-  MVP schema, and generated OpenAPI contracts.
+- All product and health routes use `/api/v1`.
+- Authentication and repository ownership are default deny. Only explicitly public
+  health, CAD pricing/share, and verified webhook routes bypass customer auth.
+- Nest validates Cognito access-token signature, issuer, client, token use, time,
+  and required scopes. Deterministic local auth is signed, development/test only,
+  and loopback only.
+- Controllers contain HTTP concerns, services contain domain behavior, and only
+  repositories execute SQL.
+- Startup and health never apply migrations. Use the root explicit runner and
+  SHA-256 journal.
+- OpenAPI is generated from the controllers and checked against
+  `packages/contracts` by `npm.cmd run contracts:check`.
 
 ## Commands
 
@@ -25,10 +28,12 @@ npm.cmd run dev:api
 npm.cmd run lint --workspace=@souvenote/api
 npm.cmd run typecheck --workspace=@souvenote/api
 npm.cmd run test --workspace=@souvenote/api
+npm.cmd run test:database
 npm.cmd run build --workspace=@souvenote/api
 ```
 
 The accepted whole-repository gate is `npm.cmd run verify`. The complete local stack
 is `npm.cmd run dev` or `npm.cmd run smoke:stack`.
 
-No package command deploys, applies migrations, or contacts a paid provider.
+No package command deploys or contacts a paid provider. Database application is a
+separate explicit root command; ordinary API startup never invokes it.

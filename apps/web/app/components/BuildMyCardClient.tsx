@@ -6,7 +6,6 @@ import { Navbar } from './Navbar';
 import { Footer } from './Footer';
 import { PageChrome } from './PageChrome';
 import { BmcWizard } from './BmcWizard';
-import { demoUser } from './DemoUser';
 import { useCreditBalance } from '../lib/creditBalance';
 import { MIN_GENERATION_CREDITS } from './createFlowRules';
 import { goToPricingAfterPurchase } from './PricingReturn';
@@ -30,7 +29,7 @@ export function BuildMyCardClient() {
   const [authPromptOpen, setAuthPromptOpen] = React.useState(false);
   const entryGateChecked = React.useRef(false);
   const isAuthenticated = auth.status === 'authenticated';
-  const creditBalance = useCreditBalance({ enabled: isAuthenticated, fallbackBalance: 0, userId: auth.user?.id });
+  const creditBalance = useCreditBalance({ enabled: isAuthenticated, fallbackBalance: 0 });
 
   React.useEffect(() => {
     const syncHashStep = () => {
@@ -62,7 +61,7 @@ export function BuildMyCardClient() {
       <div className="bmc-page">
         <Navbar
           loggedIn={isAuthenticated}
-          user={demoUser}
+          user={auth.displayUser ?? undefined}
           credits={{ images: creditBalance.balance, songs: 0 }}
           cardBank={0}
           cartCount={0}

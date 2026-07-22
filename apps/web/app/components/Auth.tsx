@@ -943,9 +943,6 @@ function WelcomeModal({ stepDob = false }: WelcomeModalProps) {
 // FORGOT PASSWORD (00d)
 // ============================================================
 function ForgotView() {
-  const [email, setEmail] = React.useState('');
-  const [sent, setSent] = React.useState(false);
-
   return (
     <div className="auth-stage auth-stage-secondary">
       <div className="auth-card auth-card-secondary">
@@ -954,38 +951,12 @@ function ForgotView() {
           Reset your <span className="souv-hero-italic text-metallic-rose-gold">password</span>
         </h1>
         <p className="auth-sub">
-          Enter your account email and we'll send a one-time reset link. It's valid for one hour.
+          Password recovery is handled by the secure Cognito sign-in page. Souvenote never receives or stores your
+          password.
         </p>
-
-        {sent ? (
-          <>
-            <span className="auth-sent-pill">
-              <AuthIcon name="check" w={12} /> Check your inbox
-            </span>
-            <p className="auth-hint" style={{ marginBottom: 22 }}>
-              If an account exists for <b style={{ color: 'var(--platinum-hi)' }}>{email || 'that email'}</b>, a reset
-              link is on its way. The link expires in one hour. You can resend after 60 seconds.
-            </p>
-            <button type="button" className="auth-submit-secondary" onClick={() => setSent(false)}>
-              Resend reset link
-            </button>
-          </>
-        ) : (
-          <>
-            <div className="auth-field">
-              <label className="auth-label">Account email</label>
-              <input
-                className="auth-input"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </div>
-            <button type="button" className="auth-submit" onClick={() => setSent(true)}>
-              Send reset link <AuthIcon name="mail" w={16} />
-            </button>
-          </>
-        )}
+        <Link className="auth-submit" href="/api/auth/login?intent=login&returnTo=%2Fcreate">
+          Continue to secure account recovery <AuthIcon name="arrow" w={16} />
+        </Link>
 
         <div className="auth-cardfoot">
           Remembered it? <Link href="/login">Back to log in →</Link>

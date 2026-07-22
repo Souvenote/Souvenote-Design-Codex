@@ -129,3 +129,20 @@ The application CSS and public assets were not changed. Customer-page TSX change
 - No legacy migration, AWS mutation, paid-provider call, payment, email, or fulfillment action occurred. External cost was CAD $0 and USD $0.
 - The transitional legacy API still exposes insecure caller-supplied identity and credit behavior. Section 2 must replace it with `/api/v1`, authentication and ownership by default, generated contracts, and a verified schema baseline before any shared environment exists.
 - Demo frontend authorities remain isolated debt for Section 4 and are not promoted as production-safe behavior by this milestone.
+
+## Section 2 candidate baseline
+
+Status: implemented on `codex/section-2-schema-contracts-security` on 2026-07-21; final stacked-PR evidence is recorded in `docs/engineering/section-2-audit.md`.
+
+Section 2 replaces the transitional authority boundary with:
+
+- one verified pre-launch MVP PostgreSQL baseline and immutable SHA-256 migration journal;
+- `/api/v1`, generated OpenAPI schemas/client, contract drift checks, and bounded cursor pagination;
+- Cognito authorization-code/PKCE through a Next.js BFF with encrypted HttpOnly sessions;
+- signed loopback-only local authentication that exercises the same API ownership boundary;
+- global authentication/default deny, token/JWKS validation, owner-scoped repositories, and exactly-once starter credits;
+- server-owned prices/totals, idempotent sensitive mutations, verified provider webhooks, and no public credit mutation;
+- CSRF, exact-origin CORS, secure headers, bounded bodies/queries/rate-limit memory, request IDs, and redacted logs;
+- future-feature, payment, checkout, fulfillment, contact, referral, and regeneration surfaces that fail closed instead of simulating success.
+
+The Section 2 branch makes no AWS mutation and no paid provider call. Its external service cost is CAD $0 / USD $0. Real Cognito/social-provider activation, shared edge rate limiting, active pricing/credit/entitlement behavior, provider jobs, checkout, and fulfillment remain later approved gates.

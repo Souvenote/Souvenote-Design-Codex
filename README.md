@@ -12,9 +12,9 @@ apps/
   api/          NestJS HTTP API
   worker/       Asynchronous worker process boundary
 packages/
-  contracts/    Shared API schemas and status contracts
+  contracts/    Generated OpenAPI client and shared API schemas
   config/       Shared TypeScript configuration
-database/       Database source and pre-Section-2 migration evidence
+database/       Verified MVP baseline, migration runner, and schema tests
 docs/           Product, engineering, and legacy documentation
 infra/          Reserved for separately approved infrastructure work
 ```
@@ -25,10 +25,10 @@ Prerequisites are Node.js 22, npm 10.9.8, and Docker Desktop with Linux containe
 
 ```powershell
 npm.cmd ci
-npm.cmd run dev
+npm.cmd run dev:setup
 ```
 
-This starts the web app on `3000`, API on `4000`, worker on `4001`, and a project-scoped PostgreSQL 16 container on host port `55432`. It neutralizes provider credentials, uses mock or disabled adapters, and does not deploy or contact paid providers.
+The first start explicitly applies the verified local baseline and then starts the web app on `3000`, API on `4000`, worker on `4001`, and a project-scoped PostgreSQL 16 container on host port `55432`. Later starts use `npm.cmd run dev`, which checks the migration journal but never applies pending migrations automatically. The supervisor uses loopback-only signed local authentication, neutralizes provider credentials, uses mock or disabled adapters, and does not deploy or contact paid providers.
 
 See [local development](./docs/engineering/local-development.md) for health endpoints, smoke tests, shutdown behavior, and troubleshooting.
 
@@ -36,6 +36,7 @@ See [local development](./docs/engineering/local-development.md) for health endp
 
 ```powershell
 npm.cmd run verify
+npm.cmd run test:database
 npm.cmd run smoke:stack
 ```
 
