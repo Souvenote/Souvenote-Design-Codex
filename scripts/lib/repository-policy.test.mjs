@@ -26,6 +26,9 @@ test('repository has one workspace lockfile and no tracked local secrets', () =>
 
   assert.equal(existsSync(path.join(repositoryRoot, 'front end')), false);
   assert.equal(existsSync(path.join(repositoryRoot, 'backend', 'server')), false);
+
+  const rootPackage = JSON.parse(readFileSync(path.join(repositoryRoot, 'package.json'), 'utf8'));
+  assert.equal(rootPackage.scripts.prepare, 'npm run build --workspace=@souvenote/contracts');
 });
 
 test('governed text has no trailing whitespace or obvious committed credentials', () => {
@@ -55,6 +58,11 @@ test('GitHub Actions dependencies are pinned to exact commit SHAs', () => {
 
   assert.notEqual(actionReferences.length, 0);
   actionReferences.forEach((reference) => assert.match(reference, /@[0-9a-f]{40}$/));
+
+  const imagePull = workflow.indexOf('run: docker pull postgres:16-alpine');
+  const databaseVerification = workflow.indexOf('run: npm run test:database');
+  assert.ok(imagePull > 0, 'CI must pull the pinned PostgreSQL image explicitly');
+  assert.ok(imagePull < databaseVerification, 'CI must pull PostgreSQL before database verification');
 });
 
 test('API persistence and route authority boundaries remain fail closed', () => {

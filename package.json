@@ -12,6 +12,7 @@
     "packages/*"
   ],
   "scripts": {
+    "prepare": "npm run build --workspace=@souvenote/contracts",
     "dev": "node scripts/dev.mjs",
     "dev:setup": "node scripts/dev.mjs --migrate",
     "dev:web": "npm run dev --workspace=@souvenote/web",
