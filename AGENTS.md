@@ -21,6 +21,7 @@ Do not silently choose between conflicting requirements. Record the conflict and
 - Ask only questions that are genuinely required, and group closely related questions when practical.
 - Once an agent asks the user any question, pause the task until the user explicitly answers every question asked.
 - Do not attach a timeout or auto-resolution to a question, infer an answer from silence, select a default, or continue implementation, review, publication, deployment, or any other task action while a question remains unanswered, regardless of how long the wait lasts.
+- Do not start or continue a second task or worker to bypass a question that has paused the active section task.
 - A question may be withdrawn only by explicitly telling the user that it is withdrawn and why; otherwise it remains blocking.
 - Status updates may explain the pause, but must not be used to continue the blocked work.
 
@@ -100,13 +101,36 @@ Each PR-sized task must begin by:
 5. Restating goal, scope, evidence, risks, affected interfaces, and done conditions.
 6. Asking about unresolved product decisions instead of guessing.
 
-Use a fresh task for each PR-sized change. Stay in the same task for testing, debugging, and review of that same change.
+Use exactly one clearly named, user-visible Codex task for each PR-sized section. Stay
+in that task for planning, implementation, testing, debugging, review, publication,
+and handoff of the same bounded change. The task title must be
+`Section N — <build-plan section name>` while active.
+
+The active section task is the sole lead and the only task allowed to mutate the
+canonical Desktop worktree. Do not create a second sidebar task as a worker, handoff
+target, retry, or workaround. A replacement task is allowed only when the user
+explicitly requests it or the active task cannot continue; retire and archive the
+old task before the replacement mutates anything.
+
+Internal workers are optional, are not separate user-visible section tasks, and
+must have bounded, non-overlapping assignments. They are read-only by default. A
+worker may edit only in a purpose-created isolated worktree/branch, never in the
+canonical Desktop worktree, and only after the lead records the ownership boundary.
+The lead alone integrates and verifies worker output. Never parallel-edit
+migrations, shared contracts, lockfiles, or infrastructure interfaces.
+
+Once the section gate, handoff, draft PR publication, and exact-head required checks
+are complete, rename the task to `Section N — <build-plan section name> (Complete)`
+and archive it before another section task starts. If a duplicate or misnamed task
+is discovered, stop it before its next mutation, inventory any completed work,
+rename it `Retired — <original purpose>`, and archive it after the lead reconciles
+the shared state. Starting a new visible task requires explicit user direction.
 
 `docs/engineering/build-plan.md` governs Sections 0 through 8, their order, scope,
 approval boundaries, and gates. Do not skip a gate, pull later-section functionality
 into an earlier section, or claim completion from older evidence. Use GPT-5.6 Sol
-when available, with one lead and no more than three non-overlapping workers. Never
-parallel-edit migrations, shared contracts, lockfiles, or infrastructure interfaces.
+when available, with one lead and no more than three non-overlapping internal
+workers under the lifecycle and worktree rules above.
 
 ## Current workspace commands
 

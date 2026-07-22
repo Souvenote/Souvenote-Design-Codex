@@ -6,13 +6,29 @@ Branch: `codex/section-3-pricing-credits-entitlements`
 
 Base: `fdf2c14b61250120ee3359379f67a61fcc5399c1`
 
-Status: implementation and local acceptance complete. Draft PR #4 remains unmerged and stacked on the Section 2 branch; exact-head CI is the final publication gate.
+Status: implementation and local acceptance complete. Draft PR #4 remains unmerged and stacked on the Section 2 branch; exact-head CI is the publication gate.
 
 ## Scope and authority
 
 This audit maps Section 3 to implementation evidence. It does not activate Stripe, paid providers, AWS, checkout, fulfillment, or the complete Section 4 creation workflow.
 
 The task read `AGENTS.md`, the complete build plan, MVP specification, decision register, architecture, cost-approval rules, current baseline, Section 2 audit/handoff, review rules, and local-development instructions before implementation.
+
+## Task-lifecycle postmortem and correction
+
+Section 3 exposed a process defect: multiple user-visible handoff tasks inherited
+Section 2 or repository-setup titles, and two tasks briefly edited the same canonical
+Desktop worktree. The overlap caused competing edits to migration 0002 and its
+checksum. The lead stopped the duplicate before further mutation, inventoried its
+last change, reconciled the migration/checksum, and reran the complete local and
+exact-head CI gates. No external or shared database was affected.
+
+Decision `MVP-021` now closes that gap. Exactly one correctly named visible task may
+lead a section and mutate the canonical worktree. Internal workers are read-only by
+default and any editing worker must use an isolated worktree/branch. Duplicate tasks
+must stop, report, be renamed as retired, and be archived after reconciliation. The
+historical Section 2/Section 3 duplicates are retired and archived as part of this
+correction before Section 4 begins.
 
 ## Acceptance matrix
 
@@ -71,6 +87,7 @@ The disposable browser database/container and owned app processes are removed du
 | Database/API integration | `npm run test:database` passed clean apply, repeat no-op, checksum/journal tamper rejection, two SQL suites, concurrent API integration, and exact temporary-container cleanup.                      |
 | Runtime health           | Web, API, and worker returned HTTP 200 against the disposable browser-acceptance database; pricing returned four exact checkout-disabled offers.                                                     |
 | Final source scan        | No active seven-day, per-credit no-send fee, USD launch price, first-send bonus, one-card Big Sender tier, raw payment-card UI, or simulated checkout success remains in active application source.  |
+| Lifecycle correction     | On the correction source, pinned Node 22.22.0/npm 10.9.8 contract drift, formatting, lint, type checks, all 73 tests, all four builds, production audit, and governance policy tests passed.         |
 
 The documentation-only and cart-authority changes made after the first aggregate run are covered again by the final exact-source gate before publication.
 
