@@ -27,7 +27,7 @@
     "lint": "eslint \"scripts/**/*.mjs\" \"*.config.mjs\" --max-warnings=0 && npm run lint --workspaces --if-present",
     "lint:fix": "npm run lint:fix --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
-    "test:scripts": "node --test scripts/lib/local-runtime.test.mjs",
+    "test:scripts": "node --test scripts/lib/local-runtime.test.mjs scripts/lib/health.test.mjs",
     "test": "npm run test:scripts && npm run test --workspaces --if-present",
     "build": "npm run build --workspaces --if-present",
     "audit:prod": "npm audit --omit=dev --audit-level=high",

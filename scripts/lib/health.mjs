@@ -9,7 +9,7 @@ const checkTarget = async (target) => {
   try {
     const response = await fetch(target.url, {
       cache: 'no-store',
-      signal: AbortSignal.timeout(2_000),
+      signal: AbortSignal.timeout(target.requestTimeoutMilliseconds ?? 2_000),
     });
 
     if (!response.ok) {

@@ -142,3 +142,11 @@ Approval reference:
 - Status: approved implementation decision
 - Decision: Section 1 is entirely local and credential-free. It creates no AWS resources and activates no paid or metered provider traffic.
 - Consequence: Section 1 external cost is CAD $0 and USD $0. Any later AWS mutation or paid-provider activation still requires a separately scoped approval under `docs/operations/cost-approval.md`.
+
+### MVP-019 - Questions require an explicit user response
+
+- Date: 2026-07-21
+- Status: approved
+- Decision: Any question an agent asks is blocking until the user explicitly answers every question. Questions never expire, auto-resolve, or acquire a default answer because the user has not replied.
+- Consequence: Agents ask only necessary questions, group related questions where practical, and pause all task actions while any question remains unanswered, no matter how long the wait lasts. Silence never authorizes progress.
+- Approval reference: Direct user instruction in the Section 1 task.

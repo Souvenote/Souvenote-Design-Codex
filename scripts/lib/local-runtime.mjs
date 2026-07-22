@@ -35,6 +35,7 @@ export const readinessTargets = Object.freeze([
     name: 'web image optimizer',
     url: `http://127.0.0.1:${localPorts.web}/_next/image?url=%2Fassets%2FLogoMark.png&w=64&q=75`,
     json: false,
+    requestTimeoutMilliseconds: 15_000,
   },
   {
     name: 'api',

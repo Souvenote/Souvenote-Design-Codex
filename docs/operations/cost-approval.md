@@ -58,7 +58,7 @@ Valid approval must be explicit and scoped, for example:
 APPROVE AWS-STAGING-001 UP TO $40 GROSS THROUGH 2026-08-31
 ```
 
-Silence, an expired approval, a different action, or an exceeded amount is denial. Stop and request a new approval.
+Silence, an expired approval, a different action, or an exceeded amount is denial. Stop and request a new approval. Once any question is asked, all task actions pause until the user explicitly answers every question; there is no timeout, auto-resolution, or default based on silence.
 
 ## CI and IAM enforcement target
 

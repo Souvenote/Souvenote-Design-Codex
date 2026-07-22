@@ -15,6 +15,14 @@ When sources disagree, use this order:
 
 Do not silently choose between conflicting requirements. Record the conflict and obtain a decision before implementing it.
 
+## Mandatory user-response rule
+
+- Ask only questions that are genuinely required, and group closely related questions when practical.
+- Once an agent asks the user any question, pause the task until the user explicitly answers every question asked.
+- Do not attach a timeout or auto-resolution to a question, infer an answer from silence, select a default, or continue implementation, review, publication, deployment, or any other task action while a question remains unanswered, regardless of how long the wait lasts.
+- A question may be withdrawn only by explicitly telling the user that it is withdrawn and why; otherwise it remains blocking.
+- Status updates may explain the pause, but must not be used to continue the blocked work.
+
 ## Canonical workspace and current layout
 
 The canonical local clone is `C:\Users\wilso\Desktop\Souvenote_Design_Codex`.
