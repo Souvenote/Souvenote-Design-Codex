@@ -4,6 +4,7 @@ Complete this at the end of every PR-sized task. The next fresh task must be abl
 
 ```text
 Milestone and PR:
+Build-plan section and gate:
 Goal:
 Canonical repository:
 Branch:
@@ -32,6 +33,8 @@ AWS/provider actions taken:
 - Result:
 
 Unresolved risks or decisions:
+
+Build-plan deviations:
 
 Rollback notes:
 

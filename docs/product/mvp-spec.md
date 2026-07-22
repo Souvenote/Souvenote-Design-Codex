@@ -44,12 +44,12 @@ The MVP proves the physical-card loop end to end: account creation, starter cred
 
 All launch prices are CAD and include shipping and ten creation credits per physical card.
 
-| Offer | Price | Entitlement |
-| --- | ---: | --- |
-| Try Risk-Free | $9.99 if sent; $2.00 if not sent | One physical card and ten provisional credits |
-| Big Sender 2-10 | $8.99/card | Purchased card quantity and ten credits per card |
-| Big Sender 11-20 | $7.99/card | Purchased card quantity and ten credits per card |
-| Big Sender 21-30 | $6.99/card | Purchased card quantity and ten credits per card |
+| Offer            |                            Price | Entitlement                                      |
+| ---------------- | -------------------------------: | ------------------------------------------------ |
+| Try Risk-Free    | $9.99 if sent; $2.00 if not sent | One physical card and ten provisional credits    |
+| Big Sender 2-10  |                       $8.99/card | Purchased card quantity and ten credits per card |
+| Big Sender 11-20 |                       $7.99/card | Purchased card quantity and ten credits per card |
+| Big Sender 21-30 |                       $6.99/card | Purchased card quantity and ten credits per card |
 
 ### Try Risk-Free
 

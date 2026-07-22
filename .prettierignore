@@ -1,0 +1,12 @@
+**/.next/
+**/coverage/
+**/dist/
+**/node_modules/
+.npm-cache/
+apps/web/app/styles/
+apps/web/public/
+/database/
+docs/legacy/
+*.jpg
+*.pdf
+*.png

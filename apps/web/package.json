@@ -1,0 +1,25 @@
+{
+  "name": "@souvenote/web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --hostname 127.0.0.1",
+    "build": "next build",
+    "start": "next start --hostname 0.0.0.0",
+    "typegen": "next typegen",
+    "typecheck": "next typegen && tsc --noEmit --incremental false",
+    "lint": "eslint . --max-warnings=0",
+    "lint:fix": "eslint . --fix"
+  },
+  "dependencies": {
+    "amazon-cognito-identity-js": "6.3.20",
+    "next": "15.5.21",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
+    "sharp": "0.35.3"
+  },
+  "devDependencies": {
+    "@types/react": "19.0.14",
+    "@types/react-dom": "19.0.6"
+  }
+}

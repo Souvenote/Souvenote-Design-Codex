@@ -8,25 +8,43 @@ When sources disagree, use this order:
 
 1. Explicit user decisions recorded in `docs/product/decision-register.md`.
 2. The reconciled specification in `docs/product/mvp-spec.md`.
-3. The product PRD for scope and intent. The confidential source PDF is not stored in Git.
-4. The current application for approved visual design and route journey.
-5. `docs/engineering/architecture.md` and security rules for implementation decisions.
-6. Legacy repository documentation only where it does not conflict with the sources above.
+3. The mandatory execution sequence and gates in `docs/engineering/build-plan.md`.
+4. The product PRD for scope and intent. The confidential source PDF is not stored in Git.
+5. The current application for approved visual design and route journey.
+6. `docs/engineering/architecture.md` and security rules for implementation decisions.
+7. Legacy repository documentation only where it does not conflict with the sources above.
 
 Do not silently choose between conflicting requirements. Record the conflict and obtain a decision before implementing it.
+
+## Mandatory user-response rule
+
+- Ask only questions that are genuinely required, and group closely related questions when practical.
+- Once an agent asks the user any question, pause the task until the user explicitly answers every question asked.
+- Do not attach a timeout or auto-resolution to a question, infer an answer from silence, select a default, or continue implementation, review, publication, deployment, or any other task action while a question remains unanswered, regardless of how long the wait lasts.
+- A question may be withdrawn only by explicitly telling the user that it is withdrawn and why; otherwise it remains blocking.
+- Status updates may explain the pause, but must not be used to continue the blocked work.
 
 ## Canonical workspace and current layout
 
 The canonical local clone is `C:\Users\wilso\Desktop\Souvenote_Design_Codex`.
 
-The repository is currently organized as:
+On the user's Windows computer, stop before editing if `git rev-parse --show-toplevel`
+does not resolve to that exact clone. The stale Documents clone is not a fallback.
+GitHub CI and purpose-created isolated review worktrees are exempt from the absolute
+Windows path, but they must point to this repository and the intended commit.
 
-- `front end/`: Next.js 15 and React 19 frontend.
-- `backend/server/`: NestJS 11 API.
-- `backend/database/`: draft PostgreSQL migrations and seeds.
-- `backend/docs/`: legacy backend notes that may be stale.
+The canonical npm-workspace layout is:
 
-The approved target workspace layout is documented in `docs/engineering/architecture.md`. Do not perform broad moves as part of an unrelated feature.
+- `apps/web/`: Next.js 15 and React 19 frontend.
+- `apps/api/`: NestJS 11 HTTP API.
+- `apps/worker/`: asynchronous worker process; intentionally idle except for health behavior until later sections add jobs.
+- `packages/contracts/`: contract-package placeholder until Section 2 generates the OpenAPI client and shared schemas.
+- `packages/config/`: shared workspace configuration.
+- `database/`: legacy draft SQL plus the future verified migration baseline. Legacy migrations are never run automatically.
+- `infra/`: infrastructure boundary and documentation placeholder. Its presence is not deployment approval.
+- `docs/`: authoritative product, engineering, and operational guidance plus explicitly non-authoritative legacy material.
+
+Use Node.js 22 and npm 10.9.8 as the canonical local and CI toolchain. Local PostgreSQL is version 16 and binds only to `127.0.0.1:55432`. See `docs/engineering/local-development.md` before starting or stopping the stack.
 
 ## Locked MVP rules
 
@@ -69,12 +87,14 @@ This includes:
 
 Silence is denial. Approval for one action is not reusable.
 
+Section 1 is local-only and has no AWS or paid-provider cost. Authentication is disabled only in the explicit local environment and the API must reject that mode in any non-local environment. Provider modes remain deterministic mock or disabled. Do not add a permissive fallback when configuration is missing.
+
 ## Task start protocol
 
 Each PR-sized task must begin by:
 
 1. Confirming this Desktop repository, current branch, commit, and clean/dirty status.
-2. Reading this file, the MVP specification, decision register, and relevant architecture section.
+2. Reading this file, the complete build plan, MVP specification, decision register, and relevant architecture/operations sections.
 3. Inspecting the implementation before making claims.
 4. Running relevant baseline checks.
 5. Restating goal, scope, evidence, risks, affected interfaces, and done conditions.
@@ -82,31 +102,39 @@ Each PR-sized task must begin by:
 
 Use a fresh task for each PR-sized change. Stay in the same task for testing, debugging, and review of that same change.
 
-## Current verification commands
+`docs/engineering/build-plan.md` governs Sections 0 through 8, their order, scope,
+approval boundaries, and gates. Do not skip a gate, pull later-section functionality
+into an earlier section, or claim completion from older evidence. Use GPT-5.6 Sol
+when available, with one lead and no more than three non-overlapping workers. Never
+parallel-edit migrations, shared contracts, lockfiles, or infrastructure interfaces.
 
-Frontend:
+## Current workspace commands
 
-```powershell
-Set-Location 'front end'
-npm.cmd ci
-npm.cmd exec -- next typegen
-npm.cmd exec -- tsc --noEmit --incremental false
-npm.cmd run build
-npm.cmd audit --omit=dev --audit-level=critical
-```
-
-Backend:
+Run workspace commands from the repository root. `npm run verify` is the aggregate non-deploying quality gate; the individual commands remain available for focused diagnosis.
 
 ```powershell
-Set-Location 'backend/server'
 npm.cmd ci
-npm.cmd exec -- tsc --noEmit --incremental false
-npm.cmd test -- --runInBand --no-cache
+npm.cmd run format:check
+npm.cmd run lint
+npm.cmd run typecheck
+npm.cmd run test
 npm.cmd run build
-npm.cmd audit --omit=dev --audit-level=critical
+npm.cmd run audit:prod
+npm.cmd run verify
 ```
 
-Run frontend commands sequentially because both type generation and the production build update `.next`. Do not use `npm run lint` in CI while it contains `--fix`; CI checks must not rewrite source files. The current lint and dependency-audit debt is documented in `docs/engineering/current-baseline.md` and must be fixed in Section 1 before those checks become blocking.
+Local-stack lifecycle commands are:
+
+```powershell
+npm.cmd run dev
+npm.cmd run health
+npm.cmd run smoke:stack
+npm.cmd run dev:down
+```
+
+`dev:down` preserves the PostgreSQL Docker volume during normal shutdown. Never improvise a reset, volume deletion, or legacy migration command. The Section 1 branch-level checks and stack smoke test are recorded in `docs/engineering/current-baseline.md`.
+
+The API retains its transitional `/api` prefix during Section 1. Section 2 owns the authenticated `/api/v1` contract and generated client migration.
 
 ## Definition of done
 

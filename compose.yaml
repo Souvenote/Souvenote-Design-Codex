@@ -1,0 +1,23 @@
+name: souvenote-local
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: souvenote
+      POSTGRES_PASSWORD: souvenote_local
+      POSTGRES_USER: souvenote
+    ports:
+      - '127.0.0.1:${POSTGRES_HOST_PORT:-55432}:5432'
+    healthcheck:
+      test: ['CMD', 'pg_isready', '-U', 'souvenote', '-d', 'souvenote']
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 5s
+    volumes:
+      - souvenote-postgres-data:/var/lib/postgresql/data
+
+volumes:
+  souvenote-postgres-data:
+    name: souvenote-local-postgres-data
