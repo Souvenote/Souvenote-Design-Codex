@@ -1,12 +1,12 @@
 # Section 2 task handoff
 
 ```text
-Milestone and PR: Section 2 - Schema, contracts, and security; draft PR pending publication
+Milestone and PR: Section 2 - Schema, contracts, and security; draft PR #3 (https://github.com/Souvenote/Souvenote-Design-Codex/pull/3)
 Build-plan section and gate: Section 2; migrations/contracts pass and cross-user, arbitrary-credit, invalid-token, and missing-idempotency access fail
 Goal: Replace legacy schema/API/browser authority with a verified, generated, default-deny owner-scoped boundary.
 Canonical repository: C:\Users\wilso\Desktop\Souvenote_Design_Codex
 Branch: codex/section-2-schema-contracts-security
-Commit: pending final commit
+Implementation commit: 3772d0809730b238bc6421cf287135ebd0fe5e53
 Base commit: 7449088f199bb6291069dfe7788668a4876eb589
 
 Behavior completed:

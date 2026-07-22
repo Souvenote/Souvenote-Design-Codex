@@ -6,7 +6,7 @@ Branch: `codex/section-2-schema-contracts-security`
 
 Base: `7449088f199bb6291069dfe7788668a4876eb589`
 
-Status: local implementation and every local gate pass; final GitHub checks must pass on the published head before this gate is closed.
+Status: local implementation and every local gate pass; draft PR #3 is published and final GitHub checks must pass on its final head before this gate is closed.
 
 ## Scope and authority
 
