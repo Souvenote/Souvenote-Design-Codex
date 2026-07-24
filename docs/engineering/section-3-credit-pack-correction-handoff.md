@@ -5,7 +5,7 @@ Milestone and PR: Section 3 standalone credit-pack correction; draft PR #5 (http
 Build-plan section and gate: Section 3 correction; standalone catalog, signup trial, idempotent purchase/grant, ownership, browser, database, and full quality gates pass
 Goal: Correct the original Section 3 interpretation so the three approved standalone CAD credit packs are real repeat-purchasable products and new users receive two free trial credits.
 Codex task title: Section 3 — Pricing, credits, and entitlements
-Task lifecycle: active until the final PR head passes exact-head CI; then complete-and-ready-to-archive
+Task lifecycle: complete-and-ready-to-archive after the final PR head passes exact-head CI
 Canonical repository: C:\Users\wilso\Desktop\Souvenote_Design_Codex
 Branch: codex/section-3-standalone-credit-packs
 Implementation commit: 14322899d982ad2948eca1daa7be630acddb65d9
@@ -84,7 +84,7 @@ Exact recommended next task prompt:
 After draft PR #5 is reviewed, exact-head CI is green, and the correction is merged to main, implement complete Section 4 — Creation workflow with deterministic mocks — from the approved build plan in a fresh GPT-5.6 Sol task. Work only in C:\Users\wilso\Desktop\Souvenote_Design_Codex from the new main head. Read AGENTS.md and every authoritative product/engineering source first. Preserve the approved visual journey while implementing server-persisted drafts, private local uploads, image-rights attestation, moderation states, generation jobs/provider attempts, per-asset review/regeneration, exact Section 3 credit costs/refunds, delivery handoff, and My Cards & Songs resume for both creation routes. Use deterministic image/music/text mock adapters only; make no AWS, fal, Bedrock, Stripe, Scribeless, email, analytics, deployment, or paid call. Prove ownership, idempotency, retries, partial failures, refunds, persistence, accessibility, responsive behavior, and browser completion. Finish with the full pinned-toolchain gate, disposable PostgreSQL evidence, Section 4 audit/handoff, committed draft PR, and green exact-head CI; do not merge without explicit user direction.
 
 Task retirement:
-- Final exact-head checks passed: pending CI on the final PR #5 head.
-- Rename to Section 3 — Pricing, credits, and entitlements (Complete): after exact-head CI passes.
-- Archive before the next section starts: after exact-head CI passes and the completion rename is confirmed.
+- Final exact-head checks passed: both required GitHub CI jobs completed successfully on the final PR #5 head.
+- Rename to Section 3 — Pricing, credits, and entitlements (Complete): required immediately after confirming final exact-head CI.
+- Archive before the next section starts: required immediately after the completion rename.
 ```
