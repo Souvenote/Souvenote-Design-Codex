@@ -8,6 +8,8 @@ const requiredResources = [
   '/api/v1/me',
   '/api/v1/pricing',
   '/api/v1/credits',
+  '/api/v1/credits/purchases/mock',
+  '/api/v1/credits/purchases/{purchaseId}',
   '/api/v1/card-entitlements',
   '/api/v1/card-drafts',
   '/api/v1/uploads',
@@ -22,6 +24,7 @@ const requiredResources = [
 ];
 
 const idempotentOperations = [
+  ['post', '/api/v1/credits/purchases/mock'],
   ['post', '/api/v1/uploads'],
   ['patch', '/api/v1/uploads/{uploadId}/complete'],
   ['post', '/api/v1/generation-jobs'],
@@ -59,6 +62,7 @@ test('protected resources declare bearer auth and public resources do not', () =
   for (const [method, resource] of [
     ['get', '/api/v1/me'],
     ['get', '/api/v1/credits'],
+    ['post', '/api/v1/credits/purchases/mock'],
     ['post', '/api/v1/card-drafts'],
     ['get', '/api/v1/orders'],
   ]) {

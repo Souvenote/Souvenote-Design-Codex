@@ -30,7 +30,7 @@ The MVP proves the physical-card loop end to end: account creation, starter cred
 
 ## Credits
 
-- Signup grant: two credits, exactly once per Cognito identity.
+- Signup trial grant: two free credits, exactly once per Cognito identity, so a new user can try the creation experience before purchasing.
 - First combined image and song generation: two credits.
 - Image generation or edit: one credit.
 - Song generation or regeneration: one credit.
@@ -50,6 +50,18 @@ All launch prices are CAD and include shipping and ten creation credits per phys
 | Big Sender 2-10  |                       $8.99/card | Purchased card quantity and ten credits per card |
 | Big Sender 11-20 |                       $7.99/card | Purchased card quantity and ten credits per card |
 | Big Sender 21-30 |                       $6.99/card | Purchased card quantity and ten credits per card |
+| Credit pack      |                            $2.00 | Ten standalone creation credits                  |
+| Credit pack      |                           $10.00 | Eighty standalone creation credits               |
+| Credit pack      |                           $25.00 | Two hundred fifty standalone creation credits    |
+
+### Standalone credit packs
+
+- Authenticated users may purchase any pack repeatedly, independent of a physical-card purchase.
+- Grant credits only after the corresponding payment reaches an approved captured state.
+- Apply each successful purchase grant exactly once through the idempotent credit ledger.
+- Keep quantities, prices, currency, payment state, and granted balance server-authoritative.
+- Deterministic local/test purchase mode may capture and grant without external traffic.
+- Stripe-hosted collection and production activation remain disabled until the Section 5 checkout gate passes.
 
 ### Try Risk-Free
 
@@ -124,7 +136,8 @@ Placeholder actions must clearly say that the feature is coming later, or be rem
 ## Launch acceptance
 
 - Email and all three social providers work through Cognito.
-- Signup grants two credits exactly once.
+- Signup grants two free trial credits exactly once.
+- All three standalone CAD credit packs are purchasable independently and grant their exact credit quantity once per captured payment.
 - Both creation routes complete the same secured backend journey.
 - Credit costs and refunds remain correct under retries and concurrency.
 - Try Risk-Free and Big Sender implement the approved CAD rules.

@@ -93,6 +93,13 @@ export type ApiError = {
 
 Primary resource groups are `me`, `pricing`, `credits`, `card-entitlements`, `card-drafts`, `uploads`, `generation-jobs`, `assets`, `orders`, `checkout`, `fulfillment-jobs`, public share links, and provider webhooks.
 
+The public CAD pricing response contains separate physical-card and standalone
+credit-pack collections. Authenticated credit-pack purchase mutations select only
+an offer code; the API snapshots the server-owned CAD amount and credit quantity.
+The deterministic mock purchase route is restricted to development/test mock
+payment mode and grants through the same idempotent ledger used by other credits.
+Section 5 replaces mock capture with verified Stripe-hosted payment state.
+
 Section 2 uses `/api/v1` for all product and health routes. The Next.js BFF exposes generated-client calls at `/api/bff/api/v1/*`, injects the server-held access token, enforces same-origin CSRF checks on mutations, and never returns access or refresh tokens to browser code.
 
 ## State contracts
@@ -123,6 +130,10 @@ Use PostgreSQL and explicit SQL through repository modules.
 Local development uses PostgreSQL 16 bound only to `127.0.0.1:55432`. The normal shutdown path preserves its named Docker volume. No root startup, readiness, health, test, or CI command may auto-run the legacy draft migrations. The verified pre-launch baseline is a Section 2 deliverable.
 
 The verified pre-launch baseline includes users/auth identities, hashed sessions, general idempotency records, credit ledger, card entitlements, price books, drafts/revisions, uploads, generation jobs/provider attempts, assets/share metadata, orders/items, payments/webhook events, fulfillment jobs/tracking, notifications, feature flags, and audit events. The deleted draft migrations were never production history.
+
+Additive Section 3 migrations publish the physical-card catalog and standalone
+credit-pack offers, plus durable owner-scoped reservation, authorization, and
+credit-pack purchase snapshots. Applied files remain immutable.
 
 Rules:
 

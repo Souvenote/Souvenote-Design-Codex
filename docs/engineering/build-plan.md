@@ -4,7 +4,7 @@ Status: approved and mandatory for the entire Souvenote MVP build
 
 Approved: 2026-07-21
 
-Last reconciled: 2026-07-22
+Last reconciled: 2026-07-23
 
 This document is the durable execution plan for Sections 0 through 8. It is not a
 roadmap suggestion. Every task, branch, pull request, review, deployment proposal,
@@ -203,13 +203,15 @@ Required work:
 
 - Implement the CAD catalog and server-owned totals.
 - Implement idempotent starter credits and the approved generation costs/refunds.
+- Implement the three approved standalone CAD credit-pack offers and an idempotent
+  deterministic mock purchase/grant path. Users may buy packs repeatedly.
 - Implement physical-card entitlements and Big Sender reservations for 2-30 cards.
 - Implement the five-day Try Risk-Free/fixed-CAD-$2 state machine in mock payment
   mode.
 - Remove the first-send bonus and conflicting pricing/currency copy.
 
-Gate: ledger, pricing, reservation, refund, transition, concurrency, and idempotency
-integration tests pass.
+Gate: ledger, pricing, standalone-pack purchase/grant, reservation, refund,
+transition, concurrency, and idempotency integration tests pass.
 
 ## Section 4 - Creation workflow with mocks
 
@@ -233,6 +235,9 @@ Required work:
 - Use Stripe test components so raw card data never enters Souvenote code or logs.
 - Implement server-owned totals, payment state, verified/idempotent webhooks, and the
   Try Risk-Free resolution schedule.
+- Convert standalone credit-pack checkout from deterministic mock capture to
+  Stripe-hosted test collection, granting the selected pack exactly once only after
+  verified capture.
 - Implement the physical blank-card entitlement behavior.
 - Implement a typed Scribeless adapter and mock/sandbox fulfillment state machine.
 
@@ -294,6 +299,9 @@ The MVP is not complete until current evidence proves all of the following:
 
 - Email/password, Google, Apple, and Facebook authentication work through Cognito.
 - First provisioning grants exactly two starter credits once.
+- Authenticated users can repeatedly purchase the approved 10/CAD $2,
+  80/CAD $10, and 250/CAD $25 standalone credit packs, with each captured purchase
+  granting credits exactly once.
 - Both creation routes use the same secured backend journey.
 - First combined image/song generation costs two credits.
 - Regenerating one paid asset costs one credit only for that asset.
@@ -326,10 +334,10 @@ The MVP is not complete until current evidence proves all of the following:
 
 Current section status:
 
-| Section | Status                           | Evidence                                          |
-| ------- | -------------------------------- | ------------------------------------------------- |
-| 0       | Merged                           | PR #1 and `docs/product/decision-register.md`     |
-| 1       | Draft PR green; ready for review | PR #2 and `docs/engineering/section-1-audit.md`   |
-| 2       | Draft PR green; ready for review | PR #3 and `docs/engineering/section-2-audit.md`   |
-| 3       | Draft PR green; ready for review | PR #4 and `docs/engineering/section-3-audit.md`   |
-| 4-8     | Not started                      | Must follow this document in fresh PR-sized tasks |
+| Section | Status                                       | Evidence                                                               |
+| ------- | -------------------------------------------- | ---------------------------------------------------------------------- |
+| 0       | Merged                                       | PR #1 and `docs/product/decision-register.md`                          |
+| 1       | Merged                                       | PR #2 and `docs/engineering/section-1-audit.md`                        |
+| 2       | Merged                                       | PR #3 and `docs/engineering/section-2-audit.md`                        |
+| 3       | Merged; approved credit-pack correction open | PR #4 and `docs/engineering/section-3-credit-pack-correction-audit.md` |
+| 4-8     | Not started                                  | Must follow this document in fresh PR-sized tasks                      |

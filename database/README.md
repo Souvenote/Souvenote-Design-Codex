@@ -1,8 +1,8 @@
 # Souvenote database
 
 This directory owns the PostgreSQL 16 schema and its verification boundary. The
-Section 2 baseline is for a clean pre-launch database, and Section 3 adds one
-immutable migration for the approved catalog and mock lifecycle. This is not an upgrade from
+Section 2 baseline is for a clean pre-launch database, and Section 3 adds
+immutable migrations for the approved catalog and mock lifecycles. This is not an upgrade from
 the deleted legacy draft migrations, which were never approved or applied to a
 shared environment.
 
@@ -16,10 +16,12 @@ database/
   migrations/
     0001_mvp_baseline.sql
     0002_pricing_credits_entitlements.sql
+    0003_standalone_credit_packs.sql
     checksums.sha256
   tests/
     0001_mvp_baseline.test.sql
     0002_pricing_credits_entitlements.test.sql
+    0003_standalone_credit_packs.test.sql
   migrate.mjs
   verify.mjs
 ```
@@ -98,6 +100,10 @@ false. It also adds 2-30-card quote reservations, action-specific generation
 credit constraints, and deterministic mock Try Risk-Free authorizations. The
 mock offer is limited to one authorization per account and resolves to either a
 999-minor-unit fulfillment capture or a fixed 200-minor-unit five-day capture.
+The approved correction adds three standalone CAD credit-pack offers and
+owner-scoped purchase snapshots. Local/test mock capture grants the selected
+quantity through the idempotent ledger; production checkout remains disabled until
+Section 5 activates Stripe-hosted collection.
 
 ## Database invariants
 

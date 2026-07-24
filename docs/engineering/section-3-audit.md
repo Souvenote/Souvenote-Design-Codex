@@ -2,6 +2,11 @@
 
 Audited: 2026-07-22
 
+Historical note: the statements below that standalone credit top-ups are disabled
+were superseded on 2026-07-23 by approved decision MVP-022 and the bounded
+standalone-credit-pack correction. See
+`docs/engineering/section-3-credit-pack-correction-audit.md` for current evidence.
+
 Branch: `codex/section-3-pricing-credits-entitlements`
 
 Base: `fdf2c14b61250120ee3359379f67a61fcc5399c1`

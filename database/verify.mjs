@@ -9,6 +9,7 @@ const migrationRunner = path.join(databaseDirectory, 'migrate.mjs');
 const contractTests = [
   path.join(databaseDirectory, 'tests', '0001_mvp_baseline.test.sql'),
   path.join(databaseDirectory, 'tests', '0002_pricing_credits_entitlements.test.sql'),
+  path.join(databaseDirectory, 'tests', '0003_standalone_credit_packs.test.sql'),
 ];
 const imageTag = 'postgres:16-alpine';
 const containerName = `souvenote-db-verify-${randomBytes(6).toString('hex')}`;
@@ -154,7 +155,8 @@ async function main() {
     runMigration(databaseUrl);
     const secondRun = runMigration(databaseUrl);
     if (!secondRun.stdout.includes('already applied 0001_mvp_baseline.sql') ||
-        !secondRun.stdout.includes('already applied 0002_pricing_credits_entitlements.sql')) {
+        !secondRun.stdout.includes('already applied 0002_pricing_credits_entitlements.sql') ||
+        !secondRun.stdout.includes('already applied 0003_standalone_credit_packs.sql')) {
       throw new Error('second migration run did not prove every migration is idempotent');
     }
 

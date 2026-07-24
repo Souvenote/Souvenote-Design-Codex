@@ -1,5 +1,9 @@
 # Section 3 task handoff
 
+Historical note: the original handoff predates approved decision MVP-022.
+Standalone credit packs are now real MVP products; the current correction handoff
+is `docs/engineering/section-3-credit-pack-correction-handoff.md`.
+
 ```text
 Milestone and PR: Section 3 - Pricing, credits, and entitlements; draft PR #4 (https://github.com/Souvenote/Souvenote-Design-Codex/pull/4)
 Build-plan section and gate: Section 3; ledger, pricing, reservations, refunds, state resolution, and idempotency pass concurrent integration tests

@@ -49,6 +49,42 @@ export class PricingOfferViewDto {
 
 export class PricingCatalogResponseDto {
   @ApiProperty({ type: [PricingOfferViewDto] }) data!: PricingOfferViewDto[];
+  @ApiProperty({ type: () => [CreditPackOfferViewDto] }) creditPacks!: CreditPackOfferViewDto[];
+}
+
+export class CreditPackOfferViewDto {
+  @ApiProperty({ enum: ['credit_pack_10', 'credit_pack_80', 'credit_pack_250'] }) id!: string;
+  @ApiProperty({ format: 'uuid' }) offerId!: string;
+  @ApiProperty({ type: 'integer', enum: [10, 80, 250] }) creditQuantity!: number;
+  @ApiProperty({ type: 'integer', enum: [200, 1000, 2500] }) unitAmountMinor!: number;
+  @ApiProperty({ enum: ['CAD'] }) currency!: string;
+  @ApiProperty({ enum: ['CA'] }) marketCountry!: string;
+  @ApiProperty({ description: 'False until Section 5 activates Stripe-hosted checkout.' })
+  checkoutEnabled!: boolean;
+  @ApiProperty({ type: 'object', additionalProperties: true }) metadata!: Record<string, unknown>;
+}
+
+export class CreditPackPurchaseViewDto {
+  @ApiProperty({ format: 'uuid' }) id!: string;
+  @ApiProperty({ enum: ['credit_pack_10', 'credit_pack_80', 'credit_pack_250'] }) offerCode!: string;
+  @ApiProperty({ enum: ['captured'] }) status!: string;
+  @ApiProperty({ enum: ['mock'] }) provider!: string;
+  @ApiProperty({ enum: ['CAD'] }) currency!: string;
+  @ApiProperty({ type: 'integer', enum: [200, 1000, 2500] }) amountMinor!: number;
+  @ApiProperty({ type: 'integer', enum: [10, 80, 250] }) creditsGranted!: number;
+  @ApiProperty(dateTime) capturedAt!: string;
+  @ApiProperty(dateTime) createdAt!: string;
+  @ApiProperty(dateTime) updatedAt!: string;
+  @ApiProperty({ enum: [true] }) mockMode!: true;
+  @ApiProperty({ enum: [false] }) productionEnabled!: false;
+}
+
+export class CreditPackPurchaseResponseDto {
+  @ApiProperty({ type: CreditPackPurchaseViewDto }) purchase!: CreditPackPurchaseViewDto;
+}
+
+export class CreditPackPurchaseStartResponseDto extends CreditPackPurchaseResponseDto {
+  @ApiProperty({ type: 'integer', minimum: 0 }) balance!: number;
 }
 
 export class CardEntitlementViewDto {
