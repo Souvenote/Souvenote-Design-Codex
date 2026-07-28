@@ -46,11 +46,23 @@ function HeroFlipCard() {
     <div className="souv-flipcard souv-flipcard-spin">
       <div className="souv-flipcard-inner">
         <div className="souv-flipcard-face souv-flipcard-front souv-flipcard-card-face">
-          <img src="/assets/hero-souvenote-card-face.png" alt="Souvenote card face" className="souv-flipcard-art" />
+          <img
+            src="/assets/hero-souvenote-card-face.png"
+            alt="Souvenote card face"
+            className="souv-flipcard-art"
+            width={263}
+            height={367}
+          />
           <MusicPreviewButton label="Preview Souvenote theme" />
         </div>
         <div className="souv-flipcard-face souv-flipcard-back souv-flipcard-art-face">
-          <img src="/assets/hero-card-moon.jpg" alt="I love you to the moon and back" className="souv-flipcard-art" />
+          <img
+            src="/assets/hero-card-moon.jpg"
+            alt="I love you to the moon and back"
+            className="souv-flipcard-art"
+            width={832}
+            height={1248}
+          />
           <MusicPreviewButton label="Preview card song" />
         </div>
       </div>
@@ -84,7 +96,7 @@ function Hero({ accentMetal = "gold", loggedIn = false }: HeroProps) {
             <span className="souv-hero-italic text-metallic-rose-gold">keeping</span>
           </h1>
           <div className="souv-hero-ctas">
-            <Link className="souv-btn-colorful" href={loggedIn ? "/welcome" : "/signup"}><span>Start for Free</span></Link>
+            <Link className="souv-btn-colorful" href={loggedIn ? "/create" : "/signup"}><span>Start for Free</span></Link>
             {!loggedIn && <Link className="souv-btn-log" href="/login">Log In</Link>}
           </div>
           <p className="souv-hero-lede">

@@ -1,0 +1,1308 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Souvenote credit-conscious staging environment in Canada Central.
+
+Parameters:
+  EnvironmentName:
+    Type: String
+    Default: staging
+    AllowedPattern: '^[a-z][a-z0-9-]{1,20}$'
+  DeployApplication:
+    Type: String
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+  BackendImageTag:
+    Type: String
+    Default: staging-latest
+  FrontendImageTag:
+    Type: String
+    Default: staging-latest
+  DatabaseInstanceClass:
+    Type: String
+    Default: db.t4g.micro
+    AllowedValues:
+      - db.t4g.micro
+      - db.t4g.small
+  CloudFrontOriginPrefixListId:
+    Type: String
+    Description: AWS-managed com.amazonaws.global.cloudfront.origin-facing prefix list.
+  AlertEmail:
+    Type: String
+    Default: cameron@souvenote.com
+    AllowedPattern: '^[^@\s]+@[^@\s]+\.[^@\s]+$'
+    Description: Address that receives staging operational alarm notifications.
+
+Conditions:
+  ShouldDeployApplication: !Equals [!Ref DeployApplication, 'true']
+
+Resources:
+  Vpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.42.0.0/16
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags:
+        - Key: Name
+          Value: !Sub 'souvenote-${EnvironmentName}'
+        - Key: Project
+          Value: Souvenote
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub 'souvenote-${EnvironmentName}'
+
+  InternetGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref InternetGateway
+      VpcId: !Ref Vpc
+
+  PublicSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      AvailabilityZone: !Select [0, !GetAZs '']
+      CidrBlock: 10.42.0.0/24
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub 'souvenote-${EnvironmentName}-public-a'
+
+  PublicSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      AvailabilityZone: !Select [1, !GetAZs '']
+      CidrBlock: 10.42.1.0/24
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub 'souvenote-${EnvironmentName}-public-b'
+
+  PrivateDatabaseSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      AvailabilityZone: !Select [0, !GetAZs '']
+      CidrBlock: 10.42.10.0/24
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub 'souvenote-${EnvironmentName}-db-a'
+
+  PrivateDatabaseSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      AvailabilityZone: !Select [1, !GetAZs '']
+      CidrBlock: 10.42.11.0/24
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub 'souvenote-${EnvironmentName}-db-b'
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref Vpc
+      Tags:
+        - Key: Name
+          Value: !Sub 'souvenote-${EnvironmentName}-public'
+
+  PublicDefaultRoute:
+    Type: AWS::EC2::Route
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  PublicSubnetARouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnetA
+
+  PublicSubnetBRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnetB
+
+  LoadBalancerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow HTTP only from CloudFront origin-facing addresses.
+      VpcId: !Ref Vpc
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          SourcePrefixListId: !Ref CloudFrontOriginPrefixListId
+      Tags:
+        - Key: Name
+          Value: !Sub 'souvenote-${EnvironmentName}-alb'
+
+  ApplicationSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow application traffic only from the load balancer.
+      VpcId: !Ref Vpc
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 3000
+          ToPort: 3000
+          SourceSecurityGroupId: !Ref LoadBalancerSecurityGroup
+        - IpProtocol: tcp
+          FromPort: 4000
+          ToPort: 4000
+          SourceSecurityGroupId: !Ref LoadBalancerSecurityGroup
+      Tags:
+        - Key: Name
+          Value: !Sub 'souvenote-${EnvironmentName}-application'
+
+  DatabaseSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow PostgreSQL only from Souvenote application tasks.
+      VpcId: !Ref Vpc
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          SourceSecurityGroupId: !Ref ApplicationSecurityGroup
+      Tags:
+        - Key: Name
+          Value: !Sub 'souvenote-${EnvironmentName}-database'
+
+  DatabaseSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Private Souvenote database subnets.
+      SubnetIds:
+        - !Ref PrivateDatabaseSubnetA
+        - !Ref PrivateDatabaseSubnetB
+      Tags:
+        - Key: Name
+          Value: !Sub 'souvenote-${EnvironmentName}'
+
+  DatabaseParameterGroup:
+    Type: AWS::RDS::DBParameterGroup
+    Properties:
+      Description: Require encrypted PostgreSQL connections.
+      Family: postgres16
+      Parameters:
+        rds.force_ssl: '1'
+
+  Database:
+    Type: AWS::RDS::DBInstance
+    DeletionPolicy: Snapshot
+    UpdateReplacePolicy: Snapshot
+    Properties:
+      DBInstanceIdentifier: !Sub 'souvenote-${EnvironmentName}'
+      DBName: souvenote
+      Engine: postgres
+      EngineVersion: '16.13'
+      DBInstanceClass: !Ref DatabaseInstanceClass
+      AllocatedStorage: 20
+      MaxAllocatedStorage: 100
+      StorageType: gp3
+      StorageEncrypted: true
+      MasterUsername: souvenote_admin
+      ManageMasterUserPassword: true
+      DBSubnetGroupName: !Ref DatabaseSubnetGroup
+      VPCSecurityGroups:
+        - !Ref DatabaseSecurityGroup
+      DBParameterGroupName: !Ref DatabaseParameterGroup
+      PubliclyAccessible: false
+      MultiAZ: false
+      BackupRetentionPeriod: 7
+      PreferredBackupWindow: 10:00-10:30
+      PreferredMaintenanceWindow: sun:11:00-sun:11:30
+      AutoMinorVersionUpgrade: true
+      DeletionProtection: true
+      EnablePerformanceInsights: false
+      CopyTagsToSnapshot: true
+      Tags:
+        - Key: Project
+          Value: Souvenote
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  AssetBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+      LifecycleConfiguration:
+        Rules:
+          - Id: AbortIncompleteMultipartUploads
+            Status: Enabled
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 7
+          - Id: ExpireNoncurrentVersions
+            Status: Enabled
+            NoncurrentVersionExpiration:
+              NoncurrentDays: 30
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders: ['*']
+            AllowedMethods: [GET, HEAD, POST]
+            AllowedOrigins:
+              - !Sub 'https://${Distribution.DomainName}'
+            ExposedHeaders: [ETag]
+            MaxAge: 3600
+      Tags:
+        - Key: Project
+          Value: Souvenote
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  DeploymentSourceBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+      LifecycleConfiguration:
+        Rules:
+          - Id: ExpireOldSourceVersions
+            Status: Enabled
+            NoncurrentVersionExpiration:
+              NoncurrentDays: 14
+      Tags:
+        - Key: Project
+          Value: Souvenote
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  BackendRepository:
+    Type: AWS::ECR::Repository
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      RepositoryName: !Sub 'souvenote-${EnvironmentName}-backend'
+      ImageScanningConfiguration:
+        ScanOnPush: true
+      ImageTagMutability: MUTABLE
+      EncryptionConfiguration:
+        EncryptionType: AES256
+      LifecyclePolicy:
+        LifecyclePolicyText: |
+          {
+            "rules": [
+              {
+                "rulePriority": 1,
+                "description": "Keep the ten newest images",
+                "selection": {
+                  "tagStatus": "any",
+                  "countType": "imageCountMoreThan",
+                  "countNumber": 10
+                },
+                "action": {"type": "expire"}
+              }
+            ]
+          }
+
+  FrontendRepository:
+    Type: AWS::ECR::Repository
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      RepositoryName: !Sub 'souvenote-${EnvironmentName}-frontend'
+      ImageScanningConfiguration:
+        ScanOnPush: true
+      ImageTagMutability: MUTABLE
+      EncryptionConfiguration:
+        EncryptionType: AES256
+      LifecyclePolicy:
+        LifecyclePolicyText: |
+          {
+            "rules": [
+              {
+                "rulePriority": 1,
+                "description": "Keep the ten newest images",
+                "selection": {
+                  "tagStatus": "any",
+                  "countType": "imageCountMoreThan",
+                  "countNumber": 10
+                },
+                "action": {"type": "expire"}
+              }
+            ]
+          }
+
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub 'souvenote-${EnvironmentName}'
+      UsernameAttributes: [email]
+      AutoVerifiedAttributes: [email]
+      MfaConfiguration: OPTIONAL
+      EnabledMfas: [SOFTWARE_TOKEN_MFA]
+      AccountRecoverySetting:
+        RecoveryMechanisms:
+          - Name: verified_email
+            Priority: 1
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: false
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 12
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: true
+          RequireUppercase: true
+          TemporaryPasswordValidityDays: 7
+      UserAttributeUpdateSettings:
+        AttributesRequireVerificationBeforeUpdate: [email]
+      UserPoolTags:
+        Project: Souvenote
+        Environment: !Ref EnvironmentName
+
+  UserPoolDomain:
+    Type: AWS::Cognito::UserPoolDomain
+    Properties:
+      Domain: !Sub 'souvenote-${EnvironmentName}-${AWS::AccountId}'
+      UserPoolId: !Ref UserPool
+
+  UserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: !Sub 'souvenote-${EnvironmentName}-web'
+      UserPoolId: !Ref UserPool
+      GenerateSecret: false
+      PreventUserExistenceErrors: ENABLED
+      EnableTokenRevocation: true
+      ExplicitAuthFlows:
+        - ALLOW_USER_SRP_AUTH
+        - ALLOW_USER_PASSWORD_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+      AllowedOAuthFlowsUserPoolClient: true
+      AllowedOAuthFlows: [code]
+      AllowedOAuthScopes: [openid, email, profile]
+      SupportedIdentityProviders: [COGNITO]
+      CallbackURLs:
+        - !Sub 'https://${Distribution.DomainName}/login'
+      LogoutURLs:
+        - !Sub 'https://${Distribution.DomainName}/'
+      AccessTokenValidity: 60
+      IdTokenValidity: 60
+      RefreshTokenValidity: 30
+      TokenValidityUnits:
+        AccessToken: minutes
+        IdToken: minutes
+        RefreshToken: days
+
+  PublicLinkSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Description: HMAC secret for public Souvenote links.
+      GenerateSecretString:
+        ExcludePunctuation: true
+        PasswordLength: 64
+      Tags:
+        - Key: Project
+          Value: Souvenote
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  AnalyticsHashSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Description: HMAC secret for privacy-preserving analytics identifiers.
+      GenerateSecretString:
+        ExcludePunctuation: true
+        PasswordLength: 64
+      Tags:
+        - Key: Project
+          Value: Souvenote
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  Cluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Sub 'souvenote-${EnvironmentName}-cluster'
+      ClusterSettings:
+        - Name: containerInsights
+          Value: enabled
+      Tags:
+        - Key: Project
+          Value: Souvenote
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  FrontendLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/ecs/souvenote/${EnvironmentName}/frontend'
+      RetentionInDays: 14
+
+  BackendLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/ecs/souvenote/${EnvironmentName}/backend'
+      RetentionInDays: 14
+
+  BuildLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/codebuild/souvenote-${EnvironmentName}-images'
+      RetentionInDays: 14
+
+  AlarmTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub 'souvenote-${EnvironmentName}-alarms'
+      DisplayName: !Sub 'Souvenote ${EnvironmentName} alarms'
+      Tags:
+        - Key: Project
+          Value: Souvenote
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  AlarmEmailSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Endpoint: !Ref AlertEmail
+      Protocol: email
+      TopicArn: !Ref AlarmTopic
+
+  BackendErrorMetricFilter:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName: !Ref BackendLogGroup
+      FilterName: !Sub 'souvenote-${EnvironmentName}-backend-errors'
+      FilterPattern: '{ $.level = "error" }'
+      MetricTransformations:
+        - MetricNamespace: Souvenote/Observability
+          MetricName: BackendErrorCount
+          MetricValue: '1'
+          DefaultValue: 0
+          Unit: Count
+
+  BackendErrorQuery:
+    Type: AWS::Logs::QueryDefinition
+    Properties:
+      Name: !Sub 'Souvenote/${EnvironmentName}/Backend errors'
+      LogGroupNames:
+        - !Ref BackendLogGroup
+      QueryString: |
+        fields @timestamp, @message, @logStream
+        | filter level = "error"
+        | sort @timestamp desc
+        | limit 100
+
+  TaskExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'souvenote-${EnvironmentName}-ecs-execution'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+      Policies:
+        - PolicyName: ReadApplicationSecrets
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                Resource:
+                  - !GetAtt Database.MasterUserSecret.SecretArn
+                  - !Ref PublicLinkSecret
+                  - !Ref AnalyticsHashSecret
+      Tags:
+        - Key: Project
+          Value: Souvenote
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  ApplicationTaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'souvenote-${EnvironmentName}-application'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: PrivateAssetAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: s3:ListBucket
+                Resource: !GetAtt AssetBucket.Arn
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:DeleteObject
+                Resource: !Sub '${AssetBucket.Arn}/*'
+      Tags:
+        - Key: Project
+          Value: Souvenote
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  BuildRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'souvenote-${EnvironmentName}-codebuild'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: BuildAndPushImages
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: ecr:GetAuthorizationToken
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - ecr:BatchCheckLayerAvailability
+                  - ecr:CompleteLayerUpload
+                  - ecr:GetDownloadUrlForLayer
+                  - ecr:InitiateLayerUpload
+                  - ecr:PutImage
+                  - ecr:UploadLayerPart
+                Resource:
+                  - !GetAtt BackendRepository.Arn
+                  - !GetAtt FrontendRepository.Arn
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                Resource: !Sub '${DeploymentSourceBucket.Arn}/*'
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !Sub '${BuildLogGroup.Arn}:*'
+              - Effect: Allow
+                Action: cloudformation:DescribeStacks
+                Resource: !Sub 'arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/souvenote-${EnvironmentName}*/*'
+      Tags:
+        - Key: Project
+          Value: Souvenote
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  LoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: !Sub 'souvenote-${EnvironmentName}'
+      Scheme: internet-facing
+      Type: application
+      IpAddressType: ipv4
+      SecurityGroups:
+        - !Ref LoadBalancerSecurityGroup
+      Subnets:
+        - !Ref PublicSubnetA
+        - !Ref PublicSubnetB
+      LoadBalancerAttributes:
+        - Key: deletion_protection.enabled
+          Value: 'true'
+        - Key: routing.http.drop_invalid_header_fields.enabled
+          Value: 'true'
+      Tags:
+        - Key: Project
+          Value: Souvenote
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  FrontendTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub 'souvenote-${EnvironmentName}-web'
+      VpcId: !Ref Vpc
+      Protocol: HTTP
+      Port: 3000
+      TargetType: ip
+      HealthCheckEnabled: true
+      HealthCheckPath: /
+      HealthCheckProtocol: HTTP
+      HealthCheckIntervalSeconds: 30
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 3
+      Matcher:
+        HttpCode: 200-399
+      TargetGroupAttributes:
+        - Key: deregistration_delay.timeout_seconds
+          Value: '30'
+
+  BackendTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub 'souvenote-${EnvironmentName}-api'
+      VpcId: !Ref Vpc
+      Protocol: HTTP
+      Port: 4000
+      TargetType: ip
+      HealthCheckEnabled: true
+      HealthCheckPath: /api/health/live
+      HealthCheckProtocol: HTTP
+      HealthCheckIntervalSeconds: 30
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 3
+      Matcher:
+        HttpCode: 200-399
+      TargetGroupAttributes:
+        - Key: deregistration_delay.timeout_seconds
+          Value: '30'
+
+  LoadBalancerListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref LoadBalancer
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref FrontendTargetGroup
+
+  BackendListenerRule:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      ListenerArn: !Ref LoadBalancerListener
+      Priority: 10
+      Conditions:
+        - Field: path-pattern
+          PathPatternConfig:
+            Values: ['/api/*']
+      Actions:
+        - Type: forward
+          TargetGroupArn: !Ref BackendTargetGroup
+
+  Distribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        Comment: !Sub 'Souvenote ${EnvironmentName}'
+        PriceClass: PriceClass_100
+        HttpVersion: http2and3
+        IPV6Enabled: false
+        Origins:
+          - Id: SouvenoteLoadBalancer
+            DomainName: !GetAtt LoadBalancer.DNSName
+            CustomOriginConfig:
+              HTTPPort: 80
+              OriginProtocolPolicy: http-only
+              OriginReadTimeout: 60
+              OriginKeepaliveTimeout: 5
+        DefaultCacheBehavior:
+          TargetOriginId: SouvenoteLoadBalancer
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods: [GET, HEAD, OPTIONS, PUT, PATCH, POST, DELETE]
+          CachedMethods: [GET, HEAD, OPTIONS]
+          Compress: true
+          CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
+          OriginRequestPolicyId: b689b0a8-53d0-40ab-baf2-68738e2966ac
+        CacheBehaviors:
+          - PathPattern: '_next/static/*'
+            TargetOriginId: SouvenoteLoadBalancer
+            ViewerProtocolPolicy: redirect-to-https
+            AllowedMethods: [GET, HEAD, OPTIONS]
+            CachedMethods: [GET, HEAD, OPTIONS]
+            Compress: true
+            CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
+        ViewerCertificate:
+          CloudFrontDefaultCertificate: true
+      Tags:
+        - Key: Project
+          Value: Souvenote
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  LoadBalancer5xxAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub 'souvenote-${EnvironmentName}-load-balancer-5xx'
+      AlarmDescription: The staging load balancer returned one or more 5xx responses in five minutes.
+      Namespace: AWS/ApplicationELB
+      MetricName: HTTPCode_ELB_5XX_Count
+      Dimensions:
+        - Name: LoadBalancer
+          Value: !GetAtt LoadBalancer.LoadBalancerFullName
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      DatapointsToAlarm: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlarmTopic]
+      OKActions: [!Ref AlarmTopic]
+
+  Target5xxAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub 'souvenote-${EnvironmentName}-target-5xx'
+      AlarmDescription: Staging application targets returned one or more 5xx responses in five minutes.
+      Namespace: AWS/ApplicationELB
+      MetricName: HTTPCode_Target_5XX_Count
+      Dimensions:
+        - Name: LoadBalancer
+          Value: !GetAtt LoadBalancer.LoadBalancerFullName
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      DatapointsToAlarm: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlarmTopic]
+      OKActions: [!Ref AlarmTopic]
+
+  FrontendUnhealthyHostAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub 'souvenote-${EnvironmentName}-frontend-unhealthy-host'
+      AlarmDescription: The staging frontend target group has an unhealthy target.
+      Namespace: AWS/ApplicationELB
+      MetricName: UnHealthyHostCount
+      Dimensions:
+        - Name: LoadBalancer
+          Value: !GetAtt LoadBalancer.LoadBalancerFullName
+        - Name: TargetGroup
+          Value: !GetAtt FrontendTargetGroup.TargetGroupFullName
+      Statistic: Maximum
+      Period: 60
+      EvaluationPeriods: 2
+      DatapointsToAlarm: 2
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: breaching
+      AlarmActions: [!Ref AlarmTopic]
+      OKActions: [!Ref AlarmTopic]
+
+  BackendUnhealthyHostAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub 'souvenote-${EnvironmentName}-backend-unhealthy-host'
+      AlarmDescription: The staging backend target group has an unhealthy target.
+      Namespace: AWS/ApplicationELB
+      MetricName: UnHealthyHostCount
+      Dimensions:
+        - Name: LoadBalancer
+          Value: !GetAtt LoadBalancer.LoadBalancerFullName
+        - Name: TargetGroup
+          Value: !GetAtt BackendTargetGroup.TargetGroupFullName
+      Statistic: Maximum
+      Period: 60
+      EvaluationPeriods: 2
+      DatapointsToAlarm: 2
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: breaching
+      AlarmActions: [!Ref AlarmTopic]
+      OKActions: [!Ref AlarmTopic]
+
+  EcsRunningTaskAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Condition: ShouldDeployApplication
+    Properties:
+      AlarmName: !Sub 'souvenote-${EnvironmentName}-ecs-no-running-task'
+      AlarmDescription: The staging ECS service has no running task.
+      Namespace: ECS/ContainerInsights
+      MetricName: RunningTaskCount
+      Dimensions:
+        - Name: ClusterName
+          Value: !Ref Cluster
+        - Name: ServiceName
+          Value: !GetAtt Service.Name
+      Statistic: Minimum
+      Period: 60
+      EvaluationPeriods: 2
+      DatapointsToAlarm: 2
+      Threshold: 1
+      ComparisonOperator: LessThanThreshold
+      TreatMissingData: breaching
+      AlarmActions: [!Ref AlarmTopic]
+      OKActions: [!Ref AlarmTopic]
+
+  EcsHighCpuAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Condition: ShouldDeployApplication
+    Properties:
+      AlarmName: !Sub 'souvenote-${EnvironmentName}-ecs-high-cpu'
+      AlarmDescription: The staging ECS service averaged more than 80 percent CPU for 15 minutes.
+      Namespace: AWS/ECS
+      MetricName: CPUUtilization
+      Dimensions:
+        - Name: ClusterName
+          Value: !Ref Cluster
+        - Name: ServiceName
+          Value: !GetAtt Service.Name
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 3
+      DatapointsToAlarm: 3
+      Threshold: 80
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: breaching
+      AlarmActions: [!Ref AlarmTopic]
+      OKActions: [!Ref AlarmTopic]
+
+  EcsHighMemoryAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Condition: ShouldDeployApplication
+    Properties:
+      AlarmName: !Sub 'souvenote-${EnvironmentName}-ecs-high-memory'
+      AlarmDescription: The staging ECS service averaged more than 80 percent memory for 15 minutes.
+      Namespace: AWS/ECS
+      MetricName: MemoryUtilization
+      Dimensions:
+        - Name: ClusterName
+          Value: !Ref Cluster
+        - Name: ServiceName
+          Value: !GetAtt Service.Name
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 3
+      DatapointsToAlarm: 3
+      Threshold: 80
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: breaching
+      AlarmActions: [!Ref AlarmTopic]
+      OKActions: [!Ref AlarmTopic]
+
+  DatabaseHighCpuAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub 'souvenote-${EnvironmentName}-database-high-cpu'
+      AlarmDescription: The staging database averaged more than 80 percent CPU for 15 minutes.
+      Namespace: AWS/RDS
+      MetricName: CPUUtilization
+      Dimensions:
+        - Name: DBInstanceIdentifier
+          Value: !Ref Database
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 3
+      DatapointsToAlarm: 3
+      Threshold: 80
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: breaching
+      AlarmActions: [!Ref AlarmTopic]
+      OKActions: [!Ref AlarmTopic]
+
+  DatabaseLowStorageAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub 'souvenote-${EnvironmentName}-database-low-storage'
+      AlarmDescription: The staging database has less than five GiB of free storage.
+      Namespace: AWS/RDS
+      MetricName: FreeStorageSpace
+      Dimensions:
+        - Name: DBInstanceIdentifier
+          Value: !Ref Database
+      Statistic: Minimum
+      Period: 300
+      EvaluationPeriods: 2
+      DatapointsToAlarm: 2
+      Threshold: 5368709120
+      ComparisonOperator: LessThanThreshold
+      TreatMissingData: breaching
+      AlarmActions: [!Ref AlarmTopic]
+      OKActions: [!Ref AlarmTopic]
+
+  DatabaseHighConnectionsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub 'souvenote-${EnvironmentName}-database-high-connections'
+      AlarmDescription: The staging database sustained at least 80 open connections for 15 minutes.
+      Namespace: AWS/RDS
+      MetricName: DatabaseConnections
+      Dimensions:
+        - Name: DBInstanceIdentifier
+          Value: !Ref Database
+      Statistic: Maximum
+      Period: 300
+      EvaluationPeriods: 3
+      DatapointsToAlarm: 3
+      Threshold: 80
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: breaching
+      AlarmActions: [!Ref AlarmTopic]
+      OKActions: [!Ref AlarmTopic]
+
+  BackendErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub 'souvenote-${EnvironmentName}-backend-error-log'
+      AlarmDescription: The staging backend emitted an error-level structured log.
+      Namespace: Souvenote/Observability
+      MetricName: BackendErrorCount
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      DatapointsToAlarm: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlarmTopic]
+      OKActions: [!Ref AlarmTopic]
+
+  ServiceTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub 'souvenote-${EnvironmentName}'
+      RequiresCompatibilities: [FARGATE]
+      NetworkMode: awsvpc
+      Cpu: '512'
+      Memory: '1024'
+      ExecutionRoleArn: !GetAtt TaskExecutionRole.Arn
+      TaskRoleArn: !GetAtt ApplicationTaskRole.Arn
+      RuntimePlatform:
+        CpuArchitecture: X86_64
+        OperatingSystemFamily: LINUX
+      ContainerDefinitions:
+        - Name: frontend
+          Essential: true
+          Image: !Sub '${FrontendRepository.RepositoryUri}:${FrontendImageTag}'
+          Cpu: 256
+          MemoryReservation: 384
+          PortMappings:
+            - ContainerPort: 3000
+              Protocol: tcp
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref FrontendLogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: application
+        - Name: backend
+          Essential: true
+          Image: !Sub '${BackendRepository.RepositoryUri}:${BackendImageTag}'
+          Cpu: 256
+          MemoryReservation: 512
+          PortMappings:
+            - ContainerPort: 4000
+              Protocol: tcp
+          Environment:
+            - Name: NODE_ENV
+              Value: staging
+            - Name: PORT
+              Value: '4000'
+            - Name: CORS_ALLOWED_ORIGINS
+              Value: !Sub 'https://${Distribution.DomainName}'
+            - Name: SWAGGER_ENABLED
+              Value: 'false'
+            - Name: DATABASE_HOST
+              Value: !GetAtt Database.Endpoint.Address
+            - Name: DATABASE_PORT
+              Value: !GetAtt Database.Endpoint.Port
+            - Name: DATABASE_NAME
+              Value: souvenote
+            - Name: DATABASE_USER
+              Value: souvenote_admin
+            - Name: DATABASE_SSL_MODE
+              Value: verify-full
+            - Name: DATABASE_SSL_CA
+              Value: /usr/local/share/ca-certificates/rds-global-bundle.pem
+            - Name: DATABASE_POOL_MAX
+              Value: '5'
+            - Name: DATABASE_CONNECTION_TIMEOUT_MS
+              Value: '10000'
+            - Name: DATABASE_IDLE_TIMEOUT_MS
+              Value: '30000'
+            - Name: DATABASE_QUERY_TIMEOUT_MS
+              Value: '30000'
+            - Name: AI_MOCK_MODE
+              Value: 'true'
+            - Name: GENERATION_PROVIDER_MODE
+              Value: mock
+            - Name: COGNITO_REGION
+              Value: !Ref AWS::Region
+            - Name: COGNITO_USER_POOL_ID
+              Value: !Ref UserPool
+            - Name: COGNITO_CLIENT_ID
+              Value: !Ref UserPoolClient
+            - Name: UPLOAD_PROVIDER_MODE
+              Value: s3
+            - Name: MODERATION_PROVIDER_MODE
+              Value: manual
+            - Name: AWS_REGION
+              Value: !Ref AWS::Region
+            - Name: AWS_S3_BUCKET_NAME
+              Value: !Ref AssetBucket
+            - Name: CHECKOUT_PROVIDER_MODE
+              Value: mock
+            - Name: CHECKOUT_SUCCESS_URL
+              Value: !Sub 'https://${Distribution.DomainName}/delivery?checkout=success&session_id={CHECKOUT_SESSION_ID}'
+            - Name: CHECKOUT_CANCEL_URL
+              Value: !Sub 'https://${Distribution.DomainName}/delivery?checkout=cancel'
+            - Name: CREDIT_CHECKOUT_SUCCESS_URL
+              Value: !Sub 'https://${Distribution.DomainName}/cart?checkout=success&session_id={CHECKOUT_SESSION_ID}'
+            - Name: CREDIT_CHECKOUT_CANCEL_URL
+              Value: !Sub 'https://${Distribution.DomainName}/cart?checkout=cancel'
+            - Name: AUTHORIZATION_WORKER_ENABLED
+              Value: 'false'
+            - Name: FULFILLMENT_PROVIDER_MODE
+              Value: mock
+            - Name: NOTIFICATION_PROVIDER_MODE
+              Value: mock
+            - Name: NOTIFICATION_WORKER_ENABLED
+              Value: 'false'
+            - Name: NOTIFICATION_ORDERS_URL
+              Value: !Sub 'https://${Distribution.DomainName}/my-cards'
+            - Name: ANALYTICS_PROVIDER_MODE
+              Value: disabled
+            - Name: ERROR_REPORTING_MODE
+              Value: disabled
+            - Name: SENTRY_ENVIRONMENT
+              Value: !Ref EnvironmentName
+            - Name: OPERATIONAL_ALERTS_ENABLED
+              Value: 'false'
+          Secrets:
+            - Name: DATABASE_PASSWORD
+              ValueFrom:
+                Fn::Join:
+                  - ''
+                  - - !GetAtt Database.MasterUserSecret.SecretArn
+                    - ':password::'
+            - Name: PUBLIC_LINK_HMAC_SECRET
+              ValueFrom: !Ref PublicLinkSecret
+            - Name: ANALYTICS_ID_HASH_SECRET
+              ValueFrom: !Ref AnalyticsHashSecret
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref BackendLogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: application
+      Tags:
+        - Key: Project
+          Value: Souvenote
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  MigrationTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub 'souvenote-${EnvironmentName}-migrations'
+      RequiresCompatibilities: [FARGATE]
+      NetworkMode: awsvpc
+      Cpu: '256'
+      Memory: '512'
+      ExecutionRoleArn: !GetAtt TaskExecutionRole.Arn
+      TaskRoleArn: !GetAtt ApplicationTaskRole.Arn
+      RuntimePlatform:
+        CpuArchitecture: X86_64
+        OperatingSystemFamily: LINUX
+      ContainerDefinitions:
+        - Name: backend
+          Essential: true
+          Image: !Sub '${BackendRepository.RepositoryUri}:${BackendImageTag}'
+          Command: [npm, run, db:migrate]
+          Environment:
+            - Name: NODE_ENV
+              Value: production
+            - Name: DATABASE_HOST
+              Value: !GetAtt Database.Endpoint.Address
+            - Name: DATABASE_PORT
+              Value: !GetAtt Database.Endpoint.Port
+            - Name: DATABASE_NAME
+              Value: souvenote
+            - Name: DATABASE_USER
+              Value: souvenote_admin
+            - Name: DATABASE_SSL_MODE
+              Value: verify-full
+            - Name: DATABASE_SSL_CA
+              Value: /usr/local/share/ca-certificates/rds-global-bundle.pem
+            - Name: DATABASE_CONNECTION_TIMEOUT_MS
+              Value: '10000'
+            - Name: DATABASE_QUERY_TIMEOUT_MS
+              Value: '30000'
+          Secrets:
+            - Name: DATABASE_PASSWORD
+              ValueFrom:
+                Fn::Join:
+                  - ''
+                  - - !GetAtt Database.MasterUserSecret.SecretArn
+                    - ':password::'
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref BackendLogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: migrations
+      Tags:
+        - Key: Project
+          Value: Souvenote
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  Service:
+    Type: AWS::ECS::Service
+    Condition: ShouldDeployApplication
+    DependsOn:
+      - LoadBalancerListener
+      - BackendListenerRule
+    Properties:
+      ServiceName: !Sub 'souvenote-${EnvironmentName}-service'
+      Cluster: !Ref Cluster
+      TaskDefinition: !Ref ServiceTaskDefinition
+      DesiredCount: 1
+      LaunchType: FARGATE
+      PlatformVersion: LATEST
+      EnableECSManagedTags: true
+      PropagateTags: TASK_DEFINITION
+      HealthCheckGracePeriodSeconds: 180
+      DeploymentConfiguration:
+        MinimumHealthyPercent: 0
+        MaximumPercent: 200
+        DeploymentCircuitBreaker:
+          Enable: true
+          Rollback: true
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          SecurityGroups:
+            - !Ref ApplicationSecurityGroup
+          Subnets:
+            - !Ref PublicSubnetA
+            - !Ref PublicSubnetB
+      LoadBalancers:
+        - ContainerName: frontend
+          ContainerPort: 3000
+          TargetGroupArn: !Ref FrontendTargetGroup
+        - ContainerName: backend
+          ContainerPort: 4000
+          TargetGroupArn: !Ref BackendTargetGroup
+      Tags:
+        - Key: Project
+          Value: Souvenote
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  BuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: !Sub 'souvenote-${EnvironmentName}-images'
+      Description: Build and scan Souvenote staging container images.
+      ServiceRole: !GetAtt BuildRole.Arn
+      QueuedTimeoutInMinutes: 30
+      TimeoutInMinutes: 30
+      Artifacts:
+        Type: NO_ARTIFACTS
+      Source:
+        Type: S3
+        Location: !Sub '${DeploymentSourceBucket}/souvenote-source.zip'
+        BuildSpec: infra/aws/buildspec.yml
+      Environment:
+        Type: LINUX_CONTAINER
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/standard:7.0
+        PrivilegedMode: true
+        EnvironmentVariables:
+          - Name: AWS_ACCOUNT_ID
+            Value: !Ref AWS::AccountId
+          - Name: AWS_DEFAULT_REGION
+            Value: !Ref AWS::Region
+          - Name: STACK_NAME
+            Value: !Ref AWS::StackName
+          - Name: BACKEND_REPOSITORY_URI
+            Value: !GetAtt BackendRepository.RepositoryUri
+          - Name: FRONTEND_REPOSITORY_URI
+            Value: !GetAtt FrontendRepository.RepositoryUri
+          - Name: BACKEND_IMAGE_TAG
+            Value: !Ref BackendImageTag
+          - Name: FRONTEND_IMAGE_TAG
+            Value: !Ref FrontendImageTag
+      LogsConfig:
+        CloudWatchLogs:
+          Status: ENABLED
+          GroupName: !Ref BuildLogGroup
+          StreamName: build
+      Tags:
+        - Key: Project
+          Value: Souvenote
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+Outputs:
+  CloudFrontUrl:
+    Description: HTTPS staging URL.
+    Value: !Sub 'https://${Distribution.DomainName}'
+  BackendHealthUrl:
+    Value: !Sub 'https://${Distribution.DomainName}/api/health'
+  CognitoUserPoolId:
+    Value: !Ref UserPool
+  CognitoUserPoolClientId:
+    Value: !Ref UserPoolClient
+  CognitoDomain:
+    Value: !Sub 'https://${UserPoolDomain}.auth.${AWS::Region}.amazoncognito.com'
+  AssetBucketName:
+    Value: !Ref AssetBucket
+  DeploymentSourceBucketName:
+    Value: !Ref DeploymentSourceBucket
+  BackendRepositoryUri:
+    Value: !GetAtt BackendRepository.RepositoryUri
+  FrontendRepositoryUri:
+    Value: !GetAtt FrontendRepository.RepositoryUri
+  BuildProjectName:
+    Value: !Ref BuildProject
+  ClusterName:
+    Value: !Ref Cluster
+  ServiceName:
+    Value: !Sub 'souvenote-${EnvironmentName}-service'
+  MigrationTaskDefinitionArn:
+    Value: !Ref MigrationTaskDefinition
+  PublicSubnetAId:
+    Value: !Ref PublicSubnetA
+  PublicSubnetBId:
+    Value: !Ref PublicSubnetB
+  ApplicationSecurityGroupId:
+    Value: !Ref ApplicationSecurityGroup
+  DatabaseEndpoint:
+    Value: !GetAtt Database.Endpoint.Address
+  LoadBalancerDnsName:
+    Value: !GetAtt LoadBalancer.DNSName
+  AlarmTopicArn:
+    Value: !Ref AlarmTopic

@@ -16,9 +16,9 @@ const FAQ_ITEMS: FaqItem[] = [
   { q: 'How long does shipping take?',
     a: 'Cards typically arrive within 5\u20137 business days across North America. International shipping times vary by destination.' },
   { q: 'Can I save my card and finish later?',
-    a: 'Yes. All designs are automatically saved in Saved Cards & Songs for 30 days. Return anytime to finish and purchase.' },
+    a: 'Yes. Designs are saved in Saved Cards & Songs so you can return to finish and purchase.' },
   { q: 'What payment methods do you accept?',
-    a: 'We accept all major credit cards, Apple Pay, and Google Pay. You can toggle prices between USD and CAD.' },
+    a: 'We accept all major credit cards, Apple Pay, and Google Pay. All prices are shown and billed in CAD.' },
   { q: 'What happens if I don\u2019t like my card?',
     a: 'Take a screenshot of the card you\u2019re referring to and tell us why it doesn\u2019t work for you\u2014 we\u2019ll reimburse your credits so you can try again.' },
 ];

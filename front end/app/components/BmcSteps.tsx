@@ -3,6 +3,7 @@
 import * as React from "react";
 import { BmcIcon, BmcHead, BmcFoot, FreeCost, CreditCost, BmcCheck, bmcError } from "./BmcShared";
 import { AttestationGate } from "./AttestationGate";
+import { registerPendingUpload, releasePendingUpload } from "../lib/pendingUploads";
 
 // BmcSteps.tsx - the five intake steps (Photo, Basics, Image Flow, Inside Message, Build Song).
 // Depends on shared primitives from BmcShared.
@@ -23,10 +24,10 @@ type PhotoPreview = {
   name: string;
   mimeType?: string;
   size?: number;
+  clientUploadId?: string;
 };
 
 type BmcPhotoStepProps = StepNavProps & {
-  photoCount: number;
   setPhotoCount: (count: number) => void;
   describe: boolean;
   setDescribe: (describe: boolean) => void;
@@ -117,6 +118,7 @@ function referenceImageValue(value: unknown): PhotoPreview[] {
       url: "/assets/LogoMark.png",
       mimeType: textValue(record.mimeType) || undefined,
       size: numberValue(record.size, 0) || undefined,
+      clientUploadId: textValue(record.clientUploadId) || undefined,
     }];
   });
 }
@@ -126,7 +128,7 @@ function referenceImageValue(value: unknown): PhotoPreview[] {
 // ============================================================
 const MAX_REFS = 16;
 
-function BmcPhotoStep({ photoCount, setPhotoCount, describe, setDescribe, onContinue, country = 'CA', initialDraft, onDraftPatch, uploading = false }: BmcPhotoStepProps) {
+function BmcPhotoStep({ setPhotoCount, describe, setDescribe, onContinue, country = 'CA', initialDraft, onDraftPatch, uploading = false }: BmcPhotoStepProps) {
   const initialPhoto = nestedRecord(initialDraft, "photo");
   const initialReferenceImageNames = stringArrayValue(initialPhoto.referenceImageNames, []);
   const initialReferenceImages = referenceImageValue(initialPhoto.referenceImages);
@@ -173,6 +175,7 @@ function BmcPhotoStep({ photoCount, setPhotoCount, describe, setDescribe, onCont
             filename: file.name,
             mimeType: file.mimeType,
             size: file.size,
+            clientUploadId: file.clientUploadId,
           })),
           attested,
         },
@@ -191,15 +194,17 @@ function BmcPhotoStep({ photoCount, setPhotoCount, describe, setDescribe, onCont
   const addFiles = (list: FileList | File[] | null) => {
     const incoming = Array.from(list || []).filter((file) => /image\/(jpeg|png|webp)/.test(file.type));
     setFiles(curr => {
+      const accepted = incoming.slice(0, Math.max(0, MAX_REFS - curr.length));
       const next = [
         ...curr,
-        ...incoming.map((file) => ({
+        ...accepted.map((file) => ({
           url: URL.createObjectURL(file),
           name: file.name,
           mimeType: file.type,
           size: file.size,
+          clientUploadId: registerPendingUpload(file),
         })),
-      ].slice(0, MAX_REFS);
+      ];
       return next;
     });
     setDescribe(false);
@@ -209,7 +214,10 @@ function BmcPhotoStep({ photoCount, setPhotoCount, describe, setDescribe, onCont
   };
   const removeAt = (i: number) => setFiles(curr => {
     const removed = curr[i];
-    if (removed) URL.revokeObjectURL(removed.url);
+    if (removed) {
+      URL.revokeObjectURL(removed.url);
+      releasePendingUpload(removed.clientUploadId);
+    }
     return curr.filter((_, idx) => idx !== i);
   });
 
@@ -224,7 +232,10 @@ function BmcPhotoStep({ photoCount, setPhotoCount, describe, setDescribe, onCont
 
   const openDescribeSection = () => {
     setFiles((current) => {
-      current.forEach((file) => URL.revokeObjectURL(file.url));
+      current.forEach((file) => {
+        URL.revokeObjectURL(file.url);
+        releasePendingUpload(file.clientUploadId);
+      });
       return [];
     });
     setDescribe(true);
@@ -414,7 +425,7 @@ function BmcBasicsStep({ onContinue, onBack, initialDraft, onDraftPatch }: StepN
   const [phonetic, setPhonetic] = React.useState(textValue(initialBasics.phonetic));
   const [relationship, setRelationship] = React.useState(textValue(initialBasics.relationship));
   const [sender, setSender] = React.useState(textValue(initialBasics.sender));
-  const [skipped, setSkipped] = React.useState(booleanValue(initialBasics.skipped));
+  const skipped = booleanValue(initialBasics.skipped);
   const isCustom = occasion === 'Custom…';
 
   const resolvedOccasion = isCustom ? custom.trim() : occasion;

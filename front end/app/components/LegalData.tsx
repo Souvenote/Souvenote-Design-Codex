@@ -122,7 +122,9 @@ const LEGAL_DATA: Record<LegalDataKey, LegalDocData> = {
         'You can also manage many preferences directly in your account settings.',
       ] },
       { id: 'data-retention', title: 'Data retention', paras: [
-        'We keep your information for as long as your account is active or as needed to provide the service. Generated assets follow the retention windows shown in the product. We retain some information longer where required for legal or accounting reasons.',
+        'Uncommitted uploads are scheduled for deletion after one day, failed or rejected creative assets after 30 days, and abandoned drafts that were never approved or ordered after 90 days of inactivity. Approved cards and songs remain available while your account is active unless you delete them.',
+        'After an account-deletion request, creative content has a 30-day recovery grace period. Delivery addresses are scheduled for redaction 180 days after an order reaches a terminal state. Financial, tax, order, and fulfillment evidence may be retained for six years from the end of the last related tax year, and information used for a decision affecting you is retained for at least one year where required.',
+        'A documented legal hold, dispute, fraud investigation, security incident, or active access request can pause deletion for affected records. Deletion can take up to 35 additional days to propagate through encrypted backups and noncurrent object versions.',
       ] },
       { id: 'security', title: 'Security', paras: [
         'We use technical and organizational safeguards designed to protect your information. No method of transmission or storage is completely secure, but we work to keep your data safe and to respond quickly if an issue arises.',

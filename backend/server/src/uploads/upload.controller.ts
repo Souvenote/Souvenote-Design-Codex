@@ -1,22 +1,28 @@
-import { Body, Controller, Post } from '@nestjs/common';
-import { IsBoolean, IsInt, IsNotEmpty, IsString, Min } from 'class-validator';
+import { Body, Controller, Post, Req } from '@nestjs/common';
+import {
+  IsBoolean,
+  IsInt,
+  IsNotEmpty,
+  IsString,
+  MaxLength,
+  Min,
+} from 'class-validator';
 import { UploadService } from './upload.service';
+import type { AuthenticatedRequest } from '../auth/auth.types';
 
 export class UploadDto {
-  @IsString()
-  @IsNotEmpty()
-  userId: string;
-
   @IsString()
   @IsNotEmpty()
   cardDraftId: string;
 
   @IsString()
   @IsNotEmpty()
+  @MaxLength(255)
   filename: string;
 
   @IsString()
   @IsNotEmpty()
+  @MaxLength(100)
   contentType: string;
 
   @IsInt()
@@ -27,18 +33,16 @@ export class UploadDto {
 export class MockUploadDto {
   @IsString()
   @IsNotEmpty()
-  userId: string;
-
-  @IsString()
-  @IsNotEmpty()
   cardDraftId: string;
 
   @IsString()
   @IsNotEmpty()
+  @MaxLength(255)
   filename: string;
 
   @IsString()
   @IsNotEmpty()
+  @MaxLength(100)
   mimeType: string;
 
   @IsInt()
@@ -49,14 +53,11 @@ export class MockUploadDto {
 export class CommitDto {
   @IsString()
   @IsNotEmpty()
-  userId: string;
-
-  @IsString()
-  @IsNotEmpty()
   cardDraftId: string;
 
   @IsString()
   @IsNotEmpty()
+  @MaxLength(255)
   s3Key: string;
 
   @IsBoolean()
@@ -68,9 +69,12 @@ export class UploadController {
   constructor(private readonly uploadService: UploadService) {}
 
   @Post('request')
-  async uploadReq(@Body() dto: UploadDto) {
+  async uploadReq(
+    @Req() request: AuthenticatedRequest,
+    @Body() dto: UploadDto,
+  ) {
     return this.uploadService.requestUpload(
-      dto.userId,
+      request.localUser.id,
       dto.cardDraftId,
       dto.filename,
       dto.contentType,
@@ -79,9 +83,12 @@ export class UploadController {
   }
 
   @Post('commit')
-  async commitReq(@Body() dto: CommitDto) {
+  async commitReq(
+    @Req() request: AuthenticatedRequest,
+    @Body() dto: CommitDto,
+  ) {
     return this.uploadService.commitUpload(
-      dto.userId,
+      request.localUser.id,
       dto.cardDraftId,
       dto.s3Key,
       dto.attestationAccepted,
@@ -89,7 +96,10 @@ export class UploadController {
   }
 
   @Post('mock')
-  async mockUpload(@Body() dto: MockUploadDto) {
-    return this.uploadService.createMockUpload(dto);
+  async mockUpload(
+    @Req() request: AuthenticatedRequest,
+    @Body() dto: MockUploadDto,
+  ) {
+    return this.uploadService.createMockUpload(request.localUser.id, dto);
   }
 }

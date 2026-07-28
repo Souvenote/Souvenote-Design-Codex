@@ -59,14 +59,16 @@ export function readMockMvpFlowState(): MockMvpFlowState {
     return {
       cardDraftId: textValue(parsed.cardDraftId),
       generatedAssets: Array.isArray(parsed.generatedAssets)
-        ? parsed.generatedAssets.filter(isRecord) as CardDraftAsset[]
+        ? (parsed.generatedAssets.filter(isRecord) as CardDraftAsset[])
         : [],
       selectedAssetId: textValue(parsed.selectedAssetId),
       orderId: textValue(parsed.orderId),
       orderStatus: textValue(parsed.orderStatus),
       checkoutSessionId: textValue(parsed.checkoutSessionId),
       paymentId: textValue(parsed.paymentId),
-      fulfillment: isRecord(parsed.fulfillment) ? parsed.fulfillment as FulfillmentRecord : null,
+      fulfillment: isRecord(parsed.fulfillment)
+        ? (parsed.fulfillment as FulfillmentRecord)
+        : null,
       updatedAt: textValue(parsed.updatedAt),
     };
   } catch {
@@ -74,7 +76,9 @@ export function readMockMvpFlowState(): MockMvpFlowState {
   }
 }
 
-export function writeMockMvpFlowState(patch: Partial<MockMvpFlowState>): MockMvpFlowState {
+export function writeMockMvpFlowState(
+  patch: Partial<MockMvpFlowState>,
+): MockMvpFlowState {
   const next: MockMvpFlowState = {
     ...readMockMvpFlowState(),
     ...patch,
@@ -82,14 +86,21 @@ export function writeMockMvpFlowState(patch: Partial<MockMvpFlowState>): MockMvp
   };
 
   if (typeof window !== "undefined") {
-    window.localStorage.setItem(MOCK_MVP_FLOW_STORAGE_KEY, JSON.stringify(next));
-    window.dispatchEvent(new CustomEvent(MOCK_MVP_FLOW_UPDATED_EVENT, { detail: next }));
+    window.localStorage.setItem(
+      MOCK_MVP_FLOW_STORAGE_KEY,
+      JSON.stringify(next),
+    );
+    window.dispatchEvent(
+      new CustomEvent(MOCK_MVP_FLOW_UPDATED_EVENT, { detail: next }),
+    );
   }
 
   return next;
 }
 
-export function resetMockMvpOrderState(cardDraftId: string | null): MockMvpFlowState {
+export function resetMockMvpOrderState(
+  cardDraftId: string | null,
+): MockMvpFlowState {
   return writeMockMvpFlowState({
     cardDraftId,
     generatedAssets: [],
@@ -102,7 +113,10 @@ export function resetMockMvpOrderState(cardDraftId: string | null): MockMvpFlowS
   });
 }
 
-export function rememberGeneratedAssets(cardDraftId: string, assets: CardDraftAsset[]): MockMvpFlowState {
+export function rememberGeneratedAssets(
+  cardDraftId: string,
+  assets: CardDraftAsset[],
+): MockMvpFlowState {
   const imageAsset = findGeneratedImageAsset(assets);
 
   return writeMockMvpFlowState({
@@ -117,42 +131,71 @@ export function rememberGeneratedAssets(cardDraftId: string, assets: CardDraftAs
   });
 }
 
-export function rememberSelectedAsset(cardDraftId: string, selectedAssetId: string, assets: CardDraftAsset[] = []) {
+export function rememberSelectedAsset(
+  cardDraftId: string,
+  selectedAssetId: string,
+  assets: CardDraftAsset[] = [],
+) {
   return writeMockMvpFlowState({
     cardDraftId,
     selectedAssetId,
-    generatedAssets: assets.length ? assets : readMockMvpFlowState().generatedAssets,
+    generatedAssets: assets.length
+      ? assets
+      : readMockMvpFlowState().generatedAssets,
   });
 }
 
-export function rememberCheckoutResult(order: Order, checkoutSession?: CheckoutSession | null) {
+export function rememberCheckoutResult(
+  order: Order,
+  checkoutSession?: CheckoutSession | null,
+) {
+  const current = readMockMvpFlowState();
+
   return writeMockMvpFlowState({
-    cardDraftId: order.cardDraftId || readMockMvpFlowState().cardDraftId,
-    selectedAssetId: order.selectedAssetId || readMockMvpFlowState().selectedAssetId,
+    cardDraftId: order.cardDraftId || current.cardDraftId,
+    selectedAssetId: order.selectedAssetId || current.selectedAssetId,
     orderId: order.id,
     orderStatus: order.status,
     checkoutSessionId: checkoutSession?.id || order.checkoutSessionId || null,
     paymentId: checkoutSession?.paymentId || order.paymentId || null,
+    fulfillment: current.orderId === order.id ? current.fulfillment : null,
   });
 }
 
-export function rememberFulfillmentResult(order: Order, fulfillment: FulfillmentRecord) {
+export function rememberFulfillmentResult(
+  order: Order,
+  fulfillment: FulfillmentRecord,
+) {
   return writeMockMvpFlowState({
     cardDraftId: order.cardDraftId || readMockMvpFlowState().cardDraftId,
-    selectedAssetId: order.selectedAssetId || readMockMvpFlowState().selectedAssetId,
+    selectedAssetId:
+      order.selectedAssetId || readMockMvpFlowState().selectedAssetId,
     orderId: order.id,
     orderStatus: order.status,
-    checkoutSessionId: order.checkoutSessionId || readMockMvpFlowState().checkoutSessionId,
+    checkoutSessionId:
+      order.checkoutSessionId || readMockMvpFlowState().checkoutSessionId,
     paymentId: order.paymentId || readMockMvpFlowState().paymentId,
     fulfillment,
   });
 }
 
-export function findGeneratedImageAsset(assets: CardDraftAsset[]): CardDraftAsset | null {
-  const imageAssets = assets.filter((asset) => assetType(asset) === "image");
-  return imageAssets[imageAssets.length - 1] || null;
+export function findGeneratedImageAsset(
+  assets: CardDraftAsset[],
+): CardDraftAsset | null {
+  return findGeneratedAsset(assets, "image");
 }
 
-export function hasGeneratedAsset(assets: CardDraftAsset[], type: string): boolean {
+export function findGeneratedAsset(
+  assets: CardDraftAsset[],
+  type: string,
+): CardDraftAsset | null {
+  const matchingAssets = assets.filter((asset) => assetType(asset) === type);
+  return matchingAssets[matchingAssets.length - 1] || null;
+}
+
+export function hasGeneratedAsset(
+  assets: CardDraftAsset[],
+  type: string,
+): boolean {
   return assets.some((asset) => assetType(asset) === type);
 }

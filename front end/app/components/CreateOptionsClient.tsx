@@ -62,7 +62,7 @@ export function CreateOptionsClient() {
           cartCount={0}
         />
         <main>
-          <OptionsHeader user={user} credits={totalCredits} lowBalance={totalCredits < 1} />
+          <OptionsHeader />
           <TileGrid
             credits={totalCredits}
             cardBank={0}

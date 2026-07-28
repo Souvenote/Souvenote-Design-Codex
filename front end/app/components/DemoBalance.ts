@@ -187,34 +187,6 @@ export function getCartTopUpDelta(items: unknown): CartTopUpDelta {
   }, { credits: 0, cards: 0 });
 }
 
-export function spendDemoCredits(amount: unknown): DemoBalance {
-  if (typeof window === "undefined") return DEFAULT_DEMO_BALANCE;
-
-  const current = readDemoBalance();
-  let remainingSpend = normalizeNumber(amount);
-  const imageCredits = normalizeNumber(current.credits.images);
-  const songCredits = normalizeNumber(current.credits.songs);
-  const imagesSpent = Math.min(imageCredits, remainingSpend);
-  remainingSpend -= imagesSpent;
-  const songsSpent = Math.min(songCredits, remainingSpend);
-
-  const next = normalizeDemoBalance({
-    credits: {
-      images: imageCredits - imagesSpent,
-      songs: songCredits - songsSpent,
-    },
-    cardBank: current.cardBank,
-  });
-  writeDemoBalance(next);
-  return next;
-}
-
-export function applyDemoTopUpFromCart(items: unknown): DemoBalance {
-  if (!Array.isArray(items) || items.length === 0) return readDemoBalance();
-
-  return addDemoBalance(getCartTopUpDelta(items));
-}
-
 export function clearDemoBalance(): void {
   if (typeof window === "undefined") return;
 
@@ -228,9 +200,11 @@ export function useDemoBalance(fallback: DemoBalance = DEFAULT_DEMO_BALANCE): De
   React.useEffect(() => {
     const sync = () => setBalance(readDemoBalance(fallback));
 
-    window.__souvSetDemoBalance = (next) => writeDemoBalance(next);
-    window.__souvZeroDemoBalance = () => writeDemoBalance(ZERO_DEMO_BALANCE);
-    window.__souvClearDemoBalance = clearDemoBalance;
+    if (process.env.NODE_ENV === "development") {
+      window.__souvSetDemoBalance = (next) => writeDemoBalance(next);
+      window.__souvZeroDemoBalance = () => writeDemoBalance(ZERO_DEMO_BALANCE);
+      window.__souvClearDemoBalance = clearDemoBalance;
+    }
 
     sync();
     window.addEventListener("storage", sync);
@@ -239,6 +213,11 @@ export function useDemoBalance(fallback: DemoBalance = DEFAULT_DEMO_BALANCE): De
     return () => {
       window.removeEventListener("storage", sync);
       window.removeEventListener("souv-demo-balance", sync);
+      if (process.env.NODE_ENV === "development") {
+        delete window.__souvSetDemoBalance;
+        delete window.__souvZeroDemoBalance;
+        delete window.__souvClearDemoBalance;
+      }
     };
   }, [fallback]);
 

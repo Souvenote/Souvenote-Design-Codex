@@ -1,258 +1,94 @@
 # Souvenote Database
 
-This folder contains the PostgreSQL database setup for the Souvenote backend.
+This folder contains the PostgreSQL migrations and seed data used by the
+Souvenote backend.
 
 ## Structure
 
-- `migrations/` contains SQL files that create or update the database structure.
-- `seeds/` contains starter data, such as pricing plans.
+- `migrations/001_initial_schema.sql` creates the core schema.
+- `migrations/002_phase1_mock_backend.sql` adds the local MVP flow tables.
+- `migrations/003_account_profile_payments.sql` adds account and payment fields.
+- `migrations/004_s3_upload_pipeline.sql` adds provider-aware upload tracking.
+- `migrations/005_generation_job_lifecycle.sql` adds durable generation state.
+- `migrations/006_asset_moderation_lifecycle.sql` adds moderation jobs and decisions.
+- `migrations/007_server_authoritative_order_pricing.sql` adds catalog-derived order pricing snapshots.
+- `migrations/008_stripe_checkout_lifecycle.sql` adds Stripe attempts, authorization state, and webhook dedupe.
+- `migrations/009_scribeless_fulfillment_lifecycle.sql` adds multi-recipient orders, durable fulfillment attempts, and provider polling state.
+- `migrations/010_public_card_links.sql` adds hashed public keepsake links for stable printed song QR codes.
+- `migrations/011_transactional_notifications.sql` adds the idempotent order-email outbox and signed delivery-event dedupe state.
+- `migrations/012_canadian_pricing_and_credit_packs.sql` aligns Canada-first
+  CAD pricing, adds durable standalone credit-pack purchases, and records the
+  deadline/lease fields used to finalize expired five-day authorizations.
+- `seeds/001_pricing_catalog.sql` inserts the Canada-first card and credit-pack catalog.
 
-## First Migration
+## Local setup
 
-`001_initial_schema.sql` will create the first version of the database schema.
-`002_phase1_mock_backend.sql` adds the Phase 1 local mock upload, checkout, and fulfillment storage needed for the end-to-end MVP flow.
+Create the local database, apply every migration in order, and then seed it:
 
-Planned core tables:
-- users
-- credit_ledger
-- card_drafts
-- generation_jobs
-- assets
-- orders
-- payments
-- pricing_catalog
-- audit_logs
-
-## Local Development
-
-Start with local PostgreSQL first.
-
-After the schema works locally, the same migration can later be run against AWS RDS PostgreSQL.
-
-## Important
-
-Do not commit database passwords, connection strings with real credentials, or secret keys.
-
-````md
-# Souvenote Local Database Setup
-
-This folder contains the local PostgreSQL database setup for the Souvenote backend.
-
-## Purpose
-
-The database migration and seed files allow every developer to create the same local database structure before connecting the NestJS backend.
-
-The local database is used for development and testing before the project is deployed to AWS.
-
-## Required Database Name
-
-Each developer should create a local PostgreSQL database named:
-
-```txt
-souvenote_dev
-````
-
-## Folder Structure
-
-```txt
-database/
-  migrations/
-    001_initial_schema.sql
-  seeds/
-    001_pricing_catalog.sql
-  README.md
-```
-
-## Setup with psql
-
-From the `backend/` folder, run:
-
-```bash
+```powershell
 createdb -U postgres souvenote_dev
-psql -U postgres -d souvenote_dev -f database/migrations/001_initial_schema.sql
-psql -U postgres -d souvenote_dev -f database/migrations/002_phase1_mock_backend.sql
-psql -U postgres -d souvenote_dev -f database/seeds/001_pricing_catalog.sql
+psql -U postgres -d souvenote_dev -f migrations/001_initial_schema.sql
+psql -U postgres -d souvenote_dev -f migrations/002_phase1_mock_backend.sql
+psql -U postgres -d souvenote_dev -f migrations/003_account_profile_payments.sql
+psql -U postgres -d souvenote_dev -f migrations/004_s3_upload_pipeline.sql
+psql -U postgres -d souvenote_dev -f migrations/005_generation_job_lifecycle.sql
+psql -U postgres -d souvenote_dev -f migrations/006_asset_moderation_lifecycle.sql
+psql -U postgres -d souvenote_dev -f migrations/007_server_authoritative_order_pricing.sql
+psql -U postgres -d souvenote_dev -f migrations/008_stripe_checkout_lifecycle.sql
+psql -U postgres -d souvenote_dev -f migrations/009_scribeless_fulfillment_lifecycle.sql
+psql -U postgres -d souvenote_dev -f migrations/010_public_card_links.sql
+psql -U postgres -d souvenote_dev -f migrations/011_transactional_notifications.sql
+psql -U postgres -d souvenote_dev -f migrations/012_canadian_pricing_and_credit_packs.sql
+psql -U postgres -d souvenote_dev -f seeds/001_pricing_catalog.sql
 ```
 
-## Setup with pgAdmin 4
+Run those commands from `backend/database`. For an existing database with
+migration `001` already installed, the backend helper applies migrations
+`002` through `012`:
 
-1. Open pgAdmin 4.
-2. Right-click `Databases`.
-3. Select `Create` → `Database`.
-4. Name the database `souvenote_dev`.
-5. Open the Query Tool for `souvenote_dev`.
-6. Run the contents of:
-
-```txt
-database/migrations/001_initial_schema.sql
+```powershell
+cd ../server
+npm run db:migrate:phase1
 ```
 
-7. Then run the contents of:
+## Verification
 
-```txt
-database/seeds/001_pricing_catalog.sql
+For a disposable, empty database, the backend validator applies every numbered
+migration and seed in order, verifies the continuous migration sequence and
+required tables, and confirms that the pricing seed is nonempty:
+
+```powershell
+cd ../server
+$env:DATABASE_URL = "postgresql://postgres:postgres@localhost:5432/souvenote_validation"
+$env:DATABASE_VALIDATION_ALLOW_FRESH_DATABASE = "true"
+npm run test:database
 ```
 
-## Verify Setup
+The validator refuses to run without the explicit safety flag or when the
+database already contains a public table. Never point it at a development,
+staging, production, or otherwise shared database. GitHub Actions runs it only
+against a fresh PostgreSQL 16 service database.
 
-Using `psql`, connect to the database:
+For manual inspection of a normal local development database:
 
-```bash
+```powershell
 psql -U postgres -d souvenote_dev
 ```
 
-List tables:
-
 ```sql
 \dt
-```
 
-Check the pricing catalog:
-
-```sql
 SELECT offer_code, name, price_cents
 FROM pricing_catalog;
 ```
 
-Expected pricing rows include:
+Expected pricing offer codes include `try_risk_free_one_card`,
+`big_sender_2_10`, `big_sender_11_20`, `big_sender_21_30`,
+`credit_pack_starter_10`, `credit_pack_creator_80`, and
+`credit_pack_power_250`. All launch prices are denominated in CAD.
 
-```txt
-try_risk_free_one_card
-big_sender_2_10
-big_sender_11_20
-big_sender_21_30
-```
-
-## Reset Local Database
-
-If the schema changes during development and there is no important local data to keep, reset the database:
-
-```bash
-dropdb -U postgres souvenote_dev
-createdb -U postgres souvenote_dev
-psql -U postgres -d souvenote_dev -f database/migrations/001_initial_schema.sql
-psql -U postgres -d souvenote_dev -f database/migrations/002_phase1_mock_backend.sql
-psql -U postgres -d souvenote_dev -f database/seeds/001_pricing_catalog.sql
-```
-
-## Important Notes
-
-* Do not commit real database passwords.
-* Do not commit `.env` files.
-* Migration files define the database structure.
-* Seed files insert starting data needed for development.
-* AWS deployment will use the same migration concept later, but local development should be tested first.
-
-
-
-
-# Souvenote Local Database Setup
-
-This folder contains the local PostgreSQL database setup for the Souvenote backend.
-
-## Purpose
-
-The database migration and seed files allow every developer to create the same local database structure before connecting the NestJS backend.
-
-The local database is used for development and testing before the project is deployed to AWS.
-
-## Required Database Name
-
-Each developer should create a local PostgreSQL database named:
-
-```txt
-souvenote_dev
-```
-
-## Folder Structure
-
-```txt
-database/
-  migrations/
-    001_initial_schema.sql
-  seeds/
-    001_pricing_catalog.sql
-  README.md
-```
-
-## Setup with psql
-
-From the `backend/` folder, run:
-
-```bash
-createdb -U postgres souvenote_dev
-psql -U postgres -d souvenote_dev -f database/migrations/001_initial_schema.sql
-psql -U postgres -d souvenote_dev -f database/migrations/002_phase1_mock_backend.sql
-psql -U postgres -d souvenote_dev -f database/seeds/001_pricing_catalog.sql
-```
-
-## Setup with pgAdmin 4
-
-1. Open pgAdmin 4.
-2. Right-click `Databases`.
-3. Select `Create` → `Database`.
-4. Name the database `souvenote_dev`.
-5. Open the Query Tool for `souvenote_dev`.
-6. Run the contents of:
-
-```txt
-database/migrations/001_initial_schema.sql
-```
-
-7. Then run the contents of:
-
-```txt
-database/seeds/001_pricing_catalog.sql
-```
-
-## Verify Setup
-
-Using `psql`, connect to the database:
-
-```bash
-psql -U postgres -d souvenote_dev
-```
-
-List tables:
-
-```sql
-\dt
-```
-
-Check the pricing catalog:
-
-```sql
-SELECT offer_code, name, price_cents
-FROM pricing_catalog;
-```
-
-Expected pricing rows include:
-
-```txt
-try_risk_free_one_card
-big_sender_2_10
-big_sender_11_20
-big_sender_21_30
-```
-
-## Reset Local Database
-
-If the schema changes during development and there is no important local data to keep, reset the database.
-
-From the `backend/` folder, run:
-
-```bash
-dropdb -U postgres souvenote_dev
-createdb -U postgres souvenote_dev
-psql -U postgres -d souvenote_dev -f database/migrations/001_initial_schema.sql
-psql -U postgres -d souvenote_dev -f database/migrations/002_phase1_mock_backend.sql
-psql -U postgres -d souvenote_dev -f database/seeds/001_pricing_catalog.sql
-```
-
-## Important Notes
-
-* Do not commit real database passwords.
-* Do not commit `.env` files.
-* Migration files define the database structure.
-* Seed files insert starting data needed for development.
-* AWS deployment will use the same migration concept later, but local development should be tested first.
+Do not commit database passwords, real connection strings, secret keys, or
+local `.env` files. Apply migrations in filename order in every environment.
+Production diagnostics must follow `../docs/operations-runbook.md`: use a
+read-only transaction and never repair payment, credit, moderation, public-link,
+notification, or fulfillment state with ad hoc SQL.

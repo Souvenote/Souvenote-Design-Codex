@@ -1,6 +1,9 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
-import { CreateCardDraftDto, UpdateCardDraftDto } from './card-drafts.controller';
+import {
+  CreateCardDraftDto,
+  UpdateCardDraftDto,
+} from './card-drafts.controller';
 
 @Injectable()
 export class CardDraftsService {
@@ -24,15 +27,16 @@ export class CardDraftsService {
     };
   }
 
-  async getCardDraftById(draftId: string) {
+  async getCardDraftById(userId: string, draftId: string) {
     const result = await this.databaseService.query(
       `
         SELECT id, user_id, occasion, relationship, creative_brief, status, created_at, updated_at
         FROM card_drafts
         WHERE id = $1
+          AND user_id = $2
           AND deleted_at IS NULL;
       `,
-      [draftId],
+      [draftId, userId],
     );
 
     if (result.rows.length === 0) {
@@ -44,7 +48,7 @@ export class CardDraftsService {
     };
   }
 
-  async createCardDraft(dto: CreateCardDraftDto) {
+  async createCardDraft(userId: string, dto: CreateCardDraftDto) {
     const result = await this.databaseService.query(
       `
         INSERT INTO card_drafts (
@@ -58,7 +62,7 @@ export class CardDraftsService {
         RETURNING id, user_id, occasion, relationship, creative_brief, status, created_at, updated_at;
       `,
       [
-        dto.userId,
+        userId,
         dto.occasion ?? null,
         dto.relationship ?? null,
         JSON.stringify(dto.creativeBrief ?? {}),
@@ -70,7 +74,11 @@ export class CardDraftsService {
     };
   }
 
-  async updateCardDraft(draftId: string, dto: UpdateCardDraftDto) {
+  async updateCardDraft(
+    userId: string,
+    draftId: string,
+    dto: UpdateCardDraftDto,
+  ) {
     const result = await this.databaseService.query(
       `
         UPDATE card_drafts
@@ -80,6 +88,7 @@ export class CardDraftsService {
           creative_brief = COALESCE($4::jsonb, creative_brief),
           updated_at = NOW()
         WHERE id = $1
+          AND user_id = $5
           AND deleted_at IS NULL
         RETURNING id, user_id, occasion, relationship, creative_brief, status, created_at, updated_at;
       `,
@@ -87,7 +96,10 @@ export class CardDraftsService {
         draftId,
         dto.occasion ?? null,
         dto.relationship ?? null,
-        dto.creativeBrief === undefined ? null : JSON.stringify(dto.creativeBrief ?? {}),
+        dto.creativeBrief === undefined
+          ? null
+          : JSON.stringify(dto.creativeBrief ?? {}),
+        userId,
       ],
     );
 

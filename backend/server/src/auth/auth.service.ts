@@ -3,8 +3,10 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  Optional,
   UnauthorizedException,
 } from '@nestjs/common';
+import { AnalyticsService } from '../analytics/analytics.service';
 import { CreditsService } from '../credits/credits.service';
 import { DatabaseService } from '../database/database.service';
 import type { CognitoJwtClaims } from './auth.types';
@@ -134,12 +136,12 @@ function parseJsonClaim(value: string) {
   }
 }
 
-function claimArray(claims: CognitoJwtClaims, key: string) {
+function claimArray(claims: CognitoJwtClaims, key: string): unknown[] {
   const value = claims[key];
-  if (Array.isArray(value)) return value;
+  if (Array.isArray(value)) return value as unknown[];
   if (typeof value === 'string') {
     const parsed = parseJsonClaim(value);
-    return Array.isArray(parsed) ? parsed : [];
+    return Array.isArray(parsed) ? (parsed as unknown[]) : [];
   }
   return [];
 }
@@ -177,7 +179,10 @@ function cleanText(value: string | undefined, maxLength: number) {
   return trimmed ? trimmed.slice(0, maxLength) : null;
 }
 
-function cleanBirthday(value: string | undefined, fallback: string | Date | null) {
+function cleanBirthday(
+  value: string | undefined,
+  fallback: string | Date | null,
+) {
   if (value === undefined) return serializeDate(fallback);
   const trimmed = value.trim();
   if (!trimmed) return null;
@@ -212,7 +217,9 @@ function normalizeLanguage(value: string | undefined, fallback: string) {
 function normalizeLast4(value: string | undefined) {
   const digits = (value || '').replace(/\D/g, '');
   if (digits.length !== 4) {
-    throw new BadRequestException('Payment method last4 must include exactly four digits.');
+    throw new BadRequestException(
+      'Payment method last4 must include exactly four digits.',
+    );
   }
 
   return digits;
@@ -221,7 +228,9 @@ function normalizeLast4(value: string | undefined) {
 function normalizeExpiryMonth(value: number | undefined, fallback?: number) {
   const month = Number(value ?? fallback);
   if (!Number.isInteger(month) || month < 1 || month > 12) {
-    throw new BadRequestException('Payment method expiration month must be between 1 and 12.');
+    throw new BadRequestException(
+      'Payment method expiration month must be between 1 and 12.',
+    );
   }
 
   return month;
@@ -231,7 +240,9 @@ function normalizeExpiryYear(value: number | undefined, fallback?: number) {
   const rawYear = Number(value ?? fallback);
   const year = rawYear < 100 ? 2000 + rawYear : rawYear;
   if (!Number.isInteger(year) || year < 2024 || year > 2100) {
-    throw new BadRequestException('Payment method expiration year is not valid.');
+    throw new BadRequestException(
+      'Payment method expiration year is not valid.',
+    );
   }
 
   return year;
@@ -242,6 +253,8 @@ export class AuthService {
   constructor(
     private readonly databaseService: DatabaseService,
     private readonly creditsService: CreditsService,
+    @Optional()
+    private readonly analyticsService?: AnalyticsService,
   ) {}
 
   async syncCognitoUser(claims: CognitoJwtClaims) {
@@ -249,7 +262,9 @@ export class AuthService {
     const email = claims.email.trim().toLowerCase();
 
     if (!cognitoSub || !email) {
-      throw new UnauthorizedException('Cognito token is missing user identity claims.');
+      throw new UnauthorizedException(
+        'Cognito token is missing user identity claims.',
+      );
     }
 
     const user = await this.findOrCreateLocalUser(cognitoSub, email, claims);
@@ -260,6 +275,9 @@ export class AuthService {
       `starter-credits-${cognitoSub}`,
       'signup_grant',
     );
+    if (starterCredits.granted) {
+      this.analyticsService?.accountProvisioned(user.id);
+    }
 
     return {
       user,
@@ -372,7 +390,11 @@ export class AuthService {
     return inserted.rows[0];
   }
 
-  async updatePaymentMethod(userId: string, paymentMethodId: string, input: SavePaymentMethodInput) {
+  async updatePaymentMethod(
+    userId: string,
+    paymentMethodId: string,
+    input: SavePaymentMethodInput,
+  ) {
     const current = await this.getPaymentMethod(userId, paymentMethodId);
     const shouldSetDefault = input.isDefault ?? current.is_default;
 
@@ -401,13 +423,18 @@ export class AuthService {
       [
         paymentMethodId,
         userId,
-        cleanText(input.stripePaymentMethodId, 255) ?? current.stripe_payment_method_id,
+        cleanText(input.stripePaymentMethodId, 255) ??
+          current.stripe_payment_method_id,
         cleanText(input.brand, 40) ?? current.brand,
         input.last4 === undefined ? current.last4 : normalizeLast4(input.last4),
         normalizeExpiryMonth(input.expMonth, current.exp_month),
         normalizeExpiryYear(input.expYear, current.exp_year),
-        input.billingName === undefined ? current.billing_name : cleanText(input.billingName, 255),
-        input.billingPostalCode === undefined ? current.billing_postal_code : cleanText(input.billingPostalCode, 40),
+        input.billingName === undefined
+          ? current.billing_name
+          : cleanText(input.billingName, 255),
+        input.billingPostalCode === undefined
+          ? current.billing_postal_code
+          : cleanText(input.billingPostalCode, 40),
         shouldSetDefault,
       ],
     );
@@ -451,7 +478,11 @@ export class AuthService {
     return { deleted: true };
   }
 
-  private async findOrCreateLocalUser(cognitoSub: string, email: string, claims: CognitoJwtClaims) {
+  private async findOrCreateLocalUser(
+    cognitoSub: string,
+    email: string,
+    claims: CognitoJwtClaims,
+  ) {
     const claimName = nameFromClaims(claims);
     const isFederatedUser = isFederatedCognitoUser(claims);
     const bySub = await this.databaseService.query<LocalUserRow>(
@@ -465,7 +496,12 @@ export class AuthService {
     );
 
     if (bySub.rows[0]) {
-      return this.updateUserEmail(bySub.rows[0].id, cognitoSub, email, claimName);
+      return this.updateUserEmail(
+        bySub.rows[0].id,
+        cognitoSub,
+        email,
+        claimName,
+      );
     }
 
     const byEmail = await this.databaseService.query<LocalUserRow>(
@@ -485,7 +521,9 @@ export class AuthService {
       }
 
       if (existing.cognito_user_id && existing.cognito_user_id !== cognitoSub) {
-        throw new ConflictException('A local user with this email is already linked to another Cognito user.');
+        throw new ConflictException(
+          'A local user with this email is already linked to another Cognito user.',
+        );
       }
 
       return this.updateUserEmail(existing.id, cognitoSub, email, claimName);
@@ -555,7 +593,8 @@ export class AuthService {
     );
 
     const paymentMethod = result.rows[0];
-    if (!paymentMethod) throw new NotFoundException('Payment method not found.');
+    if (!paymentMethod)
+      throw new NotFoundException('Payment method not found.');
     return paymentMethod;
   }
 

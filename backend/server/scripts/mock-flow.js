@@ -1,6 +1,5 @@
 const fs = require('fs');
 const path = require('path');
-const { Pool } = require('pg');
 
 const serverRoot = path.resolve(__dirname, '..');
 
@@ -34,16 +33,25 @@ const env = {
 };
 
 const apiBaseUrl = env.API_BASE_URL || 'http://localhost:4000/api';
-const databaseUrl = env.DATABASE_URL;
+const cognitoIdToken = env.MOCK_FLOW_COGNITO_ID_TOKEN;
 
-if (!databaseUrl) {
-  throw new Error('DATABASE_URL is required to seed the local mock-flow user.');
+if (!cognitoIdToken) {
+  throw new Error(
+    'MOCK_FLOW_COGNITO_ID_TOKEN is required to run the authenticated mock flow.',
+  );
+}
+
+function requestHeaders(body) {
+  return {
+    Authorization: `Bearer ${cognitoIdToken}`,
+    ...(body ? { 'Content-Type': 'application/json' } : {}),
+  };
 }
 
 async function request(method, route, body) {
   const response = await fetch(`${apiBaseUrl}${route}`, {
     method,
-    headers: body ? { 'Content-Type': 'application/json' } : undefined,
+    headers: requestHeaders(body),
     body: body ? JSON.stringify(body) : undefined,
   });
 
@@ -63,7 +71,7 @@ async function request(method, route, body) {
 async function expectHttpError(method, route, body, expectedStatus) {
   const response = await fetch(`${apiBaseUrl}${route}`, {
     method,
-    headers: body ? { 'Content-Type': 'application/json' } : undefined,
+    headers: requestHeaders(body),
     body: body ? JSON.stringify(body) : undefined,
   });
 
@@ -78,46 +86,20 @@ async function expectHttpError(method, route, body, expectedStatus) {
   console.log(`[ok] ${method} ${route} -> expected ${expectedStatus}`);
 }
 
-async function seedMockUser() {
-  const pool = new Pool({ connectionString: databaseUrl });
-
-  try {
-    const result = await pool.query(
-      `
-        INSERT INTO users (email, cognito_user_id)
-        VALUES ($1, $2)
-        ON CONFLICT (email)
-        DO UPDATE SET updated_at = NOW()
-        RETURNING id, email;
-      `,
-      [
-        env.MOCK_FLOW_EMAIL || 'mock-flow@souvenote.local',
-        'mock-flow-local-user',
-      ],
-    );
-
-    return result.rows[0];
-  } finally {
-    await pool.end();
-  }
-}
-
 async function main() {
   const runId = Date.now();
 
   await request('GET', '/health');
-  const user = await seedMockUser();
-  console.log(`[ok] seeded mock user ${user.email} (${user.id})`);
+  const authResponse = await request('GET', '/auth/me');
+  const user = authResponse.user;
+  console.log(`[ok] authenticated local user ${user.email} (${user.id})`);
 
-  await request('POST', '/credits/grant', {
-    userId: user.id,
+  await request('POST', '/credits/mock-purchase', {
     amount: 10,
-    source: 'local_mock_flow',
     idempotencyKey: `mock-flow-${runId}-grant`,
   });
 
   const draftResponse = await request('POST', '/card-drafts', {
-    userId: user.id,
     occasion: 'Birthday',
     relationship: 'Friend',
     creativeBrief: {
@@ -128,7 +110,6 @@ async function main() {
   const draftId = draftResponse.cardDraft.id;
 
   await request('POST', '/uploads/mock', {
-    userId: user.id,
     cardDraftId: draftId,
     filename: 'mock-photo.png',
     mimeType: 'image/png',
@@ -136,7 +117,6 @@ async function main() {
   });
 
   await request('POST', '/generation/start', {
-    userId: user.id,
     cardDraftId: draftId,
     idempotencyKey: `mock-flow-${runId}-generation`,
   });
@@ -151,13 +131,20 @@ async function main() {
     throw new Error('No generated or uploaded assets were returned for review.');
   }
 
+  const approvalAssetIds = assetsResponse.assets
+    .filter(
+      (asset) =>
+        asset.generationJobId || asset.generation_job_id,
+    )
+    .map((asset) => asset.id);
+  await request('POST', `/assets/card-draft/${draftId}/approve`, {
+    assetIds: approvalAssetIds,
+  });
+
   const orderResponse = await request('POST', '/orders', {
-    userId: user.id,
     cardDraftId: draftId,
     selectedAssetId: selectedAsset.id,
     offerCode: 'try_risk_free_one_card',
-    amountCents: 999,
-    currency: 'usd',
     recipientAddress: {
       name: 'Mock Recipient',
       line1: '123 Local Lane',
@@ -181,8 +168,6 @@ async function main() {
 
   const checkoutResponse = await request('POST', '/checkout/start', {
     orderId,
-    successUrl: 'http://localhost:3000/checkout/success',
-    cancelUrl: 'http://localhost:3000/checkout/cancel',
   });
 
   await request('POST', '/checkout/mock-success', {
@@ -226,7 +211,7 @@ main().catch((error) => {
   console.error('\nMock backend flow failed.');
   console.error(error.message);
   console.error(
-    `Make sure the server is running at ${apiBaseUrl} and migrations 001 + 002 are applied.`,
+    `Make sure the server is running at ${apiBaseUrl}, Cognito is configured, AI_MOCK_MODE=true, and migrations 001-012 are applied.`,
   );
   process.exit(1);
 });

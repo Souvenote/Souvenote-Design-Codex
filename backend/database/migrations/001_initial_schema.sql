@@ -1,7 +1,7 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- Added the initial backend database folder structure and draft PostgreSQL migration for the Souvenote MVP schema.
--- NOTE: This migration is not ready to run yet. It still needs to be reviewed and tested locally against PostgreSQL before being used by anyone else.
+-- Initial PostgreSQL schema for the Souvenote MVP foundation.
+-- Apply this migration first, followed by every numbered migration in order.
 
 
 

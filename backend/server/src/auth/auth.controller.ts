@@ -1,7 +1,24 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
-import { IsBoolean, IsInt, IsObject, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Req,
+} from '@nestjs/common';
+import {
+  IsBoolean,
+  IsInt,
+  IsObject,
+  IsOptional,
+  IsString,
+  Max,
+  MaxLength,
+  Min,
+} from 'class-validator';
 import { AuthService } from './auth.service';
-import { CognitoAuthGuard } from './cognito-auth.guard';
 import type { AuthenticatedRequest } from './auth.types';
 
 export class UpdateProfileDto {
@@ -97,58 +114,65 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Get('me')
-  @UseGuards(CognitoAuthGuard)
-  async me(@Req() request: AuthenticatedRequest) {
-    return this.authService.syncCognitoUser(request.cognitoUser);
+  me(@Req() request: AuthenticatedRequest) {
+    return request.authContext;
   }
 
   @Patch('me')
-  @UseGuards(CognitoAuthGuard)
-  async updateMe(@Req() request: AuthenticatedRequest, @Body() dto: UpdateProfileDto) {
-    const { user } = await this.authService.syncCognitoUser(request.cognitoUser);
+  async updateMe(
+    @Req() request: AuthenticatedRequest,
+    @Body() dto: UpdateProfileDto,
+  ) {
     return {
-      user: await this.authService.updateUserProfile(user.id, dto),
+      user: await this.authService.updateUserProfile(request.localUser.id, dto),
     };
   }
 
   @Get('payment-methods')
-  @UseGuards(CognitoAuthGuard)
   async paymentMethods(@Req() request: AuthenticatedRequest) {
-    const { user } = await this.authService.syncCognitoUser(request.cognitoUser);
     return {
-      paymentMethods: await this.authService.listPaymentMethods(user.id),
+      paymentMethods: await this.authService.listPaymentMethods(
+        request.localUser.id,
+      ),
     };
   }
 
   @Post('payment-methods')
-  @UseGuards(CognitoAuthGuard)
-  async createPaymentMethod(@Req() request: AuthenticatedRequest, @Body() dto: SavePaymentMethodDto) {
-    const { user } = await this.authService.syncCognitoUser(request.cognitoUser);
+  async createPaymentMethod(
+    @Req() request: AuthenticatedRequest,
+    @Body() dto: SavePaymentMethodDto,
+  ) {
     return {
-      paymentMethod: await this.authService.createPaymentMethod(user.id, dto),
+      paymentMethod: await this.authService.createPaymentMethod(
+        request.localUser.id,
+        dto,
+      ),
     };
   }
 
   @Patch('payment-methods/:paymentMethodId')
-  @UseGuards(CognitoAuthGuard)
   async updatePaymentMethod(
     @Req() request: AuthenticatedRequest,
     @Param('paymentMethodId') paymentMethodId: string,
     @Body() dto: SavePaymentMethodDto,
   ) {
-    const { user } = await this.authService.syncCognitoUser(request.cognitoUser);
     return {
-      paymentMethod: await this.authService.updatePaymentMethod(user.id, paymentMethodId, dto),
+      paymentMethod: await this.authService.updatePaymentMethod(
+        request.localUser.id,
+        paymentMethodId,
+        dto,
+      ),
     };
   }
 
   @Delete('payment-methods/:paymentMethodId')
-  @UseGuards(CognitoAuthGuard)
   async deletePaymentMethod(
     @Req() request: AuthenticatedRequest,
     @Param('paymentMethodId') paymentMethodId: string,
   ) {
-    const { user } = await this.authService.syncCognitoUser(request.cognitoUser);
-    return this.authService.deletePaymentMethod(user.id, paymentMethodId);
+    return this.authService.deletePaymentMethod(
+      request.localUser.id,
+      paymentMethodId,
+    );
   }
 }

@@ -75,7 +75,7 @@ const CO_CARD_PACKS: PickerPack[] = [
     bonus: 0,
     featured: true,
     requiresPricingChoice: true,
-    blurb: "1-10 cards are $8.99 each, 11-20 are $7.99 each, and 21-30+ are $6.99 each.",
+    blurb: "2-10 cards are $8.99 each, 11-20 are $7.99 each, and 21-30 are $6.99 each.",
   },
 ];
 
@@ -144,7 +144,7 @@ function CheckoutPicker({ open, onClose, onChoose, defaultTab = "cards" }: Check
           ))}
         </div>
         <p className="co-fx" style={{ textAlign: "center", marginTop: 18 }}>
-          Billed in CAD. Cards persist on your account for 12 months · shipping is included on packs.
+          All prices shown and billed in CAD. Cards are saved to your account · shipping is included on packs.
         </p>
       </div>
     </div>
@@ -304,7 +304,7 @@ function CheckoutModal({ open, pack, country = "CA", onClose, onPaid, onBack }: 
             {isCards && Number(pack.bonus) > 0 && (
               <div className="co-bonus"><BmcIcon name="spark2" w={16} /> Includes {pack.tokens} AI credits, plus {pack.bonus} bonus on your first send</div>
             )}
-            <p className="co-fx">{taxLabel === "Tax" ? "Tax calculated at your delivery address." : `${taxLabel.split(" ")[0]} calculated from your delivery address.`} Cards never expire for 12 months.</p>
+            <p className="co-fx">{taxLabel === "Tax" ? "Tax calculated at your delivery address." : `${taxLabel.split(" ")[0]} calculated from your delivery address.`} Cards are saved to your account so you can return later.</p>
           </div>
         </div>
       </div>

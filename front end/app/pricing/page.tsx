@@ -11,7 +11,7 @@ export default function PricingPage() {
       <div className="opt-page opt-pricing-page">
         <DemoNavbar cartCount={0} />
         <main>
-          <CardPacks currency="CAD" />
+          <CardPacks />
           <OrnamentDivider />
           <CreditPacks currency="CAD" />
           <BackButton href="/create" label="Back to options" />

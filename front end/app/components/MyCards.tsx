@@ -27,7 +27,6 @@ type McsDraft = {
   where: string;
   step: number;
   total: number;
-  days: number;
   href: string;
 };
 
@@ -35,12 +34,12 @@ type McsCard = {
   id: string;
   selectedAssetId?: string | null;
   assets?: CardDraftAsset[];
+  imageUrl?: string | null;
   pal: string;
   glyph: string;
   song?: boolean;
   message?: boolean;
   gift?: boolean;
-  days: number;
   title: string;
   saved: string;
 };
@@ -50,16 +49,12 @@ type McsSong = {
   name: string;
   voice: string;
   card: string;
-  days: number;
+  audioUrl?: string | null;
 };
 
 type CardDraftWithAssets = {
   draft: CardDraft;
   assets: CardDraftAsset[];
-};
-
-type McsExpiryProps = {
-  days: number;
 };
 
 type McsSectionHeadProps = {
@@ -97,10 +92,6 @@ declare global {
   }
 }
 
-function McsClock() {
-  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>;
-}
-
 function McsMail() {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="5" width="18" height="14" rx="2" /><path d="M4 6l8 6 8-6" /></svg>;
 }
@@ -134,13 +125,36 @@ function hasAssetType(assets: CardDraftAsset[], type: string): boolean {
   return assets.some((asset) => assetType(asset) === type);
 }
 
-function daysUntilExpiry(updatedAt: string): number {
-  const updated = new Date(updatedAt).getTime();
-  if (!Number.isFinite(updated)) return 30;
+function assetGenerationJobId(asset: CardDraftAsset): string {
+  return textValue(asset.generationJobId || asset.generation_job_id);
+}
 
-  const expiry = updated + 30 * 24 * 60 * 60 * 1000;
-  const remaining = Math.ceil((expiry - Date.now()) / (24 * 60 * 60 * 1000));
-  return Math.max(1, remaining);
+function assetReadUrl(asset: CardDraftAsset | undefined): string | null {
+  const value = textValue(asset?.readUrl);
+  if (!value) return null;
+
+  try {
+    const url = new URL(value);
+    const isLoopback = ["localhost", "127.0.0.1", "::1"].includes(url.hostname.toLowerCase());
+    return url.protocol === "https:" || (url.protocol === "http:" && isLoopback) ? url.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
+function isApprovedLibraryAsset(asset: CardDraftAsset): boolean {
+  const approvedAt = textValue(asset.approvedAt || asset.approved_at);
+  const moderationState = textValue(asset.moderationState || asset.moderation_state).toLowerCase();
+  return Boolean(approvedAt) && ["approved", "approved_mock"].includes(moderationState);
+}
+
+function selectApprovedGenerationAssets(assets: CardDraftAsset[]): CardDraftAsset[] {
+  const approvedAssets = assets.filter(isApprovedLibraryAsset);
+  const selectedImage = approvedAssets.filter((asset) => assetType(asset) === "image").at(-1);
+  const generationJobId = selectedImage ? assetGenerationJobId(selectedImage) : "";
+  if (!selectedImage || !generationJobId) return [];
+
+  return approvedAssets.filter((asset) => assetGenerationJobId(asset) === generationJobId);
 }
 
 function formatSavedDate(value: string): string {
@@ -226,7 +240,6 @@ function mapDraftToMcsDraft(draft: CardDraft): McsDraft {
     where: resume.where,
     step: resume.step,
     total: resume.total,
-    days: daysUntilExpiry(draft.updated_at || draft.created_at),
     href: resume.href,
   };
 }
@@ -239,11 +252,11 @@ function mapDraftToMcsCard({ draft, assets }: CardDraftWithAssets): McsCard {
     id: draft.id,
     selectedAssetId: imageAsset?.id || null,
     assets,
+    imageUrl: assetReadUrl(imageAsset),
     pal: flow === "personalize_template" ? "gold" : "rose",
     glyph: title.slice(0, 1).toUpperCase() || "S",
     song: hasAssetType(assets, "song"),
     message: hasAssetType(assets, "message"),
-    days: daysUntilExpiry(draft.updated_at || draft.created_at),
     title,
     saved: formatSavedDate(draft.updated_at || draft.created_at),
   };
@@ -256,13 +269,8 @@ function mapDraftAssetsToSongs({ draft, assets }: CardDraftWithAssets): McsSong[
     name: `${title} QR Song`,
     voice: "Generated Souvenote QR song",
     card: title,
-    days: daysUntilExpiry(draft.updated_at || draft.created_at),
+    audioUrl: assetReadUrl(asset),
   }));
-}
-
-function McsExpiry({ days }: McsExpiryProps) {
-  const soon = days <= 7;
-  return <span className={`mcs-expiry ${soon ? "is-soon" : ""}`}><McsClock /> {days}d left</span>;
 }
 
 function McsSectionHead({ title, count, link }: McsSectionHeadProps) {
@@ -305,7 +313,6 @@ function McsDraftRow({ d, onResume }: McsDraftRowProps) {
         </div>
       </div>
       <div className="mcs-draft-acts">
-        <McsExpiry days={d.days} />
         <Link
           className="bmc-cta"
           href={d.href}
@@ -334,9 +341,12 @@ function McsCardItem({ c, onMail }: McsCardItemProps) {
           ) : c.message ? (
             <span className="mcs-card-songdot"><BmcIcon name="edit" w={10} /> Message</span>
           ) : <span />}
-          <McsExpiry days={c.days} />
         </div>
-        <CardArt palette={c.pal} glyph={c.glyph} glowIdx={c.id.charCodeAt(1)} />
+        {c.imageUrl ? (
+          <img className="mcs-card-art-image" src={c.imageUrl} alt={`${c.title} card artwork`} />
+        ) : (
+          <CardArt palette={c.pal} glyph={c.glyph} glowIdx={c.id.charCodeAt(1)} />
+        )}
       </div>
       <div className="mcs-card-body">
         <div className="mcs-card-title">{c.title}</div>
@@ -346,7 +356,23 @@ function McsCardItem({ c, onMail }: McsCardItemProps) {
             {c.gift ? <BmcIcon name="spark2" w={14} /> : <McsMail />}
             {c.gift ? "Give this Souvenote" : "Mail this card"}
           </button>
-          {!c.gift && <button type="button" className="mcs-iconbtn" title="Download"><McsDownload /></button>}
+          {!c.gift && c.imageUrl ? (
+            <a
+              className="mcs-iconbtn"
+              href={c.imageUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              referrerPolicy="no-referrer"
+              title="Open artwork"
+              aria-label={`Open ${c.title} artwork`}
+            >
+              <McsDownload />
+            </a>
+          ) : !c.gift ? (
+            <button type="button" className="mcs-iconbtn" title="Artwork download is unavailable in mock mode" disabled>
+              <McsDownload />
+            </button>
+          ) : null}
         </div>
       </div>
     </div>
@@ -354,23 +380,89 @@ function McsCardItem({ c, onMail }: McsCardItemProps) {
 }
 
 function McsSongRow({ s }: McsSongRowProps) {
+  const audioRef = React.useRef<HTMLAudioElement>(null);
   const [playing, setPlaying] = React.useState(false);
+  const [playbackError, setPlaybackError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    const audio = audioRef.current;
+    if (audio) {
+      audio.pause();
+      audio.currentTime = 0;
+    }
+    setPlaying(false);
+    setPlaybackError(null);
+  }, [s.audioUrl]);
+
+  async function togglePlayback() {
+    const audio = audioRef.current;
+    if (!audio || !s.audioUrl) return;
+
+    if (!audio.paused) {
+      audio.pause();
+      return;
+    }
+
+    setPlaybackError(null);
+    try {
+      await audio.play();
+    } catch {
+      setPlaying(false);
+      setPlaybackError("Song playback could not start. Refresh the page for a new private media link.");
+    }
+  }
 
   return (
     <div className={`mcs-song ${playing ? "is-playing" : ""}`}>
-      <button type="button" className="mcs-song-fab" onClick={() => setPlaying((current) => !current)} aria-label={playing ? "Pause" : "Play"}>
+      <audio
+        ref={audioRef}
+        src={s.audioUrl || undefined}
+        preload="none"
+        onPlay={() => setPlaying(true)}
+        onPause={() => setPlaying(false)}
+        onEnded={() => setPlaying(false)}
+        onError={() => {
+          setPlaying(false);
+          setPlaybackError("This private song link expired. Refresh the page to listen again.");
+        }}
+      />
+      <button
+        type="button"
+        className="mcs-song-fab"
+        onClick={() => void togglePlayback()}
+        aria-label={playing ? `Pause ${s.name}` : `Play ${s.name}`}
+        disabled={!s.audioUrl}
+        title={s.audioUrl ? (playing ? "Pause song" : "Play song") : "Song playback is unavailable in mock mode"}
+      >
         <BmcIcon name={playing ? "pause" : "play"} w={19} />
       </button>
       <div className="mcs-song-info">
         <div className="mcs-song-name">{s.name}</div>
-        <div className="mcs-song-sub">{s.voice} {"\u00b7"} {s.card === "Unattached" ? "Not on a card yet" : `On "${s.card}"`}</div>
+        <div className={`mcs-song-sub ${playbackError ? "is-error" : ""}`}>
+          {playbackError || <>{s.voice} {"\u00b7"} {s.card === "Unattached" ? "Not on a card yet" : `On "${s.card}"`}</>}
+        </div>
         <div className="mcs-song-wave">
           {MCS_BARS.map((height, index) => <i key={index} style={{ height: height + "px", animationDelay: (index * 0.03) + "s", opacity: playing ? 1 : 0.5 }} />)}
         </div>
       </div>
       <div className="mcs-song-side">
-        <McsExpiry days={s.days} />
-        <button type="button" className="mcs-iconbtn" title="Download"><McsDownload /></button>
+        {s.audioUrl ? (
+          <a
+            className="mcs-iconbtn"
+            href={s.audioUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            referrerPolicy="no-referrer"
+            title="Open song"
+            aria-label={`Open ${s.name}`}
+          >
+            <McsDownload />
+          </a>
+        ) : (
+          <button type="button" className="mcs-iconbtn" title="Song download is unavailable in mock mode" disabled>
+            <McsDownload />
+          </button>
+        )}
       </div>
     </div>
   );
@@ -388,12 +480,16 @@ function MyCardsApp({ user, full = true }: MyCardsAppProps) {
   const localUserId = auth.user?.id;
 
   React.useEffect(() => {
+    if (process.env.NODE_ENV !== "development") return;
     window.__mcsSetMode = (value) => setMode(value);
+    return () => {
+      delete window.__mcsSetMode;
+    };
   }, []);
 
   const loadDraftsAndAssets = React.useCallback(async () => {
     if (!isAuthenticated || !localUserId) return [];
-    const draftsFromBackend = await fetchUserCardDrafts(localUserId);
+    const draftsFromBackend = await fetchUserCardDrafts();
     const draftsWithAssets = await Promise.all(
       draftsFromBackend.map(async (draft) => ({
         draft,
@@ -454,13 +550,16 @@ function MyCardsApp({ user, full = true }: MyCardsAppProps) {
     return () => window.removeEventListener(CARD_DRAFTS_UPDATED_EVENT, sync);
   }, [isAuthenticated, loadDraftsAndAssets]);
 
+  const libraryDrafts = mode
+    ? backendDrafts.map(({ draft, assets }) => ({ draft, assets: selectApprovedGenerationAssets(assets) }))
+    : [];
   const draftRows = mode
-    ? backendDrafts.filter(({ assets }) => !hasAssetType(assets, "image")).map(({ draft }) => mapDraftToMcsDraft(draft))
+    ? libraryDrafts.filter(({ assets }) => !hasAssetType(assets, "image")).map(({ draft }) => mapDraftToMcsDraft(draft))
     : [];
   const cards = mode
-    ? backendDrafts.filter(({ assets }) => hasAssetType(assets, "image")).map(mapDraftToMcsCard)
+    ? libraryDrafts.filter(({ assets }) => hasAssetType(assets, "image")).map(mapDraftToMcsCard)
     : [];
-  const songs = mode ? backendDrafts.flatMap(mapDraftAssetsToSongs) : [];
+  const songs = mode ? libraryDrafts.flatMap(mapDraftAssetsToSongs) : [];
   const hasAnyBackendDrafts = backendDrafts.length > 0;
 
   function startGeneration(href: string) {
@@ -555,7 +654,7 @@ function MyCardsApp({ user, full = true }: MyCardsAppProps) {
           </h1>
           <p className="bmc-lede">
             {isAuthenticated
-              ? "Drafts, finished cards, and songs all live here for 30 days. Pick up where you left off, mail a card whenever you're ready, or play a song anytime before it clears."
+              ? "Drafts, finished cards, and songs all live here. Pick up where you left off, mail a card whenever you're ready, or play a saved song."
               : "Sign up or log in to purchase cards and credits, then every draft, card, song, and token you make will live here."}
           </p>
         </div>
@@ -582,7 +681,7 @@ function MyCardsApp({ user, full = true }: MyCardsAppProps) {
             <McsEmpty
               icon={<BmcIcon name="edit" w={30} />}
               title="Nothing in progress"
-              sub="Start a card and we'll save your spot here. Come back within 30 days to finish and send."
+              sub="Start a card and we'll save your spot here so you can return to finish and send."
               cta="Create your first card"
               href="/create"
             />
@@ -597,7 +696,7 @@ function MyCardsApp({ user, full = true }: MyCardsAppProps) {
             <McsEmpty
               icon={<BmcIcon name="image" w={30} />}
               title="No saved cards yet"
-              sub={hasAnyBackendDrafts ? "Generated cards will appear here after the backend returns an image asset for a draft." : "Every card you create lands here, ready to mail as a physical keepsake or remix again."}
+              sub={hasAnyBackendDrafts ? "Generated cards appear here after you approve a moderation-cleared artwork selection." : "Every card you create lands here, ready to mail as a physical keepsake or remix again."}
               cta={hasAnyBackendDrafts ? undefined : "Create your first card"}
               href="/create"
             />

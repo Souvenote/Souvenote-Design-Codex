@@ -196,7 +196,9 @@ Responsibilities:
 - Prepare artwork, inside message, QR code, recipient address, and sender address.
 - Send print job requests to Scribeless.
 - Store Scribeless job IDs.
-- Handle tracking webhooks.
+- Poll Scribeless recipient records for production status. Scribeless currently
+  exposes QR-scan webhooks, not fulfillment/tracking webhooks, so fulfillment
+  state must not depend on a webhook that the provider does not offer.
 - Track fulfillment status.
 - Support retry or hold states if fulfillment fails.
 
@@ -418,7 +420,7 @@ Main purpose:
 - Track refund events.
 - Track provider failures.
 - Track checkout webhook handling.
-- Track fulfillment webhook handling.
+- Track fulfillment submission and polling-based status reconciliation.
 - Help debug production issues safely.
 
 ### Seed Data
@@ -442,30 +444,94 @@ Seed data should include:
 - Future V2 features can have dormant tables or fields, but inactive features should not appear as working user flows.
 - Real secrets, API keys, and credentials should never be stored in migration or seed files.
 
+## Current Implementation Status
+
+The backend MVP foundation is implemented through migration `011` and includes:
+
+- Cognito JWT verification, owner-scoped APIs, and first-request local user
+  provisioning with an idempotent starter-credit grant.
+- Ledger-backed credit balances and generation deductions/refunds.
+- Private S3 upload and read signing, upload verification, durable moderation,
+  and moderator-only decisions.
+- Provider-neutral mock and Fal generation lifecycles for card artwork, song,
+  and inside-message assets.
+- Server-authoritative pricing, durable mock/Stripe Checkout attempts, signed
+  webhook reconciliation, and Try Risk-Free finalization.
+- Exact-quantity address validation and provider-neutral mock/Scribeless
+  fulfillment with durable attempts and monotonic polling reconciliation.
+- Hashed, unguessable printed QR tokens and a non-indexed public keepsake API
+  that returns only short-lived private media reads.
+- Stable API contracts, unit/e2e coverage, and an authenticated local mock-flow
+  runbook.
+- Read-only GitHub Actions verification for backend and frontend, including an
+  isolated PostgreSQL 16 migration/seed validation job, non-mutating lint,
+  unit/e2e tests, production builds, route smoke tests, and dependency audits.
+- Bounded PostgreSQL pools/readiness probes plus UUID request correlation and
+  structured PII-safe HTTP completion/failure logs.
+- Helmet security headers on every route, with local-safe HSTS behavior and
+  Swagger disabled by default in production.
+- A production operations runbook for read-only incident triage, ambiguous
+  provider outcomes, credentialed staging, and credential rotation, including
+  bounded old/new Stripe webhook-secret overlap.
+- A separate Cognito-group-protected operations evidence API that executes in a
+  short, database-enforced read-only transaction and returns only bounded,
+  PII-minimized order/payment/provider lifecycle evidence.
+- A transactional notification outbox for idempotent order confirmations and
+  shipped/delivered updates, with mock/SendGrid delivery, signed callback
+  dedupe, bounded known-failure retry, and ambiguity holds that prevent blind
+  duplicate sends.
+- HMAC-pseudonymous, schema-allowlisted PostHog funnel events for account,
+  generation, checkout, and confirmed-order milestones.
+- PII-scrubbed manual Sentry error reporting, structured provider
+  latency/outcome metrics, and cooldown-gated aggregate alerts for payment
+  reconciliation, moderation queues, generation refunds, and fulfillment
+  holds.
+
 ## Remaining Backend Implementation Areas
 
-The remaining backend work will be implemented through code instead of more planning documents.
+The next backend work should extend the verified MVP without weakening the
+existing ownership, idempotency, moderation, or server-authoritative rules.
 
-### Auth and User Provisioning
+### Production Integration Readiness
 
-Cognito will authenticate users. The backend will create a local PostgreSQL user on the first authenticated request, connect the user to a Stripe customer, and grant 2 starter credits through the credit ledger.
+- Run credentialed staging smoke tests for Cognito, S3, Fal, Stripe, SendGrid,
+  and the Scribeless account-specific folded campaign.
+- Confirm S3 upload/playback CORS, Stripe webhook delivery, and Scribeless
+  campaign variables/return-address settings in the deployed environment.
+- Execute and retain the PII-safe evidence required by
+  `operations-runbook.md`. `PUBLIC_LINK_HMAC_SECRET` must remain stable after
+  cards are printed.
 
-### Credit Ledger
+### Notifications
 
-All credit grants, deductions, refunds, pack purchases, referral grants, and manual corrections must go through the credit ledger. The backend should never directly edit a user's credit balance without writing a ledger entry.
+Order confirmation and shipped/delivered transactional delivery is implemented
+with PII-minimized persistence and idempotent signed provider callbacks.
+Cognito remains the owner of account verification and password recovery.
+Define explicit authenticated support/referral workflows and approved templates
+before adding those message types; keep recipient/card content out of logs,
+analytics, outbox payloads, and callback storage.
 
-### Upload Pipeline
+### Analytics and Observability
 
-Uploads will use signed S3 URLs. The backend will track upload status, file validation, moderation state, image-rights attestation, and whether the upload has been committed to a card draft.
+Request correlation, structured PII-safe HTTP/provider logs, allowlisted
+PostHog funnel events, scrubbed Sentry reporting, and aggregate lifecycle alerts
+are implemented. Before launch, run credentialed PostHog/Sentry staging
+validation, configure dashboard/issue ownership and notification routing, and
+tune thresholds from observed staging traffic without adding customer or card
+content to any telemetry stream.
 
-### Mock AI Generation
+### Admin and Internal Support
 
-The MVP backend should support mock AI generation before connecting real providers. Mock generation should return fake image, song, and inside-message results so the frontend can build against stable responses.
-
-### API Contracts
-
-Backend responses should be documented and stable before the frontend depends on them. The first contracts to build are health check, pricing catalog, credit balance, draft creation, upload request, generation start, generation status, and order creation.
+Tightly authorized, bounded read tooling for orders, payments, moderation,
+fulfillment attempts, generation/credit events, public-link state, and audit
+logs is implemented. Design reviewed, idempotent, fully audited workflows for
+specific reconciliation cases before exposing any manual correction or retry
+controls; no generic mutation or arbitrary-query surface should be added.
 
 ### Backend Definition of Done
 
-The backend MVP foundation is ready when the app can run locally, connect to PostgreSQL, return pricing data, manage credits through the ledger, create mock generation jobs, and expose documented API responses for the frontend.
+The local MVP backend foundation is complete when migrations `001` through
+`012`, the pricing seed, mock flow, unit/e2e tests, and production builds pass.
+Production launch readiness additionally requires the credentialed staging
+checks and operational controls above; passing mock-mode tests alone does not
+prove external-provider readiness.

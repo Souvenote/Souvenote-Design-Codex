@@ -31,7 +31,7 @@ const PAGE_HREFS = {
   "Gift a Souvenote": "/gift",
   "Refer a Friend": "/refer",
   "Account Settings": "/account/settings",
-  About: "#todo-about",
+  About: null,
   Contact: "/contact",
   FAQ: "/faq",
   "Terms of Service": "/legal/terms-of-service",
@@ -53,14 +53,26 @@ function Footer() {
       <div className="souv-footer-inner">
         <div className="souv-footer-brand">
           <span className="souv-footer-wordmark-wrap">
-            <img src="/assets/WordmarkLobster.png" alt="Souvenote" className="souv-footer-wordmark-img" />
+            <img
+              src="/assets/WordmarkLobster.png"
+              alt="Souvenote"
+              className="souv-footer-wordmark-img"
+              width={1445}
+              height={334}
+            />
           </span>
           <p className="souv-footer-lede">Because the card you send should be as unique as they are.</p>
           <div className="souv-footer-social">
             {SOCIAL.map((social) => (
-              <a key={social.label} className="souv-footer-social-btn" aria-label={social.label} href="#todo-social">
+              <span
+                key={social.label}
+                className="souv-footer-social-btn is-disabled"
+                role="img"
+                aria-label={`${social.label} coming soon`}
+                title={`${social.label} coming soon`}
+              >
                 <svg viewBox="0 0 24 24" fill="currentColor"><path d={social.path} /></svg>
-              </a>
+              </span>
             ))}
           </div>
         </div>

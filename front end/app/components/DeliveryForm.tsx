@@ -53,10 +53,9 @@ type DlvRecipientSectionProps = {
 };
 
 type DlvReturnSectionProps = {
-  on: boolean;
-  setOn: React.Dispatch<React.SetStateAction<boolean>>;
   sender: DeliveryRecipient;
   setSender: React.Dispatch<React.SetStateAction<DeliveryRecipient>>;
+  errors: DeliveryErrors;
 };
 
 type DlvScheduleSectionProps = {
@@ -311,27 +310,26 @@ function DlvRecipientSection({
   );
 }
 
-function DlvReturnSection({ on, setOn, sender, setSender }: DlvReturnSectionProps) {
+function DlvReturnSection({ sender, setSender, errors }: DlvReturnSectionProps) {
   return (
     <div className="bmc-card dlv-section">
-      <button type="button" className="dlv-collapse-toggle" onClick={() => setOn(!on)}>
+      <div className="dlv-section-head">
         <div className="dlv-section-title">
           <span className="dlv-section-num">2</span> Return address
         </div>
-        <span className={`dlv-switch ${on ? "is-on" : ""}`} />
-      </button>
-      {on ? (
-        <div style={{ marginTop: 20 }}>
-          <p className="bmc-help" style={{ margin: "0 0 16px" }}>
-            Printed on the envelope flap so it can come home if it can&apos;t be delivered.
-          </p>
-          <DlvAddressFields value={sender} onChange={setSender} compact />
-        </div>
-      ) : (
-        <p className="bmc-help" style={{ margin: "12px 0 0" }}>
-          {"No return address \u2014 the envelope ships clean. Toggle on to add yours."}
+      </div>
+      <div style={{ marginTop: 20 }}>
+        <p className="bmc-help" style={{ margin: "0 0 16px" }}>
+          Required for checkout and printed on the envelope flap so the card
+          can come home if it cannot be delivered.
         </p>
-      )}
+        <DlvAddressFields
+          value={sender}
+          onChange={setSender}
+          errors={errors}
+          compact
+        />
+      </div>
     </div>
   );
 }

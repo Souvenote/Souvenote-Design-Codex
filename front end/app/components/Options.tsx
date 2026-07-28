@@ -25,17 +25,11 @@ import { MIN_GENERATION_CREDITS } from "./createFlowRules";
 // ============================================================
 // ICONS — single-path strokes, currentColor, viewBox 0 0 24 24
 // ============================================================
-type CurrencyCode = "CAD" | "USD" | (string & {});
+type CurrencyCode = "CAD";
 
 type BackButtonProps = {
   href?: string;
   label?: string;
-};
-
-type OptionsHeaderProps = {
-  user?: unknown;
-  credits: number;
-  lowBalance: boolean;
 };
 
 type OptionTileTone = "gold" | "rose" | "silver" | "bronze";
@@ -107,6 +101,7 @@ type CardPacksData = {
 
 type CreditPack = {
   id: string;
+  offerCode: string;
   name: string;
   price: string;
   tokens: string;
@@ -115,6 +110,38 @@ type CreditPack = {
   featured?: boolean;
   badge?: string;
 };
+
+const FALLBACK_CREDIT_PACKS: CreditPack[] = [
+  {
+    id: "credit_pack_starter_10",
+    offerCode: "credit_pack_starter_10",
+    name: "Starter",
+    price: "$2.00",
+    tokens: "10",
+    blurb: "Top off a short session.",
+    accent: "platinum",
+  },
+  {
+    id: "credit_pack_creator_80",
+    offerCode: "credit_pack_creator_80",
+    name: "Creator",
+    price: "$10.00",
+    tokens: "80",
+    blurb: "A full evening of iteration.",
+    accent: "gold",
+    featured: true,
+    badge: "Most popular",
+  },
+  {
+    id: "credit_pack_power_250",
+    offerCode: "credit_pack_power_250",
+    name: "Power",
+    price: "$25.00",
+    tokens: "250",
+    blurb: "For repeat senders and remixers.",
+    accent: "rose",
+  },
+];
 
 type CartItem = {
   id: string;
@@ -129,11 +156,8 @@ type CartItem = {
   cardCount?: number;
   creditsPerCard?: number;
   tokens?: string;
+  offerCode?: string;
   lockedQuantity?: boolean;
-};
-
-type CardPacksProps = {
-  currency: CurrencyCode;
 };
 
 type CreditPacksProps = {
@@ -186,68 +210,10 @@ type RiskFreeCalloutProps = {
   inline?: boolean;
 };
 
-function IconTemplate() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3.5" y="3.5" width="17" height="17" rx="2" />
-      <path d="M3.5 9h17" />
-      <path d="M9 9v11.5" />
-      <circle cx="14.5" cy="14" r="1.6" fill="currentColor" stroke="none" />
-    </svg>
-  );
-}
-function IconBuild() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M4 7h12l4 4v9H4z" />
-      <path d="M16 7v4h4" />
-      <path d="M8 14h6M8 17h4" />
-      <path d="M19 4l1.6 1.6M21 7l-1.6-1.6M19 4l-1.6 1.6M21 7l1.6-1.6" stroke="currentColor" strokeWidth="1" />
-    </svg>
-  );
-}
-function IconCommunity() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="8" cy="9" r="3.2" />
-      <circle cx="17" cy="10.5" r="2.6" />
-      <path d="M2.5 19c.6-3 3-4.6 5.5-4.6S13 16 13.5 19" />
-      <path d="M13.5 17c.6-1.8 2.2-2.8 3.8-2.8 1.8 0 3.3 1 4 2.8" />
-    </svg>
-  );
-}
-function IconLibrary() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3.5" y="6" width="13" height="14" rx="1.5" />
-      <path d="M7 6V4.5h13V18" />
-      <path d="M7 11h6M7 15h4" />
-      <path d="M14.5 17.5l1.2 1.2 2.6-2.6" stroke="currentColor" strokeWidth="1.2" />
-    </svg>
-  );
-}
-function IconGift() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3.5" y="8" width="17" height="5" />
-      <path d="M5 13v8h14v-8" />
-      <path d="M12 8v13" />
-      <path d="M12 8s-3-4.5-5-3 .8 4 5 3zM12 8s3-4.5 5-3-.8 4-5 3z" />
-    </svg>
-  );
-}
 function IconSparkArrow() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M5 12h13M13 6l6 6-6 6" />
-    </svg>
-  );
-}
-function IconToken() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <circle cx="12" cy="12" r="8" />
-      <path d="M12 7v10M9 9h4.2a1.8 1.8 0 0 1 0 3.6H9M9 12.6h5a1.8 1.8 0 0 1 0 3.6H9" />
     </svg>
   );
 }
@@ -258,14 +224,6 @@ function IconStar() {
     </svg>
   );
 }
-function IconClose() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden="true">
-      <path d="M6 6l12 12M18 6L6 18" />
-    </svg>
-  );
-}
-
 // ============================================================
 // SHARED — Back button (centered pill beneath page content)
 // ============================================================
@@ -285,7 +243,7 @@ function BackButton({ href = '/', label = 'Back' }: BackButtonProps) {
 // ============================================================
 // SECTION — HEADER (heading + welcome)
 // ============================================================
-function OptionsHeader({ user, credits, lowBalance }: OptionsHeaderProps) {
+function OptionsHeader() {
   return (
     <section className="opt-head" data-screen-label="01 Header">
       <div className="opt-head-inner">
@@ -519,7 +477,7 @@ const CARD_PACKS_DATA: CardPacksData = {
     tokens: '10',
     cards: '1 physical 5×7',
     creditsPerCard: '10',
-    blurb: 'Pay only for what you use, $0.20 per credit if you do not send. Hold released after seven days.',
+    blurb: 'A five-day review window starts when payment is authorized. No-send or no action costs a flat CA$2.',
     accent: 'gold',
   },
   tiered: {
@@ -594,7 +552,7 @@ function formatCardRange(min: number, max: number) {
 
 function formatTierLabel(min: number, max: number) {
   if (min === max) return `${min} ${min === 1 ? "card" : "cards"}`;
-  return `${min}-${max}${max >= MAX_BIG_SENDER_CARDS ? "+" : ""} cards`;
+  return `${min}-${max} cards`;
 }
 
 function parseFirstNumber(value: unknown): number | undefined {
@@ -670,10 +628,11 @@ function buildCardPacksData(offers: PricingOffer[]): CardPacksData {
   };
 }
 
-function CardPacks({ currency }: CardPacksProps) {
+function CardPacks() {
   const [pricingOffers, setPricingOffers] = React.useState<PricingOffer[]>([]);
-  const [pricingStatus, setPricingStatus] = React.useState<"loading" | "ready" | "error">("loading");
-  const [pricingError, setPricingError] = React.useState<string | null>(null);
+  const [pricingStatus, setPricingStatus] = React.useState<
+    "loading" | "ready" | "fallback"
+  >("loading");
 
   React.useEffect(() => {
     let active = true;
@@ -683,16 +642,10 @@ function CardPacks({ currency }: CardPacksProps) {
         if (!active) return;
         setPricingOffers(offers);
         setPricingStatus("ready");
-        setPricingError(null);
       })
-      .catch((error: unknown) => {
+      .catch(() => {
         if (!active) return;
-        setPricingStatus("error");
-        setPricingError(
-          error instanceof Error
-            ? error.message
-            : "Pricing could not be loaded from the backend.",
-        );
+        setPricingStatus("fallback");
       });
 
     return () => {
@@ -701,8 +654,10 @@ function CardPacks({ currency }: CardPacksProps) {
   }, []);
 
   const cardPacksData = React.useMemo(() => {
-    if (pricingStatus !== "ready" || pricingOffers.length === 0) return null;
-    return buildCardPacksData(pricingOffers);
+    if (pricingStatus === "ready" && pricingOffers.length > 0) {
+      return buildCardPacksData(pricingOffers);
+    }
+    return CARD_PACKS_DATA;
   }, [pricingOffers, pricingStatus]);
 
   return (
@@ -720,35 +675,22 @@ function CardPacks({ currency }: CardPacksProps) {
       </div>
 
       {/* Two larger cards, centred — Try Risk-Free · Big Sender */}
-      {pricingStatus === "loading" && (
-        <p className="opt-pricing-state" aria-live="polite">
-          Loading live pricing from the local backend...
-        </p>
-      )}
-      {pricingStatus === "error" && (
-        <p className="opt-pricing-state is-error" role="status">
-          Could not load live backend pricing. Start the backend to see card pack prices.
-          {pricingError ? ` ${pricingError}` : ""}
+      {pricingStatus === "fallback" && (
+        <p className="opt-pricing-state" role="status">
+          Showing standard CAD pricing while live pricing reconnects.
         </p>
       )}
 
-      {/* No local fallback prices here for now; this makes backend-sourced pricing obvious during local testing. */}
-      {cardPacksData && (
-        <div className="opt-pricing-grid opt-pricing-grid-2c">
-          <TryRiskFreeCard pack={cardPacksData.trf} />
-          <TieredPackCard pack={cardPacksData.tiered} />
-        </div>
-      )}
+      <div className="opt-pricing-grid opt-pricing-grid-2c">
+        <TryRiskFreeCard pack={cardPacksData.trf} />
+        <TieredPackCard pack={cardPacksData.tiered} />
+      </div>
 
       <ul className="opt-pricing-notes">
-        <li>Each card has a 12 month send window and are saved in Saved Cards &amp; Songs so you can send when the time is right.</li>
+        <li>Each card is saved in Saved Cards &amp; Songs so you can send when the time is right.</li>
       </ul>
 
-      {currency === 'USD' && (
-        <p className="opt-pricing-fx">
-          Displayed in USD; billed in CAD at the day-of exchange rate.
-        </p>
-      )}
+      <p className="opt-pricing-fx">All prices shown and billed in CAD.</p>
     </section>
   );
 }
@@ -756,14 +698,75 @@ function CardPacks({ currency }: CardPacksProps) {
 // ============================================================
 // SECTION — AI CREDIT PACKS
 // ============================================================
-const AI_PACKS: CreditPack[] = [
-  { id: 'starter', name: 'Starter', price: '$2.00', tokens: '10',  blurb: 'Top off a short session.',           accent: 'platinum' },
-  { id: 'creator', name: 'Creator', price: '$10.00', tokens: '80',  blurb: 'A full evening of iteration.',      accent: 'gold', featured: true, badge: 'Most popular' },
-  { id: 'power',   name: 'Power',   price: '$25.00', tokens: '250', blurb: 'For repeat senders and remixers.', accent: 'rose' },
-];
+function creditPackText(
+  metadata: Record<string, unknown> | undefined,
+  key: string,
+  fallback: string,
+) {
+  const value = metadata?.[key];
+  return typeof value === "string" && value.trim() ? value.trim() : fallback;
+}
+
+function buildCreditPacks(offers: PricingOffer[]): CreditPack[] {
+  return offers
+    .filter((offer) => offer.type === "credit_pack")
+    .sort((a, b) => a.priceCents - b.priceCents)
+    .map((offer) => {
+      const accent = creditPackText(offer.metadata, "accent", "platinum");
+      const displayName = offer.name.replace(/\s+Credits$/i, "");
+      return {
+        id: offer.id,
+        offerCode: offer.id,
+        name: displayName,
+        price: formatCents(offer.priceCents) ?? "$0.00",
+        tokens: String(offer.creditAmount ?? offer.creditsPerCard),
+        blurb: creditPackText(
+          offer.metadata,
+          "blurb",
+          "Add creation credits to your account.",
+        ),
+        accent: ["platinum", "gold", "rose"].includes(accent)
+          ? accent
+          : "platinum",
+        featured: offer.metadata?.featured === true,
+        badge: creditPackText(offer.metadata, "badge", "Most popular"),
+      };
+    });
+}
 
 function CreditPacks({ currency, variant = undefined }: CreditPacksProps) {
   const lowCredits = variant === 'lowCredits';
+  const [creditPacks, setCreditPacks] = React.useState<CreditPack[]>(
+    FALLBACK_CREDIT_PACKS,
+  );
+  const [pricingStatus, setPricingStatus] = React.useState<
+    "loading" | "ready" | "fallback"
+  >("loading");
+
+  React.useEffect(() => {
+    let active = true;
+    fetchPricingOffers()
+      .then((offers) => {
+        if (!active) return;
+        const packs = buildCreditPacks(offers);
+        if (!packs.length) {
+          throw new Error(
+            "The backend pricing catalog did not include credit packs.",
+          );
+        }
+        setCreditPacks(packs);
+        setPricingStatus("ready");
+      })
+      .catch(() => {
+        if (!active) return;
+        setCreditPacks(FALLBACK_CREDIT_PACKS);
+        setPricingStatus("fallback");
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   return (
     <section className="opt-pricing opt-pricing-ai" data-screen-label="05 Credit Packs" id="credit-packs">
       <div className="opt-pricing-head">
@@ -783,19 +786,26 @@ function CreditPacks({ currency, variant = undefined }: CreditPacksProps) {
             </h2>
             <p className="opt-pricing-lede">
               Bring your card to life.<br />
-              <span style={{ whiteSpace: 'nowrap' }}>1 credit = 1 action for design generation, image editing, or optional QR-song creation.</span>
+              <span className="opt-pricing-credit-note">
+                1 credit = 1 action for design generation, image editing, or optional QR-song creation.
+              </span>
             </p>
           </>
         )}
       </div>
-      <div className="opt-pricing-grid opt-pricing-grid-3">
-        {AI_PACKS.map((p) => <PackCard key={p.id} pack={p} kind="credit" />)}
-      </div>
-      {currency === 'USD' && (
-        <p className="opt-pricing-fx">
-          Displayed in USD; billed in CAD at the day-of exchange rate.
+      {pricingStatus === "fallback" && (
+        <p className="opt-pricing-state" role="status">
+          Showing standard CAD pricing while live pricing reconnects.
         </p>
       )}
+      <div className="opt-pricing-grid opt-pricing-grid-3">
+        {creditPacks.map((pack) => (
+          <PackCard key={pack.id} pack={pack} kind="credit" />
+        ))}
+      </div>
+      <p className="opt-pricing-fx">
+        All prices are shown and billed in {currency}.
+      </p>
     </section>
   );
 }
@@ -896,7 +906,14 @@ function PackCard({ pack, kind, compact, wide }: PackCardProps) {
         price: parseFloat(String(pack.price).replace(/[^0-9.]/g, '')) || 0,
         qty: 1,
         unitNote: kind === 'credit' ? 'one-time top-up' : 'card pack',
-        ...(kind === 'credit' ? { tokens: pack.tokens } : {}),
+        ...(kind === 'credit'
+          ? {
+              tokens: pack.tokens,
+              offerCode: (pack as CreditPack).offerCode,
+              replaceGroup: "credit-pack",
+              lockedQuantity: true,
+            }
+          : {}),
         ...(cardCount ? { cardCount } : {}),
         ...(creditsPerCard !== undefined ? { creditsPerCard } : {}),
       })}>
@@ -1035,7 +1052,7 @@ function TieredPackCard({ pack }: TieredPackCardProps) {
         items={[
           { label: 'Share the Love', body: 'Send a completed card to your loved ones, or gift a Souvenote so someone else can create their own.' },
           { label: 'Flexible Sending Options', body: 'Send the same card to everyone, or a unique card to each.' },
-          { label: 'Always saved', body: 'Design now and send later. Your creations will be saved in "Saved Cards & Songs" for 12 months' },
+          { label: 'Saved to your account', body: 'Design now and send later. Your creations will be saved in "Saved Cards & Songs".' },
         ]}
       />
 
@@ -1180,7 +1197,7 @@ function RiskFreeCallout({ inline }: RiskFreeCalloutProps) {
           <div className="opt-trf-step">
             <div className="opt-trf-num">01</div>
             <div className="opt-trf-title">$9.99 hold placed</div>
-            <div className="opt-trf-body">Stripe authorization for seven days. Ten credits granted immediately.</div>
+            <div className="opt-trf-body">A five-day review window begins when payment is authorized. Ten credits are granted immediately.</div>
           </div>
           <div className="opt-trf-step">
             <div className="opt-trf-num">02</div>
@@ -1190,7 +1207,7 @@ function RiskFreeCallout({ inline }: RiskFreeCalloutProps) {
           <div className="opt-trf-step">
             <div className="opt-trf-num">03</div>
             <div className="opt-trf-title">Don't send → pay-per-use</div>
-            <div className="opt-trf-body">After seven days or ten credits used we capture only credits used × $0.20.</div>
+            <div className="opt-trf-body">If you choose not to send, or take no action for five days, we charge a flat CA$2 creative fee and release the rest of the hold.</div>
           </div>
         </div>
       </div>

@@ -1,19 +1,60 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Req } from '@nestjs/common';
 import {
+  ArrayMaxSize,
+  ArrayMinSize,
+  IsArray,
   IsInt,
   IsNotEmpty,
   IsObject,
   IsOptional,
   IsString,
+  Matches,
+  Max,
+  MaxLength,
   Min,
+  ValidateNested,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 import { OrdersService } from './orders.service';
+import type { AuthenticatedRequest } from '../auth/auth.types';
 
-export class CreateOrderDto {
+export class PostalAddressDto {
   @IsString()
   @IsNotEmpty()
-  userId: string;
+  @MaxLength(160)
+  name: string;
 
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(160)
+  line1: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(160)
+  line2?: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(100)
+  city: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(100)
+  region: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(32)
+  postalCode: string;
+
+  @IsString()
+  @Matches(/^[A-Za-z]{2}$/)
+  country: string;
+}
+
+export class CreateOrderDto {
   @IsString()
   @IsNotEmpty()
   cardDraftId: string;
@@ -24,33 +65,34 @@ export class CreateOrderDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(255)
+  @Matches(/^[a-z0-9][a-z0-9_-]*$/)
   offerCode?: string;
 
   @IsOptional()
   @IsInt()
   @Min(1)
+  @Max(30)
   quantity?: number;
 
-  @IsOptional()
-  @IsInt()
-  @Min(1)
-  amountCents?: number;
-
-  @IsOptional()
-  @IsString()
-  currency?: string;
-
-  @IsOptional()
   @IsObject()
-  recipientAddress?: Record<string, unknown>;
+  @ValidateNested()
+  @Type(() => PostalAddressDto)
+  recipientAddress: PostalAddressDto;
 
   @IsOptional()
-  @IsObject()
-  senderAddress?: Record<string, unknown>;
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(30)
+  @IsObject({ each: true })
+  @ValidateNested({ each: true })
+  @Type(() => PostalAddressDto)
+  recipientAddresses?: PostalAddressDto[];
 
-  @IsOptional()
   @IsObject()
-  metadata?: Record<string, unknown>;
+  @ValidateNested()
+  @Type(() => PostalAddressDto)
+  senderAddress: PostalAddressDto;
 }
 
 @Controller('orders')
@@ -58,17 +100,23 @@ export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}
 
   @Post()
-  async createOrder(@Body() dto: CreateOrderDto) {
-    return this.ordersService.createOrder(dto);
+  async createOrder(
+    @Req() request: AuthenticatedRequest,
+    @Body() dto: CreateOrderDto,
+  ) {
+    return this.ordersService.createOrder(request.localUser.id, dto);
   }
 
-  @Get('user/:userId')
-  async listOrdersByUser(@Param('userId') userId: string) {
-    return this.ordersService.listOrders(userId);
+  @Get()
+  async listOrders(@Req() request: AuthenticatedRequest) {
+    return this.ordersService.listOrders(request.localUser.id);
   }
 
   @Get(':orderId')
-  async getOrderById(@Param('orderId') orderId: string) {
-    return this.ordersService.getOrderById(orderId);
+  async getOrderById(
+    @Req() request: AuthenticatedRequest,
+    @Param('orderId') orderId: string,
+  ) {
+    return this.ordersService.getOrderById(request.localUser.id, orderId);
   }
 }

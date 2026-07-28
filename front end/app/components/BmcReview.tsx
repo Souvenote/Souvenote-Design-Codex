@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { BmcIcon, bmcError } from "./BmcShared";
 import type { CardDraftAsset } from "../lib/api";
-import { findGeneratedImageAsset, hasGeneratedAsset } from "../lib/mockMvpFlow";
+import { findGeneratedAsset, findGeneratedImageAsset, hasGeneratedAsset } from "../lib/mockMvpFlow";
 import { GENRE_GROUPS } from "./BmcSteps";
 
 // BmcReview.tsx - Build My Card Review page.
@@ -21,6 +21,7 @@ type ReviewPanelProps = PanelStatusProps & {
   onApprove: () => void;
   onInvalidate?: () => void;
   onRegenerate?: () => boolean | Promise<boolean>;
+  mediaUrl?: string | null;
   editing: boolean;
   setEditing: (editing: boolean) => void;
 };
@@ -53,9 +54,12 @@ type BmcInviteModalProps = ModalProps & {
 
 type BmcReviewProps = {
   onStartOver?: () => void;
-  onApproveAll?: (selectedAssetId?: string) => void;
+  onApproveAll?: (
+    selectedAssetId?: string,
+    assetIds?: string[],
+  ) => boolean | void | Promise<boolean | void>;
   onTopUp?: () => void;
-  onRegenerateAsset?: () => boolean | Promise<boolean>;
+  onRegenerateAsset?: (assetType: "image" | "song") => boolean | Promise<boolean>;
   credits?: number;
   generating?: boolean;
   includeSong?: boolean;
@@ -96,7 +100,7 @@ A pair of shoes by the door...
 [00:25-00:41 Chorus]
 To the moon and back, to the moon and back...`;
 
-function BmcReviewFront({ approved, onApprove, onInvalidate, onRegenerate, editing, setEditing, generating }: ReviewPanelProps) {
+function BmcReviewFront({ approved, onApprove, onInvalidate, onRegenerate, mediaUrl, editing, setEditing, generating }: ReviewPanelProps) {
   const [instr, setInstr] = React.useState(INITIAL_IMAGE_EDIT);
   const [regenerating, setRegenerating] = React.useState(false);
   const timer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -133,10 +137,20 @@ function BmcReviewFront({ approved, onApprove, onInvalidate, onRegenerate, editi
 
       <div className="bmc-front-art">
         <div className="bmc-front-noise" />
-        <div className="bmc-front-glyph">
-          To the moon<br/>and back
-        </div>
-        <div className="bmc-front-fig" />
+        {mediaUrl ? (
+          <img
+            src={mediaUrl}
+            alt="Generated Souvenote card front"
+            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+          />
+        ) : (
+          <>
+            <div className="bmc-front-glyph">
+              To the moon<br/>and back
+            </div>
+            <div className="bmc-front-fig" />
+          </>
+        )}
       </div>
       <div className="bmc-front-caption">5x7 portrait - Transform - Cinematic - Heartfelt + Elegant</div>
 
@@ -215,17 +229,39 @@ function BmcGenreSelect({ value, onChange }: BmcGenreSelectProps) {
   );
 }
 
-function BmcReviewSong({ approved, onApprove, onInvalidate, onRegenerate, editing, setEditing, generating }: ReviewPanelProps) {
+function BmcReviewSong({ approved, onApprove, onInvalidate, onRegenerate, mediaUrl, editing, setEditing, generating }: ReviewPanelProps) {
   const [playing, setPlaying] = React.useState(false);
   const [genre, setGenre] = React.useState(INITIAL_SONG_GENRE);
   const [lyrics, setLyrics] = React.useState(INITIAL_SONG_LYRICS);
   const [regenerating, setRegenerating] = React.useState(false);
   const timer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const audioRef = React.useRef<HTMLAudioElement | null>(null);
   const editMade = genre !== INITIAL_SONG_GENRE || lyrics.trim() !== INITIAL_SONG_LYRICS.trim();
   const panelGenerating = generating || regenerating;
   const BARS = [12,18,24,16,30,22,12,26,20,32,14,26,10,22,30,16,24,11,20,28,14,24,18,30,11,22,16,26,20,12,24,30,14,20,10,26,18,30,14,22,12,24,20,28,10,16,26,18,22,14,24,18,30,22];
 
   React.useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
+  React.useEffect(() => {
+    setPlaying(false);
+    audioRef.current?.load();
+  }, [mediaUrl]);
+
+  function togglePlayback() {
+    const audio = audioRef.current;
+    if (!audio || !mediaUrl) {
+      setPlaying((current) => !current);
+      return;
+    }
+    if (playing) {
+      audio.pause();
+      setPlaying(false);
+      return;
+    }
+    void audio.play().then(
+      () => setPlaying(true),
+      () => setPlaying(false),
+    );
+  }
 
   async function regenerate() {
     if (!editMade || panelGenerating) return;
@@ -259,8 +295,11 @@ function BmcReviewSong({ approved, onApprove, onInvalidate, onRegenerate, editin
       </div>
 
       <div className="bmc-song-player">
+        {mediaUrl && (
+          <audio ref={audioRef} src={mediaUrl} preload="metadata" onEnded={() => setPlaying(false)} />
+        )}
         <div className="bmc-song-meta">
-          <button className="bmc-song-fab" onClick={() => setPlaying(p => !p)} aria-label={playing ? 'Pause' : 'Play'}>
+          <button className="bmc-song-fab" onClick={togglePlayback} aria-label={playing ? 'Pause' : 'Play'}>
             <BmcIcon name={playing ? 'pause' : 'play'} w={18} />
           </button>
           <div>
@@ -419,7 +458,7 @@ function BmcInviteModal({ open, onClose, includeSong = true }: BmcInviteModalPro
         <h2 className="bmc-modal-title">
           <span className="bmc-invite-title-brandline">
             <span className="bmc-invite-wordmark">
-              <img src="/assets/WordmarkLobster.png" alt="Souvenote" />
+              <img src="/assets/WordmarkLobster.png" alt="Souvenote" width={1445} height={334} />
             </span>
             <span className="bmc-invite-title-script">is</span>
           </span>
@@ -505,7 +544,10 @@ function BmcReview({
   const [editing, setEditing] = React.useState<EditingState>({ image: false, song: false, message: false });
   const [confirm, setConfirm] = React.useState(false);
   const [inviteOpen, setInviteOpen] = React.useState(false);
+  const [approvingAll, setApprovingAll] = React.useState(false);
   const generatedImageAsset = React.useMemo(() => findGeneratedImageAsset(assets), [assets]);
+  const generatedSongAsset = React.useMemo(() => findGeneratedAsset(assets, "song"), [assets]);
+  const generatedMessageAsset = React.useMemo(() => findGeneratedAsset(assets, "message"), [assets]);
   const hasSongAsset = React.useMemo(() => hasGeneratedAsset(assets, "song"), [assets]);
   const hasMessageAsset = React.useMemo(() => hasGeneratedAsset(assets, "message"), [assets]);
   const assetsLoading = assetsStatus === "loading";
@@ -514,24 +556,33 @@ function BmcReview({
   // Open the "while you wait" invite modal as soon as generation kicks off.
   React.useEffect(() => { if (generating) setInviteOpen(true); }, [generating]);
   // Let the dev switcher preview the invite modal on demand.
-  React.useEffect(() => { window.__bmcShowInvite = () => setInviteOpen(true); }, []);
+  React.useEffect(() => {
+    if (process.env.NODE_ENV !== "development") return;
+    window.__bmcShowInvite = () => setInviteOpen(true);
+    return () => {
+      delete window.__bmcShowInvite;
+    };
+  }, []);
 
   const approvedCount = [imgApproved, msgApproved, includeSong && songApproved].filter(Boolean).length;
   const requiredApprovalCount = includeSong ? 3 : 2;
   const allApproved = imgApproved && msgApproved && (!includeSong || songApproved);
   const startOver = onStartOver || (() => router.push('/create/build-my-card'));
-  const approveAll = onApproveAll || (() => router.push('/delivery'));
+  const approveAll = onApproveAll || (() => {
+    router.push('/delivery');
+    return true;
+  });
   const topUp = onTopUp || (() => router.push('/pricing'));
   const outOfCredits = credits <= 0;
-  const spendRegenerationCredit = async () => {
+  const spendRegenerationCredit = async (assetType: "image" | "song") => {
     if (credits <= 0) {
       topUp();
       return false;
     }
-    return await (onRegenerateAsset?.() ?? true);
+    return await (onRegenerateAsset?.(assetType) ?? true);
   };
-  const handleApproveAll = () => {
-    if (generating || assetsLoading) return;
+  const handleApproveAll = async () => {
+    if (generating || assetsLoading || approvingAll) return;
     if (!generatedImageAsset?.id) {
       bmcError(
         assetsUnavailable
@@ -542,10 +593,37 @@ function BmcReview({
       return;
     }
 
-    setImgApproved(true);
-    if (includeSong) setSongApproved(true);
-    setMsgApproved(true);
-    approveAll(generatedImageAsset.id);
+    const requiredAssets = [
+      generatedImageAsset,
+      ...(includeSong ? [generatedSongAsset] : []),
+      generatedMessageAsset,
+    ];
+    if (requiredAssets.some((asset) => !asset?.id)) {
+      bmcError(
+        "Every requested generated asset must be ready before approval.",
+        "Generated assets pending",
+      );
+      return;
+    }
+
+    setApprovingAll(true);
+    try {
+      const persisted = await approveAll(
+        generatedImageAsset.id,
+        requiredAssets.map((asset) => asset!.id),
+      );
+      if (persisted === false) return;
+      setImgApproved(true);
+      if (includeSong) setSongApproved(true);
+      setMsgApproved(true);
+    } catch (error) {
+      bmcError(
+        error instanceof Error ? error.message : "Asset approval failed.",
+        "Approval not saved",
+      );
+    } finally {
+      setApprovingAll(false);
+    }
   };
 
   return (
@@ -581,10 +659,11 @@ function BmcReview({
         <BmcReviewFront
           approved={imgApproved}
           generating={generating || assetsLoading}
+          mediaUrl={generatedImageAsset?.readUrl}
           onApprove={() => setImgApproved(true)}
           onInvalidate={() => setImgApproved(false)}
           onRegenerate={async () => {
-            const spent = await spendRegenerationCredit();
+            const spent = await spendRegenerationCredit("image");
             if (spent) setImgApproved(false);
             return spent;
           }}
@@ -596,10 +675,11 @@ function BmcReview({
             <BmcReviewSong
               approved={songApproved}
               generating={generating || assetsLoading}
+              mediaUrl={generatedSongAsset?.readUrl}
               onApprove={() => setSongApproved(true)}
               onInvalidate={() => setSongApproved(false)}
               onRegenerate={async () => {
-                const spent = await spendRegenerationCredit();
+                const spent = await spendRegenerationCredit("song");
                 if (spent) setSongApproved(false);
                 return spent;
               }}
@@ -642,8 +722,8 @@ function BmcReview({
               ? <span style={{ color: 'var(--gold-hi)' }}>All set · ready to deliver</span>
               : <>{approvedCount} / {requiredApprovalCount} approved</>}
           </span>
-          <button type="button" className="bmc-cta" onClick={handleApproveAll} disabled={generating || assetsLoading}>
-            {assetsLoading ? 'Loading assets...' : 'Approve All'} <BmcIcon name="arrow" w={16} />
+          <button type="button" className="bmc-cta" onClick={() => void handleApproveAll()} disabled={generating || assetsLoading || approvingAll}>
+            {assetsLoading ? 'Loading assets...' : approvingAll ? 'Saving approvals...' : 'Approve All'} <BmcIcon name="arrow" w={16} />
           </button>
         </div>
       </div>

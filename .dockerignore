@@ -1,0 +1,11 @@
+.git
+.github
+.agents
+**/node_modules
+**/.next
+**/.npm-cache
+**/coverage
+**/*.log
+front end
+*.png
+*.pdf

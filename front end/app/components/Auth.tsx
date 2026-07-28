@@ -7,9 +7,15 @@ import { useAuth } from "./AuthProvider";
 import {
   CognitoClientError,
   consumeHostedUiError,
+  getConfiguredSocialProviders,
   type CognitoSocialProvider,
   type HostedUiError,
 } from "../lib/cognitoAuth";
+import {
+  PASSWORD_POLICY_DESCRIPTION,
+  passwordPolicyError,
+} from "../lib/passwordPolicy";
+import { loginHrefAfterSignup } from "../lib/authRoutes";
 
 // Auth.tsx - Souvenote auth surface.
 // 7 state components: signup, login, welcome (post-signup modal), forgot, reset, verify, recover.
@@ -36,10 +42,6 @@ type AuthIconProps = {
   w?: number;
 };
 
-type AuthTopbarProps = {
-  state: AuthState;
-};
-
 type AuthCheckboxProps = {
   checked: boolean;
   onChange?: (checked: boolean) => void;
@@ -47,6 +49,7 @@ type AuthCheckboxProps = {
 };
 
 type SocialButtonsProps = {
+  providers: CognitoSocialProvider[];
   verb?: string;
   onProvider?: (provider: CognitoSocialProvider) => void;
 };
@@ -61,7 +64,7 @@ type VerifyViewProps = {
   variant?: VerifyVariant;
 };
 
-type AuthRouteState = "signup" | "login" | "welcome" | "forgot" | "reset" | "verify" | "verify-expired" | "recover";
+type AuthRouteState = "signup" | "login" | "first-login" | "welcome" | "forgot" | "reset" | "verify" | "verify-expired" | "recover";
 type AuthState = AuthRouteState | "welcome-dob";
 
 type AuthStateOption = {
@@ -127,13 +130,13 @@ function FacebookF() {
 // ============================================================
 // SHELL
 // ============================================================
-function AuthTopbar({ state }: AuthTopbarProps) {
+function AuthTopbar() {
   // No back chrome for the post-signup modal state (modal is over Page 2)
   return (
     <header className="auth-topbar">
       <Link className="auth-topbar-logo" href="/" aria-label="Souvenote">
         <span className="auth-topbar-logo-mark" role="img" aria-label="Souvenote">
-          <img className="auth-topbar-logo-img" src="/assets/WordmarkLobster.png" alt="Souvenote" />
+          <img className="auth-topbar-logo-img" src="/assets/WordmarkLobster.png" alt="Souvenote" width={1445} height={334} />
           <span className="auth-topbar-logo-sheen" aria-hidden="true" />
         </span>
       </Link>
@@ -167,21 +170,29 @@ function AuthCheckbox({ checked, onChange, children }: AuthCheckboxProps) {
   );
 }
 
-function SocialButtons({ verb = 'Continue', onProvider }: SocialButtonsProps) {
+const CONFIGURED_SOCIAL_PROVIDERS = getConfiguredSocialProviders();
+
+function SocialButtons({ providers, verb = 'Continue', onProvider }: SocialButtonsProps) {
   return (
     <div className="auth-socials">
-      <button type="button" className="auth-social" onClick={() => onProvider?.("Google")}>
-        <span className="auth-social-icon"><GoogleG /></span>
-        <span>{verb} with Google</span>
-      </button>
-      <button type="button" className="auth-social" onClick={() => onProvider?.("SignInWithApple")}>
-        <span className="auth-social-icon" style={{ color: 'var(--platinum-hi)' }}><AppleA /></span>
-        <span>{verb} with Apple</span>
-      </button>
-      <button type="button" className="auth-social" onClick={() => onProvider?.("Facebook")}>
-        <span className="auth-social-icon"><FacebookF /></span>
-        <span>{verb} with Facebook</span>
-      </button>
+      {providers.includes("Google") && (
+        <button type="button" className="auth-social" onClick={() => onProvider?.("Google")}>
+          <span className="auth-social-icon"><GoogleG /></span>
+          <span>{verb} with Google</span>
+        </button>
+      )}
+      {providers.includes("SignInWithApple") && (
+        <button type="button" className="auth-social" onClick={() => onProvider?.("SignInWithApple")}>
+          <span className="auth-social-icon" style={{ color: 'var(--platinum-hi)' }}><AppleA /></span>
+          <span>{verb} with Apple</span>
+        </button>
+      )}
+      {providers.includes("Facebook") && (
+        <button type="button" className="auth-social" onClick={() => onProvider?.("Facebook")}>
+          <span className="auth-social-icon"><FacebookF /></span>
+          <span>{verb} with Facebook</span>
+        </button>
+      )}
     </div>
   );
 }
@@ -207,10 +218,26 @@ function friendlyAuthError(error: unknown) {
     if (error.code === "UsernameExistsException") return "An account already exists for that email. Try logging in.";
     if (error.code === "InvalidPasswordException") return error.message;
     if (error.code === "CodeMismatchException") return "That confirmation code did not match.";
-    if (error.code === "ExpiredCodeException") return "That confirmation code expired. Request a new code in Cognito or sign up again.";
+    if (error.code === "ExpiredCodeException") return "That confirmation code expired. Request a new code and try again.";
   }
 
   return error instanceof Error ? error.message : "Authentication failed. Please try again.";
+}
+
+function passwordResetRequestError(error: unknown) {
+  if (
+    error instanceof CognitoClientError &&
+    ["UserNotFoundException", "InvalidParameterException"].includes(error.code)
+  ) {
+    return null;
+  }
+  if (
+    error instanceof CognitoClientError &&
+    ["LimitExceededException", "TooManyRequestsException"].includes(error.code)
+  ) {
+    return "Too many reset attempts were made. Wait a while before trying again.";
+  }
+  return "We couldn't send a reset code right now. Please try again.";
 }
 
 function socialProviderLabel(provider?: CognitoSocialProvider) {
@@ -239,20 +266,19 @@ function cleanReturnTo(value: string | null, fallback: string) {
   return value;
 }
 
-function loginHrefAfterSignup(email: string, returnTo: string, reason: "created" | "exists") {
-  const params = new URLSearchParams({
-    returnTo,
-    signup: reason,
-  });
-  const normalizedEmail = email.trim().toLowerCase();
-  if (normalizedEmail) params.set("email", normalizedEmail);
-  return `/login?${params.toString()}`;
-}
-
 function signupLoginMessage(reason: string | null) {
-  if (reason === "created") return "Account created. Log in with your email and password to continue.";
   if (reason === "exists") return "That email already has an account. Log in with your email and password instead.";
   return null;
+}
+
+function loginStatusMessage(
+  signupReason: string | null,
+  resetReason: string | null,
+) {
+  if (resetReason === "success") {
+    return "Password reset complete. Log in with your new password.";
+  }
+  return signupLoginMessage(signupReason);
 }
 
 // ============================================================
@@ -266,10 +292,7 @@ function SignUpView() {
   const [pw, setPw] = React.useState('');
   const [pw2, setPw2] = React.useState('');
   const [show, setShow] = React.useState(false);
-  const [dob, setDob] = React.useState('');
-  const [country, setCountry] = React.useState('CA');
-  const [marketing, setMarketing] = React.useState(true);
-  const [terms, setTerms] = React.useState(true);
+  const [terms, setTerms] = React.useState(false);
   const [confirmationCode, setConfirmationCode] = React.useState('');
   const [needsConfirmation, setNeedsConfirmation] = React.useState(false);
   const [authMessage, setAuthMessage] = React.useState<string | null>(null);
@@ -297,6 +320,12 @@ function SignUpView() {
 
     if (pw !== pw2) {
       setAuthError("Passwords don't match yet.");
+      return;
+    }
+
+    const policyError = passwordPolicyError(pw);
+    if (policyError) {
+      setAuthError(policyError);
       return;
     }
 
@@ -364,7 +393,7 @@ function SignUpView() {
 
   return (
     <div className="auth-stage">
-      <div className="auth-card auth-card-wide">
+      <div className={`auth-card auth-card-wide auth-card-signup ${CONFIGURED_SOCIAL_PROVIDERS.length ? "" : "auth-card-signup-single"}`}>
         <div className="auth-authflow">
           <div className="auth-authflow-intro">
           <div className="auth-eyebrow">Sign Up · Welcome</div>
@@ -373,18 +402,20 @@ function SignUpView() {
           </h1>
           </div>
 
-          <div className="auth-method-grid">
-          <section className="auth-method-panel">
-            <div className="auth-method-kicker">Fastest</div>
-            <h2 className="auth-method-title">Sign up with social</h2>
-            <p className="auth-method-sub">Use an existing account and we&apos;ll open your welcome credits right away.</p>
-            <SocialButtons verb="Continue" onProvider={handleSocialSignUp} />
-          </section>
+          <div className={`auth-method-grid ${CONFIGURED_SOCIAL_PROVIDERS.length ? "" : "auth-method-grid-single"}`}>
+          {CONFIGURED_SOCIAL_PROVIDERS.length > 0 && (
+            <section className="auth-method-panel">
+              <div className="auth-method-kicker">Fastest</div>
+              <h2 className="auth-method-title">Sign up with social</h2>
+              <p className="auth-method-sub">Use an existing account and we&apos;ll open your welcome credits right away.</p>
+              <SocialButtons providers={CONFIGURED_SOCIAL_PROVIDERS} verb="Continue" onProvider={handleSocialSignUp} />
+            </section>
+          )}
 
           <section className="auth-method-panel auth-method-panel-email">
             <div className="auth-method-kicker">Email</div>
             <h2 className="auth-method-title">Sign up with email</h2>
-            <p className="auth-method-sub">Set your login details, birthday reminder, and country preferences.</p>
+            <p className="auth-method-sub">Create your account with an email and password. You can add profile preferences after logging in.</p>
 
           <div className="auth-email-fields auth-email-fields-signup">
           <div className="auth-field">
@@ -405,6 +436,7 @@ function SignUpView() {
               <span>Password strength</span>
               <span style={{ color: s >= 3 ? 'var(--gold)' : s === 0 ? 'var(--rose-gold)' : 'var(--text-muted)' }}>{strengthLabel(s)}</span>
             </div>
+            <p className="auth-hint">{PASSWORD_POLICY_DESCRIPTION}</p>
           </div>
 
           <div className="auth-field">
@@ -412,26 +444,6 @@ function SignUpView() {
             <input className={`auth-input ${pw2 && pw2 !== pw ? 'is-error' : ''}`} type={show ? 'text' : 'password'} placeholder="Type it again" value={pw2} onChange={(e) => setPw2(e.target.value)} />
             {pw2 && pw2 !== pw && <p className="auth-hint is-error">Passwords don't match yet.</p>}
           </div>
-
-          <div className="auth-field-row">
-            <div className="auth-field">
-              <label className="auth-label">Birthday <em>· optional</em></label>
-              <input className="auth-input" type="date" value={dob} onChange={(e) => setDob(e.target.value)} />
-              <p className="auth-hint">Add your birthday so your loved ones are reminded when it&apos;s your turn to get a gift.</p>
-            </div>
-            <div className="auth-field">
-              <label className="auth-label">Country</label>
-              <select className="auth-select" value={country} onChange={(e) => setCountry(e.target.value)}>
-                <option value="CA">Canada (CAD)</option>
-                <option value="US">United States (USD)</option>
-              </select>
-              <p className="auth-hint">Sets your currency, attestation, and tax.</p>
-            </div>
-          </div>
-
-          <AuthCheckbox checked={marketing} onChange={setMarketing}>
-            Send me occasional ideas, seasonal nudges, and the rare new feature email. Unsubscribe anytime.
-          </AuthCheckbox>
 
           <AuthCheckbox checked={terms} onChange={setTerms}>
             I agree to the <Link href="/legal/terms-of-service">Terms of Service</Link> and the <Link href="/legal/privacy-policy">Privacy Policy</Link>.
@@ -471,22 +483,31 @@ function SignUpView() {
 }
 
 // ============================================================
-// LOG IN (00b)
+// LOG IN + FIRST LOGIN (00b)
 // ============================================================
-function LoginView() {
+type LoginViewProps = {
+  firstTime?: boolean;
+};
+
+function LoginView({ firstTime = false }: LoginViewProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { login, confirmSignup, startSocialSignIn, error: authContextError } = useAuth();
+  const isFirstTime = firstTime || searchParams.get("signup") === "created";
+  const socialProviders = isFirstTime ? [] : CONFIGURED_SOCIAL_PROVIDERS;
   const [email, setEmail] = React.useState(() => searchParams.get("email") || '');
   const [pw, setPw] = React.useState('');
   const [show, setShow] = React.useState(false);
-  const [remember, setRemember] = React.useState(true);
   const [confirmationCode, setConfirmationCode] = React.useState('');
   const [needsConfirmation, setNeedsConfirmation] = React.useState(false);
-  const [authMessage, setAuthMessage] = React.useState<string | null>(() => signupLoginMessage(searchParams.get("signup")));
+  const [authMessage, setAuthMessage] = React.useState<string | null>(() =>
+    isFirstTime
+      ? "Your account is ready. Log in once to continue."
+      : loginStatusMessage(searchParams.get("signup"), searchParams.get("reset")),
+  );
   const [authError, setAuthError] = React.useState<string | null>(null);
   const [submitting, setSubmitting] = React.useState(false);
-  const returnTo = cleanReturnTo(searchParams.get("returnTo"), "/create");
+  const returnTo = cleanReturnTo(searchParams.get("returnTo"), isFirstTime ? "/welcome" : "/create");
 
   React.useEffect(() => {
     const hostedUiError = consumeHostedUiError();
@@ -555,28 +576,47 @@ function LoginView() {
   return (
     <div className="auth-stage">
       <div className="auth-card auth-card-login">
-        <div className="auth-authflow">
-          <div className="auth-authflow-intro">
-        <div className="auth-eyebrow">Welcome back</div>
+          <div className="auth-authflow">
+            <div className="auth-authflow-intro">
+        <div className="auth-eyebrow">{isFirstTime ? "Account created" : "Welcome back"}</div>
         <h1 className="auth-title">
-          Pick up where you{' '}
-          <span className="souv-hero-italic text-metallic-rose-gold">left off</span>
+          {isFirstTime ? (
+            <>
+              Your first Souvenote{' '}
+              <span className="souv-hero-italic text-metallic-rose-gold">starts here</span>
+            </>
+          ) : (
+            <>
+              Pick up where you{' '}
+              <span className="souv-hero-italic text-metallic-rose-gold">left off</span>
+            </>
+          )}
         </h1>
-        <p className="auth-sub">Sessions roll for thirty days when you tick remember-me.</p>
-          </div>
+        <p className="auth-sub">
+          {isFirstTime
+            ? "Log in once with the email and password you just created to unlock your 2 welcome credits."
+            : "Log in securely to continue to your saved cards, songs, and account."}
+        </p>
+            </div>
 
-          <div className="auth-method-grid">
-        <section className="auth-method-panel">
-          <div className="auth-method-kicker">Social</div>
-          <h2 className="auth-method-title">Log in with social</h2>
-          <p className="auth-method-sub">Continue with the same provider you used to create your Souvenote account.</p>
-          <SocialButtons verb="Continue" onProvider={handleSocialLogin} />
-        </section>
+          <div className={`auth-method-grid ${socialProviders.length ? "" : "auth-method-grid-single"}`}>
+        {socialProviders.length > 0 && (
+          <section className="auth-method-panel">
+            <div className="auth-method-kicker">Social</div>
+            <h2 className="auth-method-title">Log in with social</h2>
+            <p className="auth-method-sub">Continue with the same provider you used to create your Souvenote account.</p>
+            <SocialButtons providers={socialProviders} verb="Continue" onProvider={handleSocialLogin} />
+          </section>
+        )}
 
         <section className="auth-method-panel auth-method-panel-email">
-          <div className="auth-method-kicker">Email</div>
-          <h2 className="auth-method-title">Log in with email</h2>
-          <p className="auth-method-sub">Use your email and password to get back to your saved cards and songs.</p>
+          <div className="auth-method-kicker">{isFirstTime ? "First sign-in" : "Email"}</div>
+          <h2 className="auth-method-title">{isFirstTime ? "Continue with email" : "Log in with email"}</h2>
+          <p className="auth-method-sub">
+            {isFirstTime
+              ? "Use the email and password you just chose. We’ll take you straight to your welcome."
+              : "Use your email and password to get back to your saved cards and songs."}
+          </p>
 
         <div className="auth-email-fields">
         <div className="auth-field">
@@ -597,10 +637,6 @@ function LoginView() {
           </div>
         </div>
 
-        <AuthCheckbox checked={remember} onChange={setRemember}>
-          Remember me on this device · 30-day rolling session
-        </AuthCheckbox>
-
         {authMessage && <p className="auth-hint" style={{ color: 'var(--gold)' }}>{authMessage}</p>}
         {authError && <p className="auth-hint is-error">{authError}</p>}
 
@@ -617,13 +653,16 @@ function LoginView() {
           </button>
         ) : (
           <button type="button" className="auth-submit" onClick={handleLogin} disabled={submitting}>
-            {submitting ? "Logging in..." : "Log In"} <AuthIcon name="arrow" w={16} />
+            {submitting ? "Logging in..." : isFirstTime ? "Continue" : "Log In"} <AuthIcon name="arrow" w={16} />
           </button>
         )}
 
         <div className="auth-cardfoot">
-          Don't have an account?{' '}
-          <Link href="/signup">Sign up →</Link>
+          {isFirstTime ? (
+            <>Already had a Souvenote account? <Link href="/login">Use the returning login →</Link></>
+          ) : (
+            <>Don&apos;t have an account? <Link href="/signup">Sign up →</Link></>
+          )}
         </div>
         </div>
         </section>
@@ -638,7 +677,7 @@ function LoginView() {
 // WELCOME MODAL (00c)
 // ============================================================
 function WelcomeModal({ stepDob = false }: WelcomeModalProps) {
-  const [step, setStep] = React.useState<"dob" | "welcome">(stepDob ? 'dob' : 'welcome');
+  const step = stepDob ? 'dob' : 'welcome';
   const [dob, setDob] = React.useState('');
 
   return (
@@ -657,7 +696,7 @@ function WelcomeModal({ stepDob = false }: WelcomeModalProps) {
               </span>
               <h2 className="auth-modal-title auth-welcome-title">
                 <span>Welcome to</span>
-                <img src="/assets/WordmarkLobster.png" alt="Souvenote" />
+                <img src="/assets/WordmarkLobster.png" alt="Souvenote" width={1445} height={334} />
               </h2>
               <p className="auth-modal-sub auth-welcome-sub">
                 To get started, select <span className="auth-shimmer-gold">Personalize a Template</span> to see what's possible or <span className="auth-shimmer-rose">Build My Card</span> if you already have a design idea.
@@ -722,8 +761,38 @@ function WelcomeModal({ stepDob = false }: WelcomeModalProps) {
 // FORGOT PASSWORD (00d)
 // ============================================================
 function ForgotView() {
+  const router = useRouter();
+  const { requestPasswordReset } = useAuth();
   const [email, setEmail] = React.useState('');
   const [sent, setSent] = React.useState(false);
+  const [submitting, setSubmitting] = React.useState(false);
+  const [authError, setAuthError] = React.useState<string | null>(null);
+
+  const handleSend = React.useCallback(async () => {
+    setAuthError(null);
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail || !normalizedEmail.includes("@")) {
+      setAuthError("Enter the email address for your account.");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      await requestPasswordReset(normalizedEmail);
+      setSent(true);
+    } catch (error) {
+      const safeError = passwordResetRequestError(error);
+      if (safeError) setAuthError(safeError);
+      else setSent(true);
+    } finally {
+      setSubmitting(false);
+    }
+  }, [email, requestPasswordReset]);
+
+  const continueToReset = React.useCallback(() => {
+    const params = new URLSearchParams({ email: email.trim().toLowerCase() });
+    router.push(`/reset?${params.toString()}`);
+  }, [email, router]);
 
   return (
     <div className="auth-stage auth-stage-secondary">
@@ -734,7 +803,8 @@ function ForgotView() {
           <span className="souv-hero-italic text-metallic-rose-gold">password</span>
         </h1>
         <p className="auth-sub">
-          Enter your account email and we'll send a one-time reset link. It's valid for one hour.
+          Enter your account email and we&apos;ll ask Cognito to send a one-time
+          verification code.
         </p>
 
         {sent ? (
@@ -743,11 +813,34 @@ function ForgotView() {
               <AuthIcon name="check" w={12} /> Check your inbox
             </span>
             <p className="auth-hint" style={{ marginBottom: 22 }}>
-              If an account exists for <b style={{ color: 'var(--platinum-hi)' }}>{email || 'that email'}</b>,
-              a reset link is on its way. The link expires in one hour. You can resend after 60 seconds.
+              If an eligible account exists for that email, a password-reset
+              code is on its way. Enter that code on the next screen.
             </p>
-            <button type="button" className="auth-submit-secondary" onClick={() => setSent(false)}>
-              Resend reset link
+            {authError && <p className="auth-hint is-error">{authError}</p>}
+            <button
+              type="button"
+              className="auth-submit"
+              onClick={continueToReset}
+            >
+              Enter reset code <AuthIcon name="arrow" w={16} />
+            </button>
+            <button
+              type="button"
+              className="auth-submit-secondary"
+              onClick={handleSend}
+              disabled={submitting}
+            >
+              {submitting ? "Sending..." : "Resend code"}
+            </button>
+            <button
+              type="button"
+              className="auth-link"
+              onClick={() => {
+                setSent(false);
+                setAuthError(null);
+              }}
+            >
+              Use a different email
             </button>
           </>
         ) : (
@@ -756,8 +849,14 @@ function ForgotView() {
               <label className="auth-label">Account email</label>
               <input className="auth-input" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} />
             </div>
-            <button type="button" className="auth-submit" onClick={() => setSent(true)}>
-              Send reset link <AuthIcon name="mail" w={16} />
+            {authError && <p className="auth-hint is-error">{authError}</p>}
+            <button
+              type="button"
+              className="auth-submit"
+              onClick={handleSend}
+              disabled={submitting}
+            >
+              {submitting ? "Sending..." : "Send reset code"} <AuthIcon name="mail" w={16} />
             </button>
           </>
         )}
@@ -775,24 +874,89 @@ function ForgotView() {
 // RESET PASSWORD (00e)
 // ============================================================
 function ResetView() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { confirmPasswordReset } = useAuth();
+  const [email, setEmail] = React.useState(() => searchParams.get("email") || '');
+  const [code, setCode] = React.useState('');
   const [pw, setPw] = React.useState('');
   const [pw2, setPw2] = React.useState('');
   const [show, setShow] = React.useState(false);
+  const [submitting, setSubmitting] = React.useState(false);
+  const [authError, setAuthError] = React.useState<string | null>(null);
   const s = strength(pw);
   const match = pw && pw2 && pw === pw2;
 
+  const handleReset = React.useCallback(async () => {
+    setAuthError(null);
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail || !normalizedEmail.includes("@")) {
+      setAuthError("Enter the email address for your account.");
+      return;
+    }
+    if (!code.trim()) {
+      setAuthError("Enter the reset code from your email.");
+      return;
+    }
+    const policyError = passwordPolicyError(pw);
+    if (policyError) {
+      setAuthError(policyError);
+      return;
+    }
+    if (pw !== pw2) {
+      setAuthError("Passwords don't match yet.");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      await confirmPasswordReset(normalizedEmail, code, pw);
+      const params = new URLSearchParams({
+        email: normalizedEmail,
+        reset: "success",
+      });
+      router.push(`/login?${params.toString()}`);
+    } catch (error) {
+      setAuthError(friendlyAuthError(error));
+    } finally {
+      setSubmitting(false);
+    }
+  }, [code, confirmPasswordReset, email, pw, pw2, router]);
+
   return (
     <div className="auth-stage auth-stage-secondary">
-      <div className="auth-card auth-card-secondary">
+      <div className="auth-card auth-card-secondary auth-card-reset">
         <div className="auth-eyebrow">Account · Reset</div>
         <h1 className="auth-title">
           Set a{' '}
           <span className="souv-hero-italic text-metallic-rose-gold">new password</span>
         </h1>
         <p className="auth-sub">
-          Twelve characters or more, with at least one number and one letter. After you save,
-          we'll sign you out everywhere and bring you back here.
+          Enter the verification code Cognito emailed you, then choose a new
+          password. You&apos;ll return to login after the reset succeeds.
         </p>
+
+        <div className="auth-field">
+          <label className="auth-label">Account email</label>
+          <input
+            className="auth-input"
+            placeholder="you@example.com"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+          />
+        </div>
+
+        <div className="auth-field">
+          <label className="auth-label">Reset code</label>
+          <input
+            className="auth-input"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            placeholder="123456"
+            value={code}
+            onChange={(event) => setCode(event.target.value)}
+          />
+        </div>
 
         <div className="auth-field">
           <label className="auth-label">New password</label>
@@ -807,6 +971,7 @@ function ResetView() {
             <span>Strength</span>
             <span style={{ color: s >= 3 ? 'var(--gold)' : s === 0 ? 'var(--rose-gold)' : 'var(--text-muted)' }}>{strengthLabel(s)}</span>
           </div>
+          <p className="auth-hint">{PASSWORD_POLICY_DESCRIPTION}</p>
         </div>
 
         <div className="auth-field">
@@ -822,12 +987,19 @@ function ResetView() {
           {match && <p className="auth-hint" style={{ color: 'var(--gold)' }}>Matched.</p>}
         </div>
 
-        <button type="button" className="auth-submit">
-          Set new password &amp; sign in <AuthIcon name="arrow" w={16} />
+        {authError && <p className="auth-hint is-error">{authError}</p>}
+
+        <button
+          type="button"
+          className="auth-submit"
+          onClick={handleReset}
+          disabled={submitting}
+        >
+          {submitting ? "Resetting..." : "Set new password"} <AuthIcon name="arrow" w={16} />
         </button>
 
         <p className="auth-hint" style={{ marginTop: 18, textAlign: 'center' }}>
-          For safety, this signs you out on every other device.
+          Need another code? <Link href="/forgot">Request a new one.</Link>
         </p>
       </div>
     </div>
@@ -893,36 +1065,28 @@ function RecoverView() {
     <div className="auth-stage auth-stage-secondary">
       <div className="auth-card auth-card-secondary auth-status-center">
         <span className="auth-status-icon is-rose">
-          <AuthIcon name="clock" w={36} />
+          <AuthIcon name="shield" w={36} />
         </span>
-        <div className="auth-eyebrow is-rose" style={{ justifyContent: 'center' }}>Account · 30-day grace</div>
+        <div className="auth-eyebrow is-rose" style={{ justifyContent: 'center' }}>Account recovery</div>
         <h1 className="auth-title">
-          Welcome back. Want to{' '}
-          <span className="souv-hero-italic text-metallic-rose-gold">restore</span>{' '}
-          your account?
+          Recovery is not yet{' '}
+          <span className="souv-hero-italic text-metallic-rose-gold">self-service</span>
         </h1>
-        <p className="auth-sub" style={{ marginBottom: 16 }}>
-          Your Souvenote account is scheduled for permanent deletion. You have a few days left to
-          bring everything back.
+        <p className="auth-sub">
+          Souvenote&apos;s retention schedule includes a 30-day recovery grace period after an
+          account-deletion request, but the verified recovery workflow is still being prepared for
+          production. Contact support from the email address on your account for help.
         </p>
-        <div className="auth-countdown">
-          <span className="auth-countdown-num">3</span>
-          <span className="auth-countdown-label">days remaining</span>
-        </div>
-
-        <ul className="auth-restore-list">
-          <li><AuthIcon name="image" w={16} /> Saved card images and songs</li>
-          <li><AuthIcon name="gift" w={16} /> Active card packs (clock paused during grace)</li>
-          <li><AuthIcon name="note" w={16} /> Drafts, recipient list, and order history</li>
-          <li><AuthIcon name="shield" w={16} /> Referral credits earned to date</li>
-        </ul>
-
-        <button type="button" className="auth-submit" style={{ marginBottom: 10 }}>
-          Restore my account <AuthIcon name="arrow" w={16} />
-        </button>
-        <button type="button" className="auth-link" style={{ color: 'var(--rose-gold)', marginTop: 4 }}>
-          No, finalize deletion now
-        </button>
+        <a
+          href="mailto:support@souvenote.com?subject=Souvenote%20account%20recovery"
+          className="auth-submit"
+          style={{ textDecoration: 'none' }}
+        >
+          Contact support <AuthIcon name="mail" w={16} />
+        </a>
+        <Link href="/login" className="auth-link" style={{ marginTop: 14 }}>
+          Return to login
+        </Link>
       </div>
     </div>
   );
@@ -934,6 +1098,7 @@ function RecoverView() {
 const AUTH_STATES: AuthStateOption[] = [
   { id: 'signup',   label: 'Sign Up' },
   { id: 'login',    label: 'Log In' },
+  { id: 'first-login', label: 'First Login' },
   { id: 'welcome',  label: 'Welcome' },
   { id: 'forgot',   label: 'Forgot' },
   { id: 'reset',    label: 'Reset' },
@@ -949,6 +1114,14 @@ function isAuthRouteState(value: string | undefined): value is AuthRouteState {
 function AuthApp({ initialState = 'signup' }: AuthAppProps) {
   const [state, setState] = React.useState<AuthState>(initialState);
   const isModalOnly = state === 'welcome' || state === 'welcome-dob';
+  const isSignupPage = state === 'signup';
+  const isLoginPage = state === 'login' || state === 'first-login';
+  const isSecondaryPage =
+    state === 'forgot' ||
+    state === 'reset' ||
+    state === 'verify' ||
+    state === 'verify-expired' ||
+    state === 'recover';
 
   React.useEffect(() => {
     function syncToggle() {
@@ -980,11 +1153,12 @@ function AuthApp({ initialState = 'signup' }: AuthAppProps) {
   }, [state]);
 
   return (
-    <div className={`auth-page ${isModalOnly ? 'auth-page-modal-only' : ''}`}>
-      {!isModalOnly && <AuthTopbar state={state} />}
+    <div className={`auth-page ${isModalOnly ? 'auth-page-modal-only' : ''} ${isSignupPage ? 'auth-page-signup' : ''} ${isLoginPage ? 'auth-page-login' : ''} ${isSecondaryPage ? 'auth-page-secondary' : ''}`}>
+      {!isModalOnly && <AuthTopbar />}
 
       {state === 'signup'         && <SignUpView />}
       {state === 'login'          && <LoginView />}
+      {state === 'first-login'    && <LoginView firstTime />}
       {state === 'welcome'        && <WelcomeModal stepDob={false} />}
       {state === 'welcome-dob'    && <WelcomeModal stepDob={true} />}
       {state === 'forgot'         && <ForgotView />}

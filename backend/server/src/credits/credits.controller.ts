@@ -1,16 +1,22 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
-import { IsNumber, IsString } from 'class-validator';
+import {
+  Body,
+  Controller,
+  ForbiddenException,
+  Get,
+  Param,
+  Post,
+  Req,
+} from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { IsInt, IsString, Max, Min } from 'class-validator';
 import { CreditsService } from './credits.service';
+import type { AuthenticatedRequest } from '../auth/auth.types';
 
-export class CreditActionDto {
-  @IsString()
-  userId: string;
-
-  @IsNumber()
+export class MockCreditPurchaseDto {
+  @IsInt()
+  @Min(1)
+  @Max(300)
   amount: number;
-
-  @IsString()
-  source: string;
 
   @IsString()
   idempotencyKey: string;
@@ -18,40 +24,42 @@ export class CreditActionDto {
 
 @Controller('credits')
 export class CreditsController {
-  constructor(private readonly creditsService: CreditsService) {}
+  constructor(
+    private readonly creditsService: CreditsService,
+    private readonly configService: ConfigService,
+  ) {}
 
-  @Get('balance/:userId')
-  async getBalance(@Param('userId') userId: string) {
-    return this.creditsService.findBalance(userId);
+  @Get('balance')
+  async getBalance(@Req() request: AuthenticatedRequest) {
+    return this.creditsService.findBalance(request.localUser.id);
   }
 
-  @Post('grant')
-  async grant(@Body() dto: CreditActionDto) {
-    return this.creditsService.grant(
-      dto.userId,
-      dto.amount,
-      dto.source,
-      dto.idempotencyKey,
-    );
+  @Get('purchases/:purchaseId')
+  async getPurchase(
+    @Req() request: AuthenticatedRequest,
+    @Param('purchaseId') purchaseId: string,
+  ) {
+    return this.creditsService.findPurchase(request.localUser.id, purchaseId);
   }
 
-  @Post('deduct')
-  async deduct(@Body() dto: CreditActionDto) {
-    return this.creditsService.deduct(
-      dto.userId,
-      dto.amount,
-      dto.source,
-      dto.idempotencyKey,
-    );
-  }
+  @Post('mock-purchase')
+  async mockPurchase(
+    @Req() request: AuthenticatedRequest,
+    @Body() dto: MockCreditPurchaseDto,
+  ) {
+    const mockMode = this.configService.get<string>('AI_MOCK_MODE');
+    if (mockMode?.toLowerCase() !== 'true') {
+      throw new ForbiddenException(
+        'Mock credit purchases are disabled outside local mock mode.',
+      );
+    }
 
-  @Post('refund')
-  async refund(@Body() dto: CreditActionDto) {
-    return this.creditsService.refund(
-      dto.userId,
+    return this.creditsService.grantOnce(
+      request.localUser.id,
       dto.amount,
-      dto.source,
+      'mock_checkout_purchase',
       dto.idempotencyKey,
+      'credit_purchase',
     );
   }
 }

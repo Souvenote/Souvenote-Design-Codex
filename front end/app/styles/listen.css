@@ -1,0 +1,207 @@
+.listen-page {
+  position: relative;
+  min-height: 100vh;
+  overflow: hidden;
+  color: var(--text-primary);
+  background:
+    radial-gradient(circle at 50% 18%, rgba(200, 139, 134, 0.18), transparent 34rem),
+    linear-gradient(155deg, var(--bg-cream) 0%, var(--bg-primary) 46%, var(--bg-deep) 100%);
+}
+
+.listen-header {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: min(1120px, calc(100% - 40px));
+  margin: 0 auto;
+  padding: 28px 0;
+}
+
+.listen-brand {
+  color: var(--gold-hi);
+  font-family: var(--font-wordmark);
+  font-size: clamp(1.4rem, 3vw, 2rem);
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  text-decoration: none;
+}
+
+.listen-keepsake-label,
+.listen-private {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.listen-shell {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  min-height: calc(100vh - 92px);
+  place-items: center;
+  width: min(1120px, calc(100% - 40px));
+  margin: 0 auto;
+  padding: 32px 0 72px;
+}
+
+.listen-card {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(320px, 1.1fr);
+  gap: clamp(30px, 6vw, 82px);
+  align-items: center;
+  min-width: 0;
+  width: 100%;
+}
+
+.listen-art-wrap {
+  position: relative;
+  isolation: isolate;
+  padding: 8px;
+}
+
+.listen-art {
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: auto;
+  height: min(68vh, 620px);
+  max-width: 100%;
+  margin-inline: auto;
+  object-fit: cover;
+  border: 1px solid rgba(255, 241, 224, 0.25);
+  border-radius: 28px;
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.48);
+}
+
+.listen-art-glow {
+  position: absolute;
+  z-index: 0;
+  inset: 12% 2% -4%;
+  border-radius: 50%;
+  background: rgba(209, 133, 129, 0.25);
+  filter: blur(52px);
+}
+
+.listen-content {
+  min-width: 0;
+  max-width: 560px;
+}
+
+.listen-eyebrow {
+  margin: 0 0 18px;
+  color: var(--gold-hi);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.listen-content h1,
+.listen-state h1 {
+  margin: 0;
+  color: var(--platinum-hi);
+  font-family: var(--font-display);
+  font-size: clamp(2.7rem, 7vw, 5.8rem);
+  font-weight: 800;
+  letter-spacing: -0.055em;
+  line-height: 0.95;
+}
+
+.listen-content h1 {
+  max-width: 10ch;
+  font-size: clamp(2.7rem, 5.8vw, 4.8rem);
+  overflow-wrap: break-word;
+  text-wrap: balance;
+}
+
+.listen-intro {
+  max-width: 42ch;
+  margin: 24px 0 28px;
+  color: var(--text-secondary);
+  font-size: 1.05rem;
+  line-height: 1.7;
+}
+
+.listen-audio {
+  width: 100%;
+  min-height: 54px;
+  color-scheme: dark;
+}
+
+.listen-message {
+  margin: 30px 0 22px;
+  padding: 22px 24px;
+  border: 1px solid rgba(212, 175, 55, 0.22);
+  border-radius: 18px;
+  color: var(--text-primary);
+  background: var(--glass);
+  font-family: var(--font-sans);
+  font-size: 1.08rem;
+  font-style: italic;
+  line-height: 1.7;
+}
+
+.listen-state {
+  max-width: 580px;
+  text-align: center;
+}
+
+.listen-state h1 {
+  margin-top: 22px;
+  font-size: clamp(2.3rem, 7vw, 4.4rem);
+}
+
+.listen-state p {
+  color: var(--text-secondary);
+  line-height: 1.7;
+}
+
+.listen-loader,
+.listen-mark {
+  display: inline-grid;
+  width: 48px;
+  height: 48px;
+  place-items: center;
+  border: 1px solid rgba(212, 175, 55, 0.55);
+  border-radius: 50%;
+}
+
+.listen-loader {
+  border-top-color: transparent;
+  animation: listen-spin 0.9s linear infinite;
+}
+
+.listen-mark {
+  color: var(--rose-gold-hi);
+  font-family: var(--font-sans);
+  font-size: 1.4rem;
+}
+
+.listen-help {
+  font-size: 0.88rem;
+}
+
+@keyframes listen-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 760px) {
+  .listen-keepsake-label { display: none; }
+  .listen-header,
+  .listen-shell { width: min(1120px, calc(100% - 32px)); }
+  .listen-shell { padding-top: 12px; }
+  .listen-card { grid-template-columns: 1fr; }
+  .listen-art { height: min(52vh, 480px); }
+  .listen-content { text-align: center; }
+  .listen-content h1 {
+    max-width: 11ch;
+    margin-inline: auto;
+    font-size: clamp(2.25rem, 10vw, 2.7rem);
+    line-height: 1;
+  }
+  .listen-intro { margin-right: auto; margin-left: auto; }
+  .listen-private { text-align: center; }
+}

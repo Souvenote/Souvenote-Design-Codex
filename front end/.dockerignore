@@ -1,0 +1,7 @@
+node_modules
+.next
+.npm-cache
+coverage
+*.log
+.env*
+QA_UI_AUDIT_REPORT.pdf

@@ -6,6 +6,7 @@ import {
   AUTH_SESSION_UPDATED_EVENT,
   clearCognitoAuthState,
   completeHostedUiSignIn,
+  confirmCognitoPasswordReset,
   confirmCognitoSignUp,
   consumeHostedUiAttempt,
   consumeHostedUiReturnTo,
@@ -13,6 +14,7 @@ import {
   getHostedUiLogoutUrl,
   getStoredLocalUser,
   rememberHostedUiError,
+  requestCognitoPasswordReset,
   signInWithCognito,
   signUpWithCognito,
   startHostedUiSignIn,
@@ -38,6 +40,8 @@ type AuthContextValue = {
   login: (email: string, password: string) => Promise<LocalUser>;
   signup: (email: string, password: string) => Promise<SignUpResponse>;
   confirmSignup: (email: string, confirmationCode: string, password: string) => Promise<LocalUser>;
+  requestPasswordReset: (email: string) => Promise<CognitoCodeDelivery | undefined>;
+  confirmPasswordReset: (email: string, confirmationCode: string, newPassword: string) => Promise<void>;
   startSocialSignIn: (provider: CognitoSocialProvider, returnTo?: string) => Promise<void>;
   logout: (options?: { hostedUi?: boolean }) => boolean;
   refreshUser: () => Promise<LocalUser | null>;
@@ -264,6 +268,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [syncSignupThenSignOut]);
 
+  const requestPasswordReset = React.useCallback(async (email: string) => {
+    setError(null);
+    return requestCognitoPasswordReset(email);
+  }, []);
+
+  const confirmPasswordReset = React.useCallback(async (
+    email: string,
+    confirmationCode: string,
+    newPassword: string,
+  ) => {
+    setError(null);
+    await confirmCognitoPasswordReset(email, confirmationCode, newPassword);
+    setSession(null);
+    setUser(null);
+    setStatus("unauthenticated");
+  }, []);
+
   const startSocialSignIn = React.useCallback(async (provider: CognitoSocialProvider, returnTo = "/create") => {
     setStatus("loading");
     setError(null);
@@ -309,10 +330,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     login,
     signup,
     confirmSignup,
+    requestPasswordReset,
+    confirmPasswordReset,
     startSocialSignIn,
     logout,
     refreshUser,
-  }), [confirmSignup, error, login, logout, refreshUser, session, signup, startSocialSignIn, status, user]);
+  }), [confirmPasswordReset, confirmSignup, error, login, logout, refreshUser, requestPasswordReset, session, signup, startSocialSignIn, status, user]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

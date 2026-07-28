@@ -189,6 +189,11 @@
   align-items: stretch;
 }
 
+.auth-method-grid-single {
+  grid-template-columns: minmax(0, 720px);
+  justify-content: center;
+}
+
 .auth-method-panel {
   min-width: 0;
   height: 100%;
@@ -305,12 +310,249 @@
 .auth-method-panel .auth-socials { margin-bottom: 0; }
 .auth-method-panel .auth-cardfoot { margin-top: 18px; }
 
+/* Primary auth surfaces share one balanced desktop frame. Content can expand
+   for validation/confirmation states, but the initial signup and login views
+   intentionally open at the same width and minimum height. */
+.auth-page-signup {
+  min-height: 100svh;
+}
+.auth-page-signup .auth-topbar,
+.auth-page-login .auth-topbar,
+.auth-page-secondary .auth-topbar {
+  padding: 14px 28px 10px;
+}
+.auth-page-signup .auth-topbar-logo-mark,
+.auth-page-login .auth-topbar-logo-mark,
+.auth-page-secondary .auth-topbar-logo-mark {
+  width: 132px;
+  height: 34px;
+}
+.auth-page-signup .auth-stage,
+.auth-page-login .auth-stage,
+.auth-page-secondary .auth-stage {
+  align-items: flex-start;
+  padding: clamp(8px, 1.5vh, 16px) 24px clamp(12px, 2vh, 22px);
+}
+.auth-page-signup .auth-card-signup,
+.auth-page-login .auth-card-login {
+  max-width: min(820px, calc(100vw - 48px));
+  min-height: min(540px, calc(100svh - 132px));
+  padding: clamp(24px, 2.5vw, 30px);
+  display: flex;
+}
+.auth-page-signup .auth-card-signup-single {
+  max-width: min(820px, calc(100vw - 48px));
+}
+.auth-page-signup .auth-authflow,
+.auth-page-login .auth-authflow {
+  width: 100%;
+  justify-content: center;
+}
+.auth-page-signup .auth-card-wide .auth-eyebrow {
+  margin-bottom: 7px;
+}
+.auth-page-signup .auth-card-wide .auth-title.auth-title-hero {
+  font-size: clamp(2.1rem, 3.25vw, 3.1rem);
+  margin-bottom: 7px;
+  line-height: 1;
+}
+.auth-page-signup .auth-method-panel {
+  padding: 15px 20px;
+}
+.auth-page-signup .auth-method-kicker {
+  margin-bottom: 6px;
+}
+.auth-page-signup .auth-method-title {
+  margin-bottom: 5px;
+}
+.auth-page-signup .auth-method-sub {
+  margin-bottom: 10px;
+  font-size: 13.5px;
+  line-height: 1.35;
+}
+.auth-page-signup .auth-card-wide .auth-field {
+  gap: 5px;
+  margin-bottom: 8px;
+}
+.auth-page-signup .auth-card-wide .auth-input {
+  padding: 10px 13px;
+  font-size: 14px;
+}
+.auth-page-signup .auth-meter,
+.auth-page-signup .auth-meter-label {
+  margin-top: 4px;
+}
+.auth-page-signup .auth-card-wide .auth-hint {
+  font-size: 11.5px;
+  line-height: 1.3;
+}
+.auth-page-signup .auth-check {
+  gap: 9px;
+  margin-bottom: 8px;
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+.auth-page-signup .auth-card-wide .auth-submit {
+  padding: 12px 20px;
+  margin-top: 0;
+  font-size: 12px;
+}
+.auth-page-signup .auth-cardfoot,
+.auth-page-signup .auth-method-panel .auth-cardfoot {
+  margin-top: 10px;
+  padding-top: 10px;
+  font-size: 13px;
+}
+.auth-page-signup .auth-card-wide .auth-cardfoot a {
+  font-size: 13px;
+}
+.auth-page-signup .auth-foot {
+  padding: 8px 28px 12px;
+}
+
+/* Login states are intentionally compact enough to remain a complete,
+   balanced composition inside a laptop viewport. Signup and recovery flows
+   retain their roomier layouts and can scroll when their content requires it. */
+.auth-page-login {
+  min-height: 100svh;
+}
+.auth-page-login .auth-authflow {
+  gap: 16px;
+}
+.auth-page-login .auth-authflow-intro .auth-eyebrow {
+  margin-bottom: 8px;
+}
+.auth-page-login .auth-card-login .auth-title {
+  font-size: clamp(2rem, 3.3vw, 3rem);
+  margin-bottom: 8px;
+}
+.auth-page-login .auth-card-login .auth-sub {
+  font-size: clamp(14px, 1.25vw, 16px);
+  line-height: 1.4;
+}
+.auth-page-login .auth-method-panel {
+  padding: 18px 22px;
+}
+.auth-page-login .auth-method-kicker {
+  margin-bottom: 7px;
+}
+.auth-page-login .auth-method-title {
+  margin-bottom: 6px;
+}
+.auth-page-login .auth-method-sub {
+  margin-bottom: 14px;
+  font-size: 14px;
+  line-height: 1.4;
+}
+.auth-page-login .auth-field {
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.auth-page-login .auth-input {
+  padding: 11px 14px;
+}
+.auth-page-login .auth-submit {
+  padding: 14px 22px;
+  margin-top: 2px;
+}
+.auth-page-login .auth-cardfoot {
+  margin-top: 16px;
+  padding-top: 14px;
+  font-size: 14px;
+}
+.auth-page-login .auth-cardfoot a {
+  font-size: 14px;
+}
+.auth-page-login .auth-foot {
+  padding: 12px 28px 16px;
+}
+
+.auth-page-secondary {
+  min-height: 100svh;
+}
+.auth-page-secondary .auth-card-secondary {
+  max-width: min(680px, calc(100vw - 48px));
+  padding: 28px;
+}
+.auth-page-secondary .auth-card-secondary .auth-eyebrow {
+  margin-bottom: 10px;
+}
+.auth-page-secondary .auth-card-secondary .auth-title {
+  font-size: clamp(1.9rem, 3vw, 2.45rem);
+  margin-bottom: 10px;
+}
+.auth-page-secondary .auth-card-secondary .auth-sub {
+  max-width: 56ch;
+  margin-bottom: 18px;
+  font-size: 14.5px;
+  line-height: 1.45;
+}
+.auth-page-secondary .auth-card-secondary .auth-field {
+  gap: 5px;
+  margin-bottom: 10px;
+}
+.auth-page-secondary .auth-card-secondary .auth-input,
+.auth-page-secondary .auth-card-secondary .auth-select {
+  padding: 10px 12px;
+  font-size: 14px;
+}
+.auth-page-secondary .auth-card-secondary .auth-submit {
+  margin-top: 2px;
+  padding: 12px 20px;
+  font-size: 12px;
+}
+.auth-page-secondary .auth-card-secondary .auth-submit-secondary {
+  padding: 11px 18px;
+  font-size: 11.5px;
+}
+.auth-page-secondary .auth-card-secondary .auth-cardfoot {
+  margin-top: 16px;
+  padding-top: 14px;
+  font-size: 14px;
+}
+.auth-page-secondary .auth-card-secondary .auth-cardfoot a,
+.auth-page-secondary .auth-card-secondary .auth-cardfoot button.auth-link {
+  font-size: 14px;
+}
+.auth-page-secondary .auth-status-icon {
+  width: 68px;
+  height: 68px;
+  margin-bottom: 14px;
+}
+.auth-page-secondary .auth-status-icon svg {
+  width: 30px;
+  height: 30px;
+}
+.auth-page-secondary .auth-foot {
+  padding: 12px 28px 16px;
+}
+
+.auth-card-reset {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 12px;
+  align-content: center;
+}
+.auth-card-reset > :not(.auth-field) {
+  grid-column: 1 / -1;
+}
+.auth-card-reset > .auth-hint:last-child {
+  margin-top: 10px !important;
+}
+
 .auth-email-fields {
   display: flex;
   flex-direction: column;
 }
 
 @media (min-width: 1040px) {
+  .auth-page-signup .auth-authflow-intro {
+    min-height: 96px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
   .auth-email-fields-signup {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -920,7 +1162,95 @@
   .auth-card-secondary .auth-title {
     font-size: clamp(2.05rem, 8vw, 2.75rem);
   }
+  .auth-page-secondary .auth-card-secondary {
+    max-width: min(680px, calc(100vw - 32px));
+    padding: 28px;
+  }
   .auth-method-sub { min-height: 0; }
+}
+
+@media (min-width: 881px) and (max-height: 760px) {
+  .auth-page-signup .auth-topbar,
+  .auth-page-login .auth-topbar,
+  .auth-page-secondary .auth-topbar {
+    padding-top: 10px;
+    padding-bottom: 7px;
+  }
+  .auth-page-signup .auth-topbar-logo-mark,
+  .auth-page-login .auth-topbar-logo-mark,
+  .auth-page-secondary .auth-topbar-logo-mark {
+    width: 124px;
+    height: 31px;
+  }
+  .auth-page-signup .auth-stage,
+  .auth-page-login .auth-stage,
+  .auth-page-secondary .auth-stage {
+    padding-top: 4px;
+    padding-bottom: 8px;
+  }
+  .auth-page-signup .auth-card-signup,
+  .auth-page-login .auth-card-login {
+    padding: 22px 28px;
+  }
+  .auth-page-signup .auth-authflow {
+    gap: 8px;
+  }
+  .auth-page-signup .auth-card-wide .auth-title.auth-title-hero {
+    font-size: clamp(1.9rem, 2.8vw, 2.55rem);
+  }
+  .auth-page-signup .auth-method-panel {
+    padding: 12px 16px;
+  }
+  .auth-page-signup .auth-method-sub {
+    margin-bottom: 6px;
+  }
+  .auth-page-signup .auth-card-wide .auth-field {
+    margin-bottom: 6px;
+  }
+  .auth-page-signup .auth-card-wide .auth-input {
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+  .auth-page-signup .auth-check {
+    margin-bottom: 6px;
+  }
+  .auth-page-signup .auth-cardfoot,
+  .auth-page-signup .auth-method-panel .auth-cardfoot {
+    margin-top: 7px;
+    padding-top: 7px;
+  }
+  .auth-page-signup .auth-foot {
+    padding-top: 5px;
+    padding-bottom: 8px;
+  }
+
+  .auth-page-login .auth-authflow {
+    gap: 12px;
+  }
+  .auth-page-login .auth-card-login .auth-title {
+    font-size: clamp(1.9rem, 3vw, 2.55rem);
+  }
+  .auth-page-login .auth-method-panel {
+    padding: 15px 20px;
+  }
+  .auth-page-login .auth-method-sub {
+    margin-bottom: 10px;
+  }
+  .auth-page-login .auth-field {
+    margin-bottom: 9px;
+  }
+  .auth-page-login .auth-cardfoot {
+    margin-top: 12px;
+    padding-top: 11px;
+  }
+  .auth-page-login .auth-foot {
+    padding-top: 8px;
+    padding-bottom: 10px;
+  }
+  .auth-page-secondary .auth-foot {
+    padding-top: 8px;
+    padding-bottom: 10px;
+  }
 }
 
 @media (max-width: 540px) {
@@ -929,6 +1259,8 @@
   .auth-card-login,
   .auth-card-secondary { padding: 32px 24px 28px; }
   .auth-stage-secondary { padding-top: 20px; }
+  .auth-card-reset { grid-template-columns: 1fr; }
+  .auth-card-reset > .auth-field { grid-column: 1; }
   .auth-topbar { padding: 18px 20px; }
   .auth-foot { padding: 18px 20px 22px; }
   .auth-field-row { grid-template-columns: 1fr; }

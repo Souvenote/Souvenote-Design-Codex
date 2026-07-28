@@ -46,12 +46,6 @@ export function publishCreditBalance(balance: CreditBalance) {
   window.dispatchEvent(new CustomEvent<CreditBalance>(CREDIT_BALANCE_EVENT, { detail: cachedCreditBalance }));
 }
 
-export function publishCreditBalanceValue(balance: number, userId?: string) {
-  const resolvedUserId = resolveCreditUserId(userId);
-  if (!resolvedUserId) return;
-  publishCreditBalance({ userId: resolvedUserId, balance });
-}
-
 export function useCreditBalance({
   enabled = true,
   fallbackBalance = 0,
@@ -97,7 +91,7 @@ export function useCreditBalance({
     setError(null);
 
     try {
-      const next = await fetchCreditBalance(resolvedUserId);
+      const next = await fetchCreditBalance();
       publishCreditBalance(next);
       return next;
     } catch (unknownError) {
@@ -146,7 +140,7 @@ export function useCreditBalance({
       setError(null);
     }
 
-    fetchCreditBalance(resolvedUserId)
+    fetchCreditBalance()
       .then((next) => {
         if (!active) return;
         publishCreditBalance(next);

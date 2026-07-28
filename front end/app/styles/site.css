@@ -658,6 +658,51 @@ img { display: block; max-width: 100%; }
   .souv-nav { justify-content: space-between; }
 }
 
+@media (max-width: 480px) {
+  .souv-nav {
+    width: calc(100% - 16px);
+    min-height: 64px;
+    gap: 6px;
+    padding: 8px 8px 8px 10px;
+    border-radius: 20px;
+  }
+  .souv-nav-logo.is-wordmark img {
+    height: 30px;
+    max-width: 112px;
+  }
+  .souv-nav-right {
+    min-width: 0;
+    gap: 4px;
+  }
+  .souv-nav-login {
+    padding: 8px 3px;
+    font-size: 10px;
+    letter-spacing: .08em;
+  }
+  .souv-cta-flow {
+    padding: 8px 10px;
+    font-size: 9.5px;
+    letter-spacing: .08em;
+  }
+  .souv-nav.is-signed-in .souv-nav-sep,
+  .souv-nav.is-signed-in .souv-currency-wrap {
+    display: none;
+  }
+  .souv-nav.is-signed-in .souv-credits-stack {
+    min-width: 74px;
+    min-height: 40px;
+    padding: 4px 6px;
+  }
+  .souv-nav.is-signed-in .souv-credits-stack .souv-credit {
+    grid-template-columns: 40px auto;
+    gap: 4px;
+  }
+  .souv-nav.is-signed-in .souv-iconbtn {
+    width: 36px;
+    height: 36px;
+  }
+}
+
 .souv-overlay { position: fixed; inset: 0; z-index: 55; }
 .souv-popmenu {
   position: absolute; top: calc(100% + 10px); right: 0;
@@ -935,7 +980,7 @@ a.souv-popmenu-logout { text-decoration: none; }
   margin: 0;
   text-align: center;
   /* Match the gallery card occasion typography below the hero. */
-  font-family: var(--font-display, 'Outfit'), system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-family: var(--font-display);
   font-style: italic;
   font-weight: 500;
   font-size: 31px;
@@ -994,7 +1039,7 @@ a.souv-popmenu-logout { text-decoration: none; }
   width: 100%; height: auto; display: block;
 }
 .souv-flipcard-wordmark-script {
-  font-family: 'Lobster', cursive;
+  font-family: var(--font-wordmark);
   font-weight: 400;
   font-style: normal;
   font-size: clamp(48px, 6.5vw, 84px);
@@ -1147,7 +1192,7 @@ a.souv-popmenu-logout { text-decoration: none; }
   display: flex; align-items: center; justify-content: center;
 }
 .souv-gallery-occasion {
-  font-family: var(--font-display, 'Outfit'), system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-family: var(--font-display);
   font-style: italic;
   font-size: 30px;
   font-weight: 500;
@@ -1320,6 +1365,15 @@ a.souv-popmenu-logout { text-decoration: none; }
 }
 .souv-footer-social-btn svg { width: 18px; height: 18px; }
 .souv-footer-social-btn:hover { color: var(--gold-hi); border-color: var(--gold); background: rgba(212,175,55,0.05); }
+.souv-footer-social-btn.is-disabled {
+  cursor: default;
+  opacity: .62;
+}
+.souv-footer-social-btn.is-disabled:hover {
+  color: var(--platinum-mid);
+  border-color: var(--divider);
+  background: rgba(232,234,238,0.02);
+}
 
 .souv-footer-cols { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 30px; align-items: start; }
 .souv-footer-col-title {

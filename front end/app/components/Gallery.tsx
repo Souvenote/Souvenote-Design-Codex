@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { scrollContainerToItem } from "../lib/galleryScroll";
 import { Eyebrow } from "./Ornaments";
 import { MusicPreviewButton } from "./Hero";
 
@@ -84,6 +85,7 @@ function CardImageSwap({ image, onChange, onClear, label = "Change image" }: Car
         type="file"
         accept="image/*"
         className="souv-gallery-swap-input"
+        aria-label={label}
         onChange={handlePick}
         tabIndex={-1}
       />
@@ -139,8 +141,11 @@ function Gallery() {
   const trackRef = React.useRef<HTMLDivElement | null>(null);
 
   React.useEffect(() => {
-    const el = trackRef.current?.children[i];
-    if (el) el.scrollIntoView({ behavior: "smooth", inline: "start", block: "nearest" });
+    const track = trackRef.current;
+    const card = track?.children[i];
+    if (track && card) {
+      scrollContainerToItem(track, card, i === 0 ? "auto" : "smooth");
+    }
   }, [i]);
 
   return (

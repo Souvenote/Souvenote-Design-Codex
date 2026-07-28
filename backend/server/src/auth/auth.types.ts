@@ -14,4 +14,19 @@ export type CognitoJwtClaims = {
 
 export type AuthenticatedRequest = Request & {
   cognitoUser: CognitoJwtClaims;
+  localUser: {
+    id: string;
+    email: string;
+    [key: string]: unknown;
+  };
+  authContext: {
+    user: AuthenticatedRequest['localUser'];
+    starterCredits: {
+      granted: boolean;
+      balance: {
+        userId: string;
+        balance: number;
+      };
+    };
+  };
 };

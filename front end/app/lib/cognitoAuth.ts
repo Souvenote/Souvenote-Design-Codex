@@ -91,16 +91,6 @@ export type HostedUiAttempt = {
   provider?: CognitoSocialProvider;
 };
 
-type CognitoAuthResponse = {
-  AuthenticationResult?: CognitoAuthResult;
-  ChallengeName?: string;
-};
-
-type CognitoSignUpResponse = {
-  UserConfirmed?: boolean;
-  CodeDeliveryDetails?: CognitoCodeDelivery;
-};
-
 type JwtClaims = {
   sub?: string;
   email?: string;
@@ -122,6 +112,32 @@ const HOSTED_UI_ATTEMPT_STORAGE_KEY = "souv_cognito_oauth_attempt";
 const EXPIRY_SKEW_MS = 60_000;
 
 export type CognitoSocialProvider = "Google" | "Facebook" | "SignInWithApple";
+
+const SOCIAL_PROVIDER_BY_KEY: Record<string, CognitoSocialProvider> = {
+  google: "Google",
+  facebook: "Facebook",
+  apple: "SignInWithApple",
+  signinwithapple: "SignInWithApple",
+};
+
+export function parseConfiguredSocialProviders(
+  value: string | undefined,
+): CognitoSocialProvider[] {
+  const providers: CognitoSocialProvider[] = [];
+
+  for (const entry of (value || "").split(/[\s,]+/)) {
+    const provider = SOCIAL_PROVIDER_BY_KEY[entry.trim().toLowerCase()];
+    if (provider && !providers.includes(provider)) providers.push(provider);
+  }
+
+  return providers;
+}
+
+export function getConfiguredSocialProviders(): CognitoSocialProvider[] {
+  return parseConfiguredSocialProviders(
+    process.env.NEXT_PUBLIC_COGNITO_SOCIAL_PROVIDERS,
+  );
+}
 
 export class CognitoClientError extends Error {
   constructor(
@@ -196,10 +212,6 @@ function getHostedUiConfig() {
     redirectUri,
     scopes: scopes.length ? scopes : ["openid", "email", "profile"],
   };
-}
-
-function cognitoEndpoint(region: string) {
-  return `https://cognito-idp.${region}.amazonaws.com/`;
 }
 
 function getCognitoUserPool() {
@@ -328,31 +340,6 @@ function buildSessionFromCognitoUserSession(session: CognitoUserSession): Cognit
 
 function isExpired(session: CognitoSession) {
   return session.expiresAt <= Date.now() + EXPIRY_SKEW_MS;
-}
-
-async function cognitoRequest<T>(target: string, body: Record<string, unknown>): Promise<T> {
-  const { region } = getCognitoConfig();
-  const response = await fetch(cognitoEndpoint(region), {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-amz-json-1.1",
-      "X-Amz-Target": `AWSCognitoIdentityProviderService.${target}`,
-    },
-    body: JSON.stringify(body),
-  });
-
-  const payload = await response.json().catch(() => ({})) as {
-    __type?: string;
-    message?: string;
-    Message?: string;
-  };
-
-  if (!response.ok) {
-    const code = String(payload.__type || response.status).split("#").pop() || "CognitoError";
-    throw new CognitoClientError(payload.message || payload.Message || "Cognito request failed.", code);
-  }
-
-  return payload as T;
 }
 
 export function getStoredCognitoSession(options: { allowExpired?: boolean } = {}): CognitoSession | null {
@@ -718,6 +705,60 @@ export async function confirmCognitoSignUp(email: string, confirmationCode: stri
       resolve();
     });
   });
+}
+
+export async function requestCognitoPasswordReset(
+  email: string,
+): Promise<CognitoCodeDelivery | undefined> {
+  const user = getCognitoUser(email);
+
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const resolveOnce = (delivery?: CognitoCodeDelivery) => {
+      if (settled) return;
+      settled = true;
+      resolve(delivery);
+    };
+
+    user.forgotPassword({
+      onSuccess: () => resolveOnce(),
+      onFailure: (error) => {
+        if (settled) return;
+        settled = true;
+        reject(toCognitoClientError(error));
+      },
+      inputVerificationCode: (data) => {
+        const record = data as {
+          CodeDeliveryDetails?: CognitoCodeDelivery;
+          AttributeName?: string;
+          DeliveryMedium?: string;
+          Destination?: string;
+        };
+        resolveOnce(record.CodeDeliveryDetails ?? {
+          AttributeName: record.AttributeName,
+          DeliveryMedium: record.DeliveryMedium,
+          Destination: record.Destination,
+        });
+      },
+    });
+  });
+}
+
+export async function confirmCognitoPasswordReset(
+  email: string,
+  confirmationCode: string,
+  newPassword: string,
+) {
+  const user = getCognitoUser(email);
+
+  await new Promise<void>((resolve, reject) => {
+    user.confirmPassword(confirmationCode.trim(), newPassword, {
+      onSuccess: () => resolve(),
+      onFailure: (error) => reject(toCognitoClientError(error)),
+    });
+  });
+
+  clearCognitoAuthState();
 }
 
 export async function signInWithCognito(email: string, password: string): Promise<CognitoSession> {

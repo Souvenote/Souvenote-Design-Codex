@@ -420,6 +420,7 @@
   max-width: 56ch; margin: 14px auto 0;
 }
 .opt-pricing-lede em { font-style: italic; color: var(--gold-hi); }
+.opt-pricing-credit-note { white-space: nowrap; }
 
 .opt-pricing-state {
   max-width: 720px;
@@ -1176,6 +1177,7 @@
   .opt-pricing-grid,
   .opt-pricing-grid-3,
   .opt-pricing-grid-2 { grid-template-columns: 1fr; }
+  .opt-pricing-credit-note { white-space: normal; }
 }
 
 /* ============================================================

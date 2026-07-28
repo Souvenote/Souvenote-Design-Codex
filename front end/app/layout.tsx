@@ -12,6 +12,7 @@ import "./styles/delivery.css";
 import "./styles/account.css";
 import "./styles/pages.css";
 import "./styles/landing-chrome.css";
+import "./styles/listen.css";
 import "./styles/next-app.css";
 import { AuthProvider } from "./components/AuthProvider";
 

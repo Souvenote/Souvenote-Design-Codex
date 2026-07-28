@@ -42,6 +42,15 @@ async function main() {
   const migrationFiles = [
     '002_phase1_mock_backend.sql',
     '003_account_profile_payments.sql',
+    '004_s3_upload_pipeline.sql',
+    '005_generation_job_lifecycle.sql',
+    '006_asset_moderation_lifecycle.sql',
+    '007_server_authoritative_order_pricing.sql',
+    '008_stripe_checkout_lifecycle.sql',
+    '009_scribeless_fulfillment_lifecycle.sql',
+    '010_public_card_links.sql',
+    '011_transactional_notifications.sql',
+    '012_canadian_pricing_and_credit_packs.sql',
   ];
   const sql = migrationFiles
     .map((fileName) => fs.readFileSync(path.join(migrationDir, fileName), 'utf8'))

@@ -8,7 +8,12 @@ import type { CheckoutPack } from "./Checkout";
 import { CardArt } from "./CardArt";
 import { AuthGatePrompt } from "./AuthGatePrompt";
 import { useAuth } from "./AuthProvider";
-import { createLocalIdempotencyKey, fetchCreditBalance, grantCredits } from "../lib/api";
+import {
+  completeMockCreditPackCheckout,
+  createLocalIdempotencyKey,
+  fetchCreditPackPurchase,
+  startCreditPackCheckout,
+} from "../lib/api";
 import { publishCreditBalance } from "../lib/creditBalance";
 import { makeBigSenderCartItem, makeTryRiskFreeCartItem } from "./pricingCatalog";
 import { addDemoBalance, getCartTopUpDelta } from "./DemoBalance";
@@ -38,6 +43,7 @@ type CartItem = {
   replaceGroup?: string;
   cards?: unknown;
   tokens?: unknown;
+  offerCode?: string;
 };
 
 type CartThumbProps = {
@@ -68,6 +74,14 @@ type CartLineProps = {
 const CART_SEED: CartItem[] = [];
 const CART_KEY = "souv_cart";
 const TOP_UP_GIFT_OFFER_SEEN_KEY = "souv_topup_blank_gift_offer_seen";
+const PENDING_CREDIT_PURCHASE_KEY = "souv_pending_credit_purchase";
+
+type PendingCreditPurchase = {
+  offerCode: string;
+  idempotencyKey: string;
+  purchaseId?: string;
+  checkoutSessionId?: string;
+};
 
 function makeBlankSouvenoteGiftCartItem(): CartItem {
   return {
@@ -160,6 +174,32 @@ function markTopUpGiftOfferSeen(): void {
   try {
     window.localStorage.setItem(TOP_UP_GIFT_OFFER_SEEN_KEY, "1");
   } catch {}
+}
+
+function readPendingCreditPurchase(): PendingCreditPurchase | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const parsed = JSON.parse(
+      window.localStorage.getItem(PENDING_CREDIT_PURCHASE_KEY) || "null",
+    ) as unknown;
+    if (
+      !isRecord(parsed) ||
+      typeof parsed.offerCode !== "string" ||
+      typeof parsed.idempotencyKey !== "string"
+    ) {
+      return null;
+    }
+    return parsed as PendingCreditPurchase;
+  } catch {
+    return null;
+  }
+}
+
+function writePendingCreditPurchase(purchase: PendingCreditPurchase): void {
+  window.localStorage.setItem(
+    PENDING_CREDIT_PURCHASE_KEY,
+    JSON.stringify(purchase),
+  );
 }
 
 function getCartItemPresentation(item: CartItem): CartItemPresentation {
@@ -412,6 +452,8 @@ function CartPage() {
   const [authPromptOpen, setAuthPromptOpen] = React.useState(false);
   const [giftOfferOpen, setGiftOfferOpen] = React.useState(false);
   const [confirmed, setConfirmed] = React.useState(false);
+  const [checkoutError, setCheckoutError] = React.useState<string | null>(null);
+  const [checkoutProcessing, setCheckoutProcessing] = React.useState(false);
   const isAuthenticated = auth.status === "authenticated" && Boolean(auth.user?.id);
 
   React.useEffect(() => {
@@ -425,6 +467,63 @@ function CartPage() {
       window.localStorage.setItem(CART_KEY, JSON.stringify(normalizeCartItems(items)));
     } catch {}
   }, [items, hydrated]);
+
+  React.useEffect(() => {
+    if (!hydrated || !isAuthenticated) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("checkout") !== "success") return;
+    const pending = readPendingCreditPurchase();
+    if (!pending?.purchaseId) return;
+
+    let active = true;
+    let timeoutId: number | undefined;
+    const checkPurchase = async (attempt: number) => {
+      try {
+        const result = await fetchCreditPackPurchase(pending.purchaseId!);
+        if (!active) return;
+        if (result.purchase.status === "paid") {
+          finishCreditPackPurchase(result.balance);
+          window.history.replaceState({}, "", "/cart");
+          return;
+        }
+        if (
+          [
+            "payment_failed",
+            "payment_canceled",
+            "checkout_expired",
+          ].includes(result.purchase.status)
+        ) {
+          throw new Error(
+            `Credit-pack checkout ended with status ${result.purchase.status}.`,
+          );
+        }
+        if (attempt >= 10) {
+          throw new Error(
+            "Payment is still being confirmed. Refresh this page in a moment.",
+          );
+        }
+        timeoutId = window.setTimeout(
+          () => void checkPurchase(attempt + 1),
+          1000,
+        );
+      } catch (error) {
+        if (!active) return;
+        setCheckoutError(
+          error instanceof Error
+            ? error.message
+            : "Credit-pack payment could not be confirmed.",
+        );
+        setCheckoutProcessing(false);
+      }
+    };
+    setCheckoutProcessing(true);
+    void checkPurchase(0);
+
+    return () => {
+      active = false;
+      if (timeoutId !== undefined) window.clearTimeout(timeoutId);
+    };
+  }, [hydrated, isAuthenticated]);
 
   function onQty(id: string, delta: number) {
     setItems((current) => current.map((item) => item.id === id ? { ...item, qty: Math.max(1, item.qty + delta) } : item));
@@ -440,27 +539,11 @@ function CartPage() {
 
   async function handlePaid() {
     const topUpDelta = getCartTopUpDelta(items);
-    const userId = auth.user?.id;
 
     if (topUpDelta.credits > 0) {
-      if (!userId) {
-        setCheckoutOpen(false);
-        setAuthPromptOpen(true);
-        return;
-      }
-
-      const grant = await grantCredits({
-        userId,
-        amount: topUpDelta.credits,
-        source: "mock_checkout_purchase",
-        idempotencyKey: createLocalIdempotencyKey(`cart-credit-grant-${topUpDelta.credits}`),
-      });
-
-      if (grant.balance) {
-        publishCreditBalance(grant.balance);
-      } else {
-        publishCreditBalance(await fetchCreditBalance(userId));
-      }
+      throw new Error(
+        "Credit packs must complete their server-priced checkout separately.",
+      );
     }
 
     const blankGiftCount = items.reduce((sum, item) => (
@@ -483,6 +566,81 @@ function CartPage() {
     setConfirmed(true);
   }
 
+  function finishCreditPackPurchase(
+    balance: Parameters<typeof publishCreditBalance>[0],
+  ) {
+    publishCreditBalance(balance);
+    setCheckoutProcessing(false);
+    setCheckoutError(null);
+    setCheckoutOpen(false);
+    setItems([]);
+    try {
+      window.localStorage.removeItem(CART_KEY);
+      window.localStorage.removeItem(PENDING_CREDIT_PURCHASE_KEY);
+    } catch {}
+
+    const returnTo = consumePricingReturn();
+    if (returnTo) {
+      router.push(returnTo);
+      return;
+    }
+    setConfirmed(true);
+  }
+
+  async function beginCreditPackCheckout(item: CartItem) {
+    if (!item.offerCode) {
+      throw new Error(
+        "This credit pack is missing its backend offer code. Remove it and choose the pack again.",
+      );
+    }
+    const existing = readPendingCreditPurchase();
+    const pending: PendingCreditPurchase =
+      existing?.offerCode === item.offerCode
+        ? existing
+        : {
+            offerCode: item.offerCode,
+            idempotencyKey: createLocalIdempotencyKey(
+              `credit-pack-${item.offerCode}`,
+            ),
+          };
+    writePendingCreditPurchase(pending);
+
+    const started = await startCreditPackCheckout(
+      pending.offerCode,
+      pending.idempotencyKey,
+    );
+    const nextPending = {
+      ...pending,
+      purchaseId: started.purchase.id,
+      checkoutSessionId: started.checkoutSession.id,
+    };
+    writePendingCreditPurchase(nextPending);
+
+    if (started.checkoutSession.providerMode === "mock") {
+      const completed = await completeMockCreditPackCheckout(
+        started.purchase.id,
+        started.checkoutSession.id,
+      );
+      if (!completed.balance) {
+        throw new Error(
+          "Credit-pack payment completed without an updated balance.",
+        );
+      }
+      finishCreditPackPurchase(completed.balance);
+      return;
+    }
+
+    const checkoutUrl = started.checkoutSession.checkoutUrl;
+    if (!checkoutUrl) {
+      throw new Error("Stripe did not return a secure checkout URL.");
+    }
+    const parsed = new URL(checkoutUrl);
+    if (parsed.protocol !== "https:") {
+      throw new Error("Stripe checkout must use HTTPS.");
+    }
+    window.location.assign(parsed.toString());
+  }
+
   function continueToCheckout() {
     setGiftOfferOpen(false);
     setCheckoutOpen(true);
@@ -496,9 +654,38 @@ function CartPage() {
     continueToCheckout();
   }
 
-  function handleCheckoutClick() {
+  async function handleCheckoutClick() {
     if (!isAuthenticated) {
       setAuthPromptOpen(true);
+      return;
+    }
+
+    setCheckoutError(null);
+    const creditItems = items.filter(
+      (item) => getCartItemPresentation(item).kind === "credits",
+    );
+    if (creditItems.length > 0) {
+      if (
+        items.length !== 1 ||
+        creditItems.length !== 1 ||
+        creditItems[0].qty !== 1
+      ) {
+        setCheckoutError(
+          "Credit packs are purchased separately. Keep one credit pack in the cart and check out physical items in a separate order.",
+        );
+        return;
+      }
+      setCheckoutProcessing(true);
+      try {
+        await beginCreditPackCheckout(creditItems[0]);
+      } catch (error) {
+        setCheckoutError(
+          error instanceof Error
+            ? error.message
+            : "Credit-pack checkout could not start.",
+        );
+        setCheckoutProcessing(false);
+      }
       return;
     }
 
@@ -521,6 +708,9 @@ function CartPage() {
   }
 
   const count = items.reduce((sum, item) => sum + item.qty, 0);
+  const creditOnlyCart =
+    items.length === 1 &&
+    getCartItemPresentation(items[0]).kind === "credits";
   const cardCount = items.reduce((sum, item) => sum + (item.cardCount || 0), 0);
   const subtotal = items.reduce((sum, item) => sum + item.price * item.qty, 0);
   const lockedCartItem = items.length === 1 && items[0].lockedQuantity && items[0].cardCount ? items[0] : null;
@@ -529,7 +719,8 @@ function CartPage() {
   const checkoutPack: CheckoutPack = lockedCartItem
     ? { kind: "cards", name: lockedCartItem.name, price: subtotal, cards: lockedCardCount, tokens: lockedCardCount * lockedCreditsPerCard, bonus: 0 }
     : { kind: "cart", name: "Your cart", price: subtotal, lineCount: count, cardCount };
-  const discount = promoApplied ? +(subtotal * 0.10).toFixed(2) : 0;
+  const discount =
+    promoApplied && !creditOnlyCart ? +(subtotal * 0.10).toFixed(2) : 0;
   const taxable = subtotal - discount;
   const tax = +(taxable * 0.05).toFixed(2);
   const total = +(taxable + tax).toFixed(2);
@@ -575,7 +766,9 @@ function CartPage() {
                   </div>
                   <div className="cart-sum-row">
                     <span className="k"><CartIco name="truck" w={14} /> Shipping</span>
-                    <span className="v is-included">Included</span>
+                    <span className="v is-included">
+                      {creditOnlyCart ? "Not applicable" : "Included"}
+                    </span>
                   </div>
                   {promoApplied && (
                     <div className="cart-sum-row">
@@ -589,7 +782,7 @@ function CartPage() {
                   </div>
                 </div>
 
-                <div className="cart-promo">
+                {!creditOnlyCart && <div className="cart-promo">
                   {promoApplied ? (
                     <div className="cart-promo-ok"><CartIco name="tag" w={13} /> Code <b>SOUVENOTE10</b> applied {"\u00b7"} 10% off</div>
                   ) : (
@@ -604,20 +797,37 @@ function CartPage() {
                       <button type="button" className="btn-matte cart-promo-apply" onClick={applyPromo}>Apply</button>
                     </div>
                   )}
-                </div>
+                </div>}
 
                 <div className="cart-total">
                   <span className="cart-total-label">Total</span>
                   <span className="cart-total-val"><span className="text-metallic-gold">{cartMoney(total)}</span><span className="cur">CAD</span></span>
                 </div>
 
-                <button type="button" className="bmc-cta cart-checkout" onClick={handleCheckoutClick}>
-                  Proceed to checkout <CartIco name="arrow" w={15} />
+                {checkoutError && (
+                  <p className="cart-foot" role="alert">
+                    {checkoutError}
+                  </p>
+                )}
+                <button
+                  type="button"
+                  className="bmc-cta cart-checkout"
+                  onClick={() => void handleCheckoutClick()}
+                  disabled={checkoutProcessing}
+                >
+                  {checkoutProcessing
+                    ? "Confirming secure checkout..."
+                    : "Proceed to checkout"}{" "}
+                  <CartIco name="arrow" w={15} />
                 </button>
                 <div className="cart-secure"><CartIco name="lock" w={13} /> Secure checkout {"\u00b7"} payments by <b>Stripe</b></div>
               </div>
 
-              <p className="cart-foot">Shipping is always included.</p>
+              <p className="cart-foot">
+                {creditOnlyCart
+                  ? "Standalone credits are added to your account after payment."
+                  : "Shipping is always included."}
+              </p>
             </aside>
           </div>
         )}

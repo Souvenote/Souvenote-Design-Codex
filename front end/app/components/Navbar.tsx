@@ -16,24 +16,10 @@ type NavLink = {
   href: string;
 };
 
-type CurrencyCode = "CAD" | "USD";
-
-type CurrencyOption = {
-  code: CurrencyCode;
-  flag: string;
-};
-
 type CreditsTickerProps = {
   credits?: number;
   cardBank?: number;
   status?: CreditBalanceStatus;
-};
-
-type CurrencySelectProps = {
-  currency: CurrencyCode;
-  setCurrency: React.Dispatch<React.SetStateAction<CurrencyCode>>;
-  open: boolean;
-  setOpen: (open: boolean) => void;
 };
 
 type NavRightProps = {
@@ -47,10 +33,6 @@ type NavRightProps = {
   setProfileOpen: React.Dispatch<React.SetStateAction<boolean>>;
   menuOpen: boolean;
   setMenuOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  currency: CurrencyCode;
-  setCurrency: React.Dispatch<React.SetStateAction<CurrencyCode>>;
-  currencyOpen: boolean;
-  setCurrencyOpen: React.Dispatch<React.SetStateAction<boolean>>;
 };
 
 type NavbarProps = {
@@ -67,11 +49,6 @@ const NAV_LINKS: NavLink[] = [
   { label: "Build My Card", stackedLabel: ["Build", "My Card"], sub: "Start from scratch: photo, moment, optional QR song.", signedOutSub: "Preview step one, then sign up and purchase credits to continue.", href: "/create/build-my-card" },
   { label: "Saved Cards & Songs", stackedLabel: ["Saved", "Cards & Songs"], sub: "Saved cards, drafts, songs, and send-ready creations.", signedOutSub: "Sign up or log in to purchase cards and tokens, then save everything you make.", href: "/create/my-cards-and-songs" },
   { label: "Pricing", sub: "Card packs, credits, and what shipping covers.", signedOutSub: "Pricing is public. Purchase buttons ask you to sign up or log in first.", href: "/pricing" },
-];
-
-const CURRENCIES: CurrencyOption[] = [
-  { code: "CAD", flag: "\uD83C\uDDE8\uD83C\uDDE6" },
-  { code: "USD", flag: "\uD83C\uDDFA\uD83C\uDDF8" },
 ];
 
 function IconUser() {
@@ -134,50 +111,16 @@ function CreditsTicker({ credits = 0, cardBank = 0, status = "idle" }: CreditsTi
   );
 }
 
-function CurrencySelect({ currency, setCurrency, open, setOpen }: CurrencySelectProps) {
-  const active = CURRENCIES.find((option) => option.code === currency) || CURRENCIES[0];
-
+function CurrencyBadge() {
   return (
-    <div className="souv-iconbtn-wrap">
-      <button
-        className={`souv-currency ${open ? "is-open" : ""}`}
-        onClick={() => setOpen(!open)}
-        aria-label="Change currency"
-        aria-haspopup="listbox"
-        aria-expanded={open}
+    <div className="souv-iconbtn-wrap souv-currency-wrap">
+      <div
+        className="souv-currency"
+        aria-label="All prices are shown and billed in Canadian dollars"
+        title="All prices shown and billed in CAD"
       >
-        <span className="souv-currency-code">{active.code}</span>
-        <svg className="souv-currency-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M6 9l6 6 6-6" />
-        </svg>
-      </button>
-      {open && (
-        <>
-          <div className="souv-overlay" onClick={() => setOpen(false)} />
-          <div className="souv-popmenu souv-popmenu-currency" role="listbox">
-            {CURRENCIES.map((option) => (
-              <div
-                key={option.code}
-                role="option"
-                aria-selected={option.code === currency}
-                className={`souv-popmenu-item souv-currency-option ${option.code === currency ? "is-active" : ""}`}
-                onClick={() => {
-                  setCurrency(option.code);
-                  setOpen(false);
-                }}
-              >
-                <span className="souv-currency-flag" aria-hidden="true">{option.flag}</span>
-                <span>{option.code}</span>
-                {option.code === currency && (
-                  <svg className="souv-currency-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    <path d="M5 12l4 4 10-10" />
-                  </svg>
-                )}
-              </div>
-            ))}
-          </div>
-        </>
-      )}
+        <span className="souv-currency-code">CAD</span>
+      </div>
     </div>
   );
 }
@@ -193,10 +136,6 @@ function NavRight({
   setProfileOpen,
   menuOpen,
   setMenuOpen,
-  currency,
-  setCurrency,
-  currencyOpen,
-  setCurrencyOpen,
 }: NavRightProps) {
   const router = useRouter();
   const { logout } = useAuth();
@@ -215,18 +154,7 @@ function NavRight({
       <CreditsTicker credits={creditBalance} cardBank={cardBank} status={creditStatus} />
       <span className="souv-nav-sep" />
 
-      <CurrencySelect
-        currency={currency}
-        setCurrency={setCurrency}
-        open={currencyOpen}
-        setOpen={(value) => {
-          setCurrencyOpen(value);
-          if (value) {
-            setProfileOpen(false);
-            setMenuOpen(false);
-          }
-        }}
-      />
+      <CurrencyBadge />
       <span className="souv-nav-sep" />
 
       <div className="souv-iconbtn-wrap">
@@ -235,7 +163,6 @@ function NavRight({
           onClick={() => {
             setProfileOpen(!profileOpen);
             setMenuOpen(false);
-            setCurrencyOpen(false);
           }}
           aria-label="Account"
         >
@@ -290,7 +217,6 @@ function NavRight({
           onClick={() => {
             setMenuOpen(!menuOpen);
             setProfileOpen(false);
-            setCurrencyOpen(false);
           }}
           aria-label="Menu"
         >
@@ -327,11 +253,12 @@ function Navbar({
   const [hovered, setHovered] = React.useState<string | null>(null);
   const [menuOpen, setMenuOpen] = React.useState(false);
   const [profileOpen, setProfileOpen] = React.useState(false);
-  const [currency, setCurrency] = React.useState<CurrencyCode>("CAD");
-  const [currencyOpen, setCurrencyOpen] = React.useState(false);
   const resolvedLoggedIn = auth.status === "authenticated";
   const resolvedUser = auth.displayUser || user;
   const logoSrc = resolvedLoggedIn ? "/assets/LogoMark.png" : "/assets/WordmarkLobster.png";
+  const logoDimensions = resolvedLoggedIn
+    ? { width: 1024, height: 1536 }
+    : { width: 1445, height: 334 };
   const localCreditBalance = (credits.images ?? 0) + (credits.songs ?? 0);
   const creditBalance = useCreditBalance({
     enabled: resolvedLoggedIn,
@@ -341,7 +268,7 @@ function Navbar({
   return (
     <header className={`souv-nav ${resolvedLoggedIn ? "is-signed-in" : "is-signed-out"} ${followUserOnScroll ? "is-follow-user-on-scroll" : ""}`}>
       <Link href="/" className={`souv-nav-logo ${resolvedLoggedIn ? "is-mark" : "is-wordmark"}`} aria-label="Souvenote home">
-        <img src={logoSrc} alt="Souvenote" />
+        <img src={logoSrc} alt="Souvenote" {...logoDimensions} />
       </Link>
 
       <nav className="souv-nav-links">
@@ -391,10 +318,6 @@ function Navbar({
         setProfileOpen={setProfileOpen}
         menuOpen={menuOpen}
         setMenuOpen={setMenuOpen}
-        currency={currency}
-        setCurrency={setCurrency}
-        currencyOpen={currencyOpen}
-        setCurrencyOpen={setCurrencyOpen}
       />
     </header>
   );

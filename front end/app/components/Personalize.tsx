@@ -6,10 +6,11 @@ import { BmcReview } from "./BmcReview";
 import { BmcErrorModal, bmcError } from "./BmcShared";
 import { OrnamentDivider } from "./Ornaments";
 import { AttestationGate } from "./AttestationGate";
-import { createCardDraft, fetchCardDraftAssets, fetchCardDraftById, mockUpload, refreshCardDraftBackendState, startGeneration, updateCardDraft } from "../lib/api";
+import { approveCardDraftAssets, createCardDraft, fetchCardDraftAssets, fetchCardDraftById, refreshCardDraftBackendState, startGeneration, updateCardDraft, uploadReferenceImage } from "../lib/api";
 import type { CardDraftAsset } from "../lib/api";
 import { publishCreditBalance } from "../lib/creditBalance";
 import { rememberGeneratedAssets, rememberSelectedAsset, resetMockMvpOrderState, writeMockMvpFlowState } from "../lib/mockMvpFlow";
+import { getPendingUpload, isPendingUploadComplete, markPendingUploadComplete, registerPendingUpload, releasePendingUpload } from "../lib/pendingUploads";
 import type { CreditBalanceStatus } from "../lib/creditBalance";
 import { getTotalDemoCredits } from "./DemoBalance";
 import type { DemoBalance } from "./DemoBalance";
@@ -65,7 +66,6 @@ type OccasionOption = {
 type PtTemplateCardProps = {
   tmpl: Template;
   onPersonalize?: (template: Template) => void;
-  compact?: boolean;
 };
 
 type PtSectionRailProps = {
@@ -94,6 +94,7 @@ type PhotoPreview = {
   name: string;
   mimeType?: string;
   size?: number;
+  clientUploadId?: string;
 };
 
 type PtPersonalizeModalProps = {
@@ -142,6 +143,7 @@ type ReferenceImageUpload = {
   filename: string;
   mimeType: string;
   size: number;
+  clientUploadId?: string;
 };
 
 const CURRENT_CARD_DRAFT_ID_KEY = "souv_current_card_draft_id";
@@ -198,6 +200,7 @@ function referenceImageValue(value: unknown): PhotoPreview[] {
       url: "/assets/LogoMark.png",
       mimeType: textValue(record.mimeType) || undefined,
       size: numberValue(record.size, 0) || undefined,
+      clientUploadId: textValue(record.clientUploadId) || undefined,
     }];
   });
 }
@@ -212,9 +215,10 @@ function getReferenceImageUploads(input: PersonalizeDraftInput): ReferenceImageU
     const filename = textValue(record.filename) || textValue(record.name);
     const mimeType = textValue(record.mimeType);
     const size = numberValue(record.size);
+    const clientUploadId = textValue(record.clientUploadId) || undefined;
 
     if (!filename || !mimeType.includes("/") || size <= 0) return [];
-    return [{ filename, mimeType, size }];
+    return [{ filename, mimeType, size, clientUploadId }];
   });
 }
 
@@ -809,7 +813,7 @@ function padOccasion(items: Template[], occId: string): Template[] {
 // ============================================================
 // TEMPLATE CARD
 // ============================================================
-function PtTemplateCard({ tmpl, onPersonalize, compact }: PtTemplateCardProps) {
+function PtTemplateCard({ tmpl, onPersonalize }: PtTemplateCardProps) {
   return (
     <div className="pt-card">
       <div className="pt-card-name">{tmpl.name}</div>
@@ -1094,15 +1098,19 @@ function PtPersonalizeModal({
   };
   const goBack = () => { if (idx > 0) setStep(MODAL_STEPS[idx - 1].id); };
   const addPersonalizeFiles = (list: FileList | File[] | null) => {
-    const file = Array.from(list || []).find((incoming) => incoming.type.startsWith('image/'));
+    const file = Array.from(list || []).find((incoming) => /image\/(jpeg|png|webp)/.test(incoming.type));
     if (!file) return;
     setPhotoPreviews((current) => {
-      current.forEach((photo) => URL.revokeObjectURL(photo.url));
+      current.forEach((photo) => {
+        URL.revokeObjectURL(photo.url);
+        releasePendingUpload(photo.clientUploadId);
+      });
       return [{
         url: URL.createObjectURL(file),
         name: file.name,
         mimeType: file.type,
         size: file.size,
+        clientUploadId: registerPendingUpload(file),
       }];
     });
     setDescribe(false);
@@ -1110,7 +1118,10 @@ function PtPersonalizeModal({
   };
   const removePersonalizePhoto = () => {
     setPhotoPreviews((current) => {
-      current.forEach((photo) => URL.revokeObjectURL(photo.url));
+      current.forEach((photo) => {
+        URL.revokeObjectURL(photo.url);
+        releasePendingUpload(photo.clientUploadId);
+      });
       return [];
     });
     setAttested(false);
@@ -1166,6 +1177,7 @@ function PtPersonalizeModal({
           filename: photo.name,
           mimeType: photo.mimeType,
           size: photo.size,
+          clientUploadId: photo.clientUploadId,
         })),
         attested,
       },
@@ -1574,7 +1586,6 @@ function PersonalizeApp({
   const router = useRouter();
   const [chosen, setChosen] = React.useState<Template | null>(openModal ? TEMPLATES[0] : null);
   const [modalOpen, setModalOpen] = React.useState(openModal);
-  const [chatOpen, setChatOpen] = React.useState(true);
   const [view, setView] = React.useState<PersonalizeView>('marketplace');
   const [reviewGen, setReviewGen] = React.useState(false);
   const [reviewIncludeSong, setReviewIncludeSong] = React.useState(true);
@@ -1642,14 +1653,18 @@ function PersonalizeApp({
 
     setUploadPending(true);
     try {
-      await Promise.all(
-        uploads.map((upload) => mockUpload({
-          cardDraftId,
-          filename: upload.filename,
-          mimeType: upload.mimeType,
-          size: upload.size,
-        })),
-      );
+      await Promise.all(uploads
+        .filter((upload) => !isPendingUploadComplete(upload.clientUploadId))
+        .map(async (upload) => {
+          await uploadReferenceImage({
+            cardDraftId,
+            filename: upload.filename,
+            mimeType: upload.mimeType,
+            size: upload.size,
+            file: getPendingUpload(upload.clientUploadId),
+          });
+          markPendingUploadComplete(upload.clientUploadId);
+        }));
       uploadedReferenceSignatureRef.current = signature;
       await refreshCardDraftBackendState(cardDraftId);
     } finally {
@@ -1866,21 +1881,25 @@ function PersonalizeApp({
     });
   }, [currentDraftId, refreshReviewAssets, view]);
 
-  const spendRegenerationCredit = async () => {
+  const spendRegenerationCredit = async (assetType: "image" | "song") => {
     if (totalCredits < MIN_GENERATION_CREDITS) {
       bmcError("You need at least 1 credit to regenerate an asset.", "Not enough credits");
       return false;
     }
 
+    if (!currentDraftId) {
+      bmcError("This draft must be saved before an asset can be regenerated.", "Draft unavailable");
+      return false;
+    }
+
     try {
       const response = await startGeneration({
-        ...(currentDraftId ? { cardDraftId: currentDraftId } : {}),
+        cardDraftId: currentDraftId,
         idempotencyKey: `frontend-generation-${Date.now()}`,
+        assetTypes: [assetType],
       });
-      if (currentDraftId) {
-        const backendState = await refreshCardDraftBackendState(currentDraftId);
-        applyReviewAssets(currentDraftId, backendState.assets);
-      }
+      const backendState = await refreshCardDraftBackendState(currentDraftId);
+      applyReviewAssets(currentDraftId, backendState.assets);
 
       if (response.balance) {
         publishCreditBalance(response.balance);
@@ -1911,14 +1930,26 @@ function PersonalizeApp({
           assetsStatus={reviewAssetsStatus}
           assetsError={reviewAssetsError}
           onStartOver={backToMarketplace}
-          onApproveAll={(selectedAssetId) => {
+          onApproveAll={async (selectedAssetId, assetIds = []) => {
             if (!currentDraftId || !selectedAssetId) {
               bmcError("Generated image assets are not ready yet. Try again after the review assets finish loading.", "Review assets unavailable");
-              return;
+              return false;
             }
 
-            rememberSelectedAsset(currentDraftId, selectedAssetId, reviewAssets);
-            router.push('/delivery');
+            try {
+              const approvedAssets = await approveCardDraftAssets(currentDraftId, assetIds);
+              const approvedById = new Map(approvedAssets.map((asset) => [asset.id, asset]));
+              const persistedAssets = reviewAssets.map((asset) => approvedById.get(asset.id) ?? asset);
+              rememberSelectedAsset(currentDraftId, selectedAssetId, persistedAssets);
+              router.push('/delivery');
+              return true;
+            } catch (error) {
+              bmcError(
+                error instanceof Error ? error.message : 'Asset approval failed.',
+                'Approval not ready',
+              );
+              return false;
+            }
           }}
           onTopUp={openPricingForCredits}
           onRegenerateAsset={spendRegenerationCredit}

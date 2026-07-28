@@ -1,6 +1,11 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { createPublicKey, verify, type JsonWebKey, type KeyObject } from 'crypto';
+import {
+  createPublicKey,
+  verify,
+  type JsonWebKey,
+  type KeyObject,
+} from 'crypto';
 import type { CognitoJwtClaims } from './auth.types';
 
 type JwksResponse = {
@@ -23,8 +28,14 @@ export class CognitoJwtService {
 
   constructor(private readonly configService: ConfigService) {
     this.region = this.readConfig('COGNITO_REGION', 'AWS_REGION');
-    this.userPoolId = this.readConfig('COGNITO_USER_POOL_ID', 'AWS_COGNITO_USER_POOL_ID');
-    this.clientId = this.readConfig('COGNITO_CLIENT_ID', 'AWS_COGNITO_CLIENT_ID');
+    this.userPoolId = this.readConfig(
+      'COGNITO_USER_POOL_ID',
+      'AWS_COGNITO_USER_POOL_ID',
+    );
+    this.clientId = this.readConfig(
+      'COGNITO_CLIENT_ID',
+      'AWS_COGNITO_CLIENT_ID',
+    );
     this.issuer = `https://cognito-idp.${this.region}.amazonaws.com/${this.userPoolId}`;
     this.jwksUri = `${this.issuer}/.well-known/jwks.json`;
   }
@@ -55,12 +66,13 @@ export class CognitoJwtService {
     }
 
     this.assertClaims(claims);
-    return claims as CognitoJwtClaims;
+    return claims;
   }
 
   private readConfig(primaryKey: string, fallbackKey: string) {
-    const value = this.configService.get<string>(primaryKey)
-      ?? this.configService.get<string>(fallbackKey);
+    const value =
+      this.configService.get<string>(primaryKey) ??
+      this.configService.get<string>(fallbackKey);
 
     if (!value) {
       throw new Error(`${primaryKey} is missing from environment variables.`);
@@ -71,7 +83,9 @@ export class CognitoJwtService {
 
   private decodeSegment<T>(segment: string): T {
     try {
-      return JSON.parse(Buffer.from(segment, 'base64url').toString('utf8')) as T;
+      return JSON.parse(
+        Buffer.from(segment, 'base64url').toString('utf8'),
+      ) as T;
     } catch {
       throw new UnauthorizedException('Invalid Cognito token payload.');
     }
@@ -86,7 +100,7 @@ export class CognitoJwtService {
       throw new UnauthorizedException('Could not load Cognito signing keys.');
     }
 
-    const jwks = await response.json() as JwksResponse;
+    const jwks = (await response.json()) as JwksResponse;
     for (const jwk of jwks.keys ?? []) {
       if (!jwk.kid) continue;
       this.keys.set(jwk.kid, createPublicKey({ key: jwk, format: 'jwk' }));
@@ -100,7 +114,9 @@ export class CognitoJwtService {
     return key;
   }
 
-  private assertClaims(claims: Partial<CognitoJwtClaims>): asserts claims is CognitoJwtClaims {
+  private assertClaims(
+    claims: Partial<CognitoJwtClaims>,
+  ): asserts claims is CognitoJwtClaims {
     const now = Math.floor(Date.now() / 1000);
 
     if (claims.iss !== this.issuer) {
@@ -116,7 +132,9 @@ export class CognitoJwtService {
     }
 
     if (!claims.sub || !claims.email) {
-      throw new UnauthorizedException('Cognito token is missing required user claims.');
+      throw new UnauthorizedException(
+        'Cognito token is missing required user claims.',
+      );
     }
 
     if (!claims.exp || claims.exp <= now - 60) {

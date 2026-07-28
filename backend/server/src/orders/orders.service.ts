@@ -3,14 +3,30 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { DatabaseService } from '../database/database.service';
+import {
+  DatabaseService,
+  type DatabaseTransaction,
+} from '../database/database.service';
+import { PricingService } from '../pricing/pricing.service';
 import { CreateOrderDto } from './orders.controller';
 
 export type OrderStatus =
   | 'pending'
   | 'checkout_started'
+  | 'payment_authorized'
+  | 'paid'
   | 'paid_mock'
+  | 'closed_no_send'
+  | 'payment_failed'
+  | 'payment_canceled'
+  | 'checkout_expired'
   | 'fulfillment_started'
+  | 'fulfillment_submitted'
+  | 'printing'
+  | 'shipped'
+  | 'delivered'
+  | 'fulfillment_on_hold'
+  | 'fulfillment_failed'
   | 'fulfilled_mock'
   | 'failed_mock';
 
@@ -23,29 +39,69 @@ export type OrderRow = {
   scribeless_job_id: string | null;
   tracking_url: string | null;
   recipient_address: Record<string, unknown> | null;
+  recipient_addresses: Record<string, unknown>[];
   sender_address: Record<string, unknown> | null;
   qr_code_url: string | null;
   offer_code: string | null;
   amount_cents: number;
   currency: string;
+  quantity: number;
+  pricing_snapshot: Record<string, unknown>;
   checkout_session_id: string | null;
   payment_id: string | null;
   fulfillment_job_id: string | null;
+  fulfillment_status_updated_at: Date | string | null;
   created_at: Date | string;
   updated_at: Date | string;
 };
 
 @Injectable()
 export class OrdersService {
-  constructor(private readonly databaseService: DatabaseService) {}
+  constructor(
+    private readonly databaseService: DatabaseService,
+    private readonly pricingService: PricingService,
+  ) {}
 
-  async createOrder(dto: CreateOrderDto) {
-    await this.ensureCardDraftExists(dto.userId, dto.cardDraftId);
+  async createOrder(userId: string, dto: CreateOrderDto) {
+    await this.ensureCardDraftExists(userId, dto.cardDraftId);
     await this.ensureSelectedAssetExists(
-      dto.userId,
+      userId,
       dto.cardDraftId,
       dto.selectedAssetId,
     );
+    const quantity = dto.quantity ?? dto.recipientAddresses?.length ?? 1;
+    const recipientAddresses = dto.recipientAddresses?.length
+      ? dto.recipientAddresses
+      : Array.from({ length: quantity }, () => dto.recipientAddress);
+    if (recipientAddresses.length !== quantity) {
+      throw new BadRequestException(
+        'The number of recipient addresses must match the priced order quantity.',
+      );
+    }
+    const offer = await this.pricingService.resolveOrderOffer(
+      dto.offerCode,
+      quantity,
+    );
+    const amountCents = offer.price_cents * quantity;
+    if (!Number.isSafeInteger(amountCents) || amountCents > 2_147_483_647) {
+      throw new BadRequestException(
+        'The selected pricing offer total is not configured correctly.',
+      );
+    }
+    const currency = offer.currency.trim().toLowerCase();
+    const pricingSnapshot = {
+      catalogOfferId: offer.id,
+      offerCode: offer.offer_code,
+      name: offer.name,
+      type: offer.offer_type,
+      unitAmountCents: offer.price_cents,
+      quantity,
+      totalAmountCents: amountCents,
+      currency,
+      creditsPerCard: offer.credits_per_card,
+      shippingIncluded: offer.shipping_included,
+      metadata: offer.metadata ?? {},
+    };
 
     const result = await this.databaseService.query<OrderRow>(
       `
@@ -55,11 +111,14 @@ export class OrdersService {
           selected_asset_id,
           status,
           recipient_address,
+          recipient_addresses,
           sender_address,
           qr_code_url,
           offer_code,
           amount_cents,
-          currency
+          currency,
+          quantity,
+          pricing_snapshot
         )
         VALUES (
           $1,
@@ -68,23 +127,29 @@ export class OrdersService {
           'pending',
           $4::jsonb,
           $5::jsonb,
-          $6,
+          $6::jsonb,
           $7,
           $8,
-          $9
+          $9,
+          $10,
+          $11,
+          $12::jsonb
         )
         RETURNING ${this.orderColumns};
       `,
       [
-        dto.userId,
+        userId,
         dto.cardDraftId,
         dto.selectedAssetId,
-        JSON.stringify(dto.recipientAddress ?? {}),
-        JSON.stringify(dto.senderAddress ?? {}),
+        JSON.stringify(recipientAddresses[0] ?? {}),
+        JSON.stringify(recipientAddresses),
+        JSON.stringify(dto.senderAddress),
         `mock://souvenote/qr/${dto.selectedAssetId}`,
-        dto.offerCode ?? 'try_risk_free_one_card',
-        dto.amountCents ?? 999,
-        dto.currency ?? 'usd',
+        offer.offer_code,
+        amountCents,
+        currency,
+        quantity,
+        JSON.stringify(pricingSnapshot),
       ],
     );
 
@@ -93,40 +158,57 @@ export class OrdersService {
     };
   }
 
-  async getOrderById(orderId: string) {
+  async getOrderById(userId: string, orderId: string) {
     return {
-      order: this.toOrderResponse(await this.findOrderRow(orderId)),
+      order: this.toOrderResponse(await this.findOrderRow(orderId, userId)),
     };
   }
 
-  async listOrders(userId?: string) {
-    const params = userId ? [userId] : [];
-    const whereClause = userId ? 'WHERE user_id = $1' : '';
-
+  async listOrders(userId: string) {
     const result = await this.databaseService.query<OrderRow>(
       `
         SELECT ${this.orderColumns}
         FROM orders
-        ${whereClause}
+        WHERE user_id = $1
         ORDER BY created_at DESC;
       `,
-      params,
+      [userId],
     );
 
     return {
-      userId: userId ?? null,
+      userId,
       orders: result.rows.map((order) => this.toOrderResponse(order)),
     };
   }
 
-  async findOrderRow(orderId: string) {
-    const result = await this.databaseService.query<OrderRow>(
+  async findOrderRow(orderId: string, userId?: string) {
+    return this.findOrderRowWith(this.databaseService, orderId, userId, false);
+  }
+
+  async findOrderRowForUpdate(
+    transaction: DatabaseTransaction,
+    orderId: string,
+    userId?: string,
+  ) {
+    return this.findOrderRowWith(transaction, orderId, userId, true);
+  }
+
+  private async findOrderRowWith(
+    queryable: DatabaseTransaction,
+    orderId: string,
+    userId: string | undefined,
+    forUpdate: boolean,
+  ) {
+    const ownershipClause = userId ? 'AND user_id = $2' : '';
+    const result = await queryable.query<OrderRow>(
       `
         SELECT ${this.orderColumns}
         FROM orders
-        WHERE id = $1;
+        WHERE id = $1
+          ${ownershipClause}
+        ${forUpdate ? 'FOR UPDATE' : ''};
       `,
-      [orderId],
+      userId ? [orderId, userId] : [orderId],
     );
 
     if (result.rows.length === 0) {
@@ -140,36 +222,112 @@ export class OrdersService {
     orderId: string,
     checkoutSessionId: string,
     paymentId: string,
+    transaction?: DatabaseTransaction,
   ) {
-    return this.updateOrder(orderId, 'checkout_started', {
-      checkoutSessionId,
-      paymentId,
-    });
+    return this.updateOrder(
+      transaction ?? this.databaseService,
+      orderId,
+      'checkout_started',
+      {
+        checkoutSessionId,
+        paymentId,
+      },
+    );
   }
 
-  async markPaidMock(orderId: string, paymentId: string) {
-    return this.updateOrder(orderId, 'paid_mock', {
-      paymentId,
-    });
+  async markPaidMock(
+    orderId: string,
+    paymentId: string,
+    transaction?: DatabaseTransaction,
+  ) {
+    return this.updateOrder(
+      transaction ?? this.databaseService,
+      orderId,
+      'paid_mock',
+      { paymentId },
+    );
   }
 
-  async markFulfillmentStarted(orderId: string) {
-    return this.updateOrder(orderId, 'fulfillment_started', {});
+  async markPaymentState(
+    orderId: string,
+    status:
+      | 'payment_authorized'
+      | 'paid'
+      | 'closed_no_send'
+      | 'payment_failed'
+      | 'payment_canceled'
+      | 'checkout_expired',
+    paymentId: string,
+    transaction?: DatabaseTransaction,
+  ) {
+    return this.updateOrder(
+      transaction ?? this.databaseService,
+      orderId,
+      status,
+      { paymentId },
+    );
+  }
+
+  async markFulfillmentStarted(
+    orderId: string,
+    transaction?: DatabaseTransaction,
+  ) {
+    return this.updateOrder(
+      transaction ?? this.databaseService,
+      orderId,
+      'fulfillment_started',
+      {},
+    );
+  }
+
+  async markFulfillmentState(
+    orderId: string,
+    status:
+      | 'fulfillment_submitted'
+      | 'printing'
+      | 'shipped'
+      | 'delivered'
+      | 'fulfillment_on_hold'
+      | 'fulfillment_failed',
+    fields: {
+      fulfillmentJobId?: string;
+      scribelessJobId?: string;
+      trackingUrl?: string;
+    },
+    transaction?: DatabaseTransaction,
+  ) {
+    return this.updateOrder(
+      transaction ?? this.databaseService,
+      orderId,
+      status,
+      fields,
+    );
   }
 
   async markFulfilledMock(
     orderId: string,
     fulfillmentJobId: string,
     scribelessJobId: string,
+    transaction?: DatabaseTransaction,
   ) {
-    return this.updateOrder(orderId, 'fulfilled_mock', {
-      fulfillmentJobId,
-      scribelessJobId,
-    });
+    return this.updateOrder(
+      transaction ?? this.databaseService,
+      orderId,
+      'fulfilled_mock',
+      {
+        fulfillmentJobId,
+        scribelessJobId,
+      },
+    );
   }
 
-  async markFailedMock(orderId: string) {
-    return this.updateOrder(orderId, 'failed_mock', {});
+  async markFailedMock(orderId: string, transaction?: DatabaseTransaction) {
+    return this.updateOrder(
+      transaction ?? this.databaseService,
+      orderId,
+      'failed_mock',
+      {},
+    );
   }
 
   assertOrderStatus(
@@ -194,16 +352,20 @@ export class OrdersService {
       offerCode: row.offer_code,
       amountCents: row.amount_cents,
       currency: row.currency,
+      quantity: row.quantity,
+      pricingSnapshot: row.pricing_snapshot ?? {},
       checkoutSessionId: row.checkout_session_id,
       paymentId: row.payment_id,
       fulfillmentJobId: row.fulfillment_job_id,
       mockFulfillmentId: row.scribeless_job_id,
       trackingUrl: row.tracking_url,
       recipientAddress: row.recipient_address ?? {},
+      recipientAddresses: row.recipient_addresses ?? [],
       senderAddress: row.sender_address ?? {},
       qrCodeUrl: row.qr_code_url,
       createdAt: this.toIso(row.created_at),
       updatedAt: this.toIso(row.updated_at),
+      fulfillmentStatusUpdatedAt: this.toIso(row.fulfillment_status_updated_at),
     };
   }
 
@@ -217,20 +379,25 @@ export class OrdersService {
       scribeless_job_id,
       tracking_url,
       recipient_address,
+      recipient_addresses,
       sender_address,
       qr_code_url,
       offer_code,
       amount_cents,
       currency,
+      quantity,
+      pricing_snapshot,
       checkout_session_id,
       payment_id,
       fulfillment_job_id,
+      fulfillment_status_updated_at,
       created_at,
       updated_at
     `;
   }
 
   private async updateOrder(
+    queryable: DatabaseTransaction,
     orderId: string,
     status: OrderStatus,
     fields: {
@@ -238,17 +405,33 @@ export class OrdersService {
       paymentId?: string;
       fulfillmentJobId?: string;
       scribelessJobId?: string;
+      trackingUrl?: string;
     },
   ) {
-    const result = await this.databaseService.query<OrderRow>(
+    const result = await queryable.query<OrderRow>(
       `
         UPDATE orders
         SET
-          status = $2,
+          status = $2::text,
           checkout_session_id = COALESCE($3, checkout_session_id),
           payment_id = COALESCE($4, payment_id),
           fulfillment_job_id = COALESCE($5, fulfillment_job_id),
           scribeless_job_id = COALESCE($6, scribeless_job_id),
+          tracking_url = COALESCE($7, tracking_url),
+          fulfillment_status_updated_at = CASE
+            WHEN $2::text IN (
+              'fulfillment_started',
+              'fulfillment_submitted',
+              'printing',
+              'shipped',
+              'delivered',
+              'fulfillment_on_hold',
+              'fulfillment_failed',
+              'fulfilled_mock',
+              'failed_mock'
+            ) THEN NOW()
+            ELSE fulfillment_status_updated_at
+          END,
           updated_at = NOW()
         WHERE id = $1
         RETURNING ${this.orderColumns};
@@ -260,6 +443,7 @@ export class OrdersService {
         fields.paymentId ?? null,
         fields.fulfillmentJobId ?? null,
         fields.scribelessJobId ?? null,
+        fields.trackingUrl ?? null,
       ],
     );
 
@@ -298,13 +482,20 @@ export class OrdersService {
         FROM assets
         WHERE id = $1
           AND user_id = $2
-          AND card_draft_id = $3;
+          AND card_draft_id = $3
+          AND generation_job_id IS NOT NULL
+          AND asset_type = 'image'
+          AND s3_key IS NOT NULL
+          AND approved_at IS NOT NULL
+          AND moderation_state IN ('approved', 'approved_mock');
       `,
       [selectedAssetId, userId, cardDraftId],
     );
 
     if (result.rows.length === 0) {
-      throw new NotFoundException('Selected asset not found for this draft.');
+      throw new BadRequestException(
+        'Select an approved, moderation-cleared generated image for this order.',
+      );
     }
   }
 

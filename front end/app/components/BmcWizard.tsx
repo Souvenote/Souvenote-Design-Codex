@@ -2,10 +2,11 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { createCardDraft, fetchCardDraftAssets, fetchCardDraftById, mockUpload, refreshCardDraftBackendState, startGeneration, updateCardDraft } from "../lib/api";
+import { approveCardDraftAssets, createCardDraft, fetchCardDraftAssets, fetchCardDraftById, refreshCardDraftBackendState, startGeneration, updateCardDraft, uploadReferenceImage } from "../lib/api";
 import type { CardDraftAsset } from "../lib/api";
 import { publishCreditBalance } from "../lib/creditBalance";
 import { rememberGeneratedAssets, rememberSelectedAsset, resetMockMvpOrderState, writeMockMvpFlowState } from "../lib/mockMvpFlow";
+import { getPendingUpload, isPendingUploadComplete, markPendingUploadComplete } from "../lib/pendingUploads";
 import type { CreditBalanceStatus } from "../lib/creditBalance";
 import { STEPS, BmcNavContext, BmcErrorModal, bmcError } from "./BmcShared";
 import { BmcPhotoStep, BmcBasicsStep, BmcImageStep, BmcMessageStep, BmcSongStep } from "./BmcSteps";
@@ -36,6 +37,7 @@ type ReferenceImageUpload = {
   filename: string;
   mimeType: string;
   size: number;
+  clientUploadId?: string;
 };
 
 const CURRENT_CARD_DRAFT_ID_KEY = "souv_current_card_draft_id";
@@ -81,9 +83,10 @@ function getReferenceImageUploads(input: BmcDraftInput): ReferenceImageUpload[] 
     const filename = textValue(record.filename) || textValue(record.name);
     const mimeType = textValue(record.mimeType);
     const size = numberValue(record.size);
+    const clientUploadId = textValue(record.clientUploadId) || undefined;
 
     if (!filename || !mimeType.includes("/") || size <= 0) return [];
-    return [{ filename, mimeType, size }];
+    return [{ filename, mimeType, size, clientUploadId }];
   });
 }
 
@@ -176,14 +179,18 @@ function BmcWizard({
 
     setUploadingReferences(true);
     try {
-      await Promise.all(
-        uploads.map((upload) => mockUpload({
-          cardDraftId,
-          filename: upload.filename,
-          mimeType: upload.mimeType,
-          size: upload.size,
-        })),
-      );
+      await Promise.all(uploads
+        .filter((upload) => !isPendingUploadComplete(upload.clientUploadId))
+        .map(async (upload) => {
+          await uploadReferenceImage({
+            cardDraftId,
+            filename: upload.filename,
+            mimeType: upload.mimeType,
+            size: upload.size,
+            file: getPendingUpload(upload.clientUploadId),
+          });
+          markPendingUploadComplete(upload.clientUploadId);
+        }));
       uploadedReferenceSignatureRef.current = signature;
       await refreshCardDraftBackendState(cardDraftId);
     } finally {
@@ -419,21 +426,25 @@ function BmcWizard({
     }
   };
 
-  const spendRegenerationCredit = async () => {
+  const spendRegenerationCredit = async (assetType: "image" | "song") => {
     if (credits < MIN_GENERATION_CREDITS) {
       bmcError("You need at least 1 credit to regenerate an asset.", "Not enough credits");
       return false;
     }
 
+    if (!currentDraftId) {
+      bmcError("This draft must be saved before an asset can be regenerated.", "Draft unavailable");
+      return false;
+    }
+
     try {
       const response = await startGeneration({
-        ...(currentDraftId ? { cardDraftId: currentDraftId } : {}),
+        cardDraftId: currentDraftId,
         idempotencyKey: `frontend-generation-${Date.now()}`,
+        assetTypes: [assetType],
       });
-      if (currentDraftId) {
-        const backendState = await refreshCardDraftBackendState(currentDraftId);
-        applyReviewAssets(currentDraftId, backendState.assets);
-      }
+      const backendState = await refreshCardDraftBackendState(currentDraftId);
+      applyReviewAssets(currentDraftId, backendState.assets);
 
       if (response.balance) {
         publishCreditBalance(response.balance);
@@ -467,6 +478,8 @@ function BmcWizard({
   };
 
   React.useEffect(() => {
+    if (process.env.NODE_ENV !== "development") return;
+
     window.__bmcGoStep = (id) => {
       if (id === "review") setGenerating(false);
       setStep(id);
@@ -481,6 +494,11 @@ function BmcWizard({
 
     const credEl = document.getElementById("bmc-cred-readout");
     if (credEl) credEl.textContent = credits + (credits === 1 ? " credit" : " credits");
+
+    return () => {
+      delete window.__bmcGoStep;
+      delete window.__bmcSetCredits;
+    };
   }, [step, generating, credits, refreshCredits]);
 
   const isReview = step === "review";
@@ -499,14 +517,26 @@ function BmcWizard({
           onStartOver={startOver}
           onTopUp={openPricingForCredits}
           onRegenerateAsset={spendRegenerationCredit}
-          onApproveAll={(selectedAssetId) => {
+          onApproveAll={async (selectedAssetId, assetIds = []) => {
             if (!currentDraftId || !selectedAssetId) {
               bmcError("Generated image assets are not ready yet. Try again after the review assets finish loading.", "Review assets unavailable");
-              return;
+              return false;
             }
 
-            rememberSelectedAsset(currentDraftId, selectedAssetId, reviewAssets);
-            router.push("/delivery");
+            try {
+              const approvedAssets = await approveCardDraftAssets(currentDraftId, assetIds);
+              const approvedById = new Map(approvedAssets.map((asset) => [asset.id, asset]));
+              const persistedAssets = reviewAssets.map((asset) => approvedById.get(asset.id) ?? asset);
+              rememberSelectedAsset(currentDraftId, selectedAssetId, persistedAssets);
+              router.push("/delivery");
+              return true;
+            } catch (error) {
+              bmcError(
+                error instanceof Error ? error.message : "Asset approval failed.",
+                "Approval not ready",
+              );
+              return false;
+            }
           }}
         />
       ) : (
@@ -514,10 +544,10 @@ function BmcWizard({
           <div className="bmc-headcard" aria-hidden="true">
             <div className="bmc-headcard-spin">
               <div className="bmc-headcard-face bmc-headcard-front">
-                <img src="/assets/hero-souvenote-card-face.png" alt="" />
+                <img src="/assets/hero-souvenote-card-face.png" alt="" width={263} height={367} />
               </div>
               <div className="bmc-headcard-face bmc-headcard-back">
-                <img src="/assets/bmc-fathers-day-card.jpg" alt="" />
+                <img src="/assets/bmc-fathers-day-card.jpg" alt="" width={1488} height={2096} />
               </div>
             </div>
           </div>
@@ -526,7 +556,6 @@ function BmcWizard({
               {step === "photo" && (
                 <BmcPhotoStep
                   key={stepInstanceKey}
-                  photoCount={photoCount}
                   setPhotoCount={setPhotoCount}
                   describe={describe}
                   setDescribe={setDescribe}
