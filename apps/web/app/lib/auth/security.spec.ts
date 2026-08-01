@@ -160,9 +160,23 @@ describe('web BFF security primitives', () => {
   it('requires same-origin browser metadata for cookie-backed mutations', () => {
     const allowed = new Request('http://127.0.0.1:3000/api/bff/api/v1/me', {
       method: 'PATCH',
-      headers: { Origin: 'http://127.0.0.1:3000', 'Sec-Fetch-Site': 'same-origin' },
+      headers: {
+        Host: '127.0.0.1:3000',
+        Origin: 'http://127.0.0.1:3000',
+        'Sec-Fetch-Site': 'same-origin',
+      },
     });
     expect(() => assertSameOriginMutation(allowed)).not.toThrow();
+
+    const allowedThroughNextDevelopmentProxy = new Request('http://localhost:3000/api/bff/api/v1/me', {
+      method: 'PATCH',
+      headers: {
+        Host: '127.0.0.1:3000',
+        Origin: 'http://127.0.0.1:3000',
+        'Sec-Fetch-Site': 'same-origin',
+      },
+    });
+    expect(() => assertSameOriginMutation(allowedThroughNextDevelopmentProxy)).not.toThrow();
 
     const denied = new Request('http://127.0.0.1:3000/api/bff/api/v1/me', {
       method: 'PATCH',

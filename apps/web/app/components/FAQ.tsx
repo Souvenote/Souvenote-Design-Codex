@@ -14,6 +14,10 @@ const FAQ_ITEMS: FaqItem[] = [
     a: 'We place a temporary 5-day hold of $9.99 on your card, which unlocks 10 AI creation credits right away. If you love your card and send it, the $9.99 is finalized\u2014 printing and shipping included, with no extra fees. If you decide not to send, the hold is released after 5 days and you\u2019re only charged $2.00 for the credits you unlocked.',
   },
   {
+    q: 'Can I buy creation credits without buying a card?',
+    a: 'Yes. Every new account starts with 2 free trial credits, and you can add standalone packs whenever you like: 10 credits for $2 CAD, 80 for $10 CAD, or 250 for $25 CAD.',
+  },
+  {
     q: 'What does a personalized song sound like?',
     a: 'Songs are optional. If you include one, it is uniquely generated from the details you provide and added to the printed card by QR code.',
   },

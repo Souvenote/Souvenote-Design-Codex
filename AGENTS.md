@@ -53,6 +53,9 @@ Use Node.js 22 and npm 10.9.8 as the canonical local and CI toolchain. Local Pos
 - Try Risk-Free is a five-day CAD $9.99 authorization. Capture CAD $9.99 when sent; otherwise charge a fixed CAD $2.00 and release the remainder.
 - Big Sender starts at two cards with 2-10 at $8.99/card, 11-20 at $7.99/card, and 21-30 at $6.99/card.
 - Signup grants two starter credits exactly once.
+- Authenticated users may repeatedly purchase standalone packs of 10 credits for
+  CAD $2, 80 for CAD $10, or 250 for CAD $25. Each captured purchase grants once
+  through the server-owned ledger.
 - The first combined image and song generation costs two credits. Image or song regeneration costs one credit per regenerated asset. Inside-message generation costs zero user credits.
 - The first-send bonus is removed.
 - Standard MVP songs are 30 seconds.

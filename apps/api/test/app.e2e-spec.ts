@@ -15,6 +15,20 @@ type UploadPayload = { upload: { id: string; status: string } };
 type AssetListPayload = { data: Array<{ id: string; assetType: string }> };
 type GenerationPayload = { generationJob: { id: string }; balance: number };
 type OrderPayload = { order: { id: string; totalMinor: number; currency: string } };
+type CreditPackPurchasePayload = {
+  purchase: {
+    id: string;
+    offerCode: string;
+    status: string;
+    provider: string;
+    amountMinor: number;
+    creditsGranted: number;
+    currency: string;
+    mockMode: boolean;
+    productionEnabled: boolean;
+  };
+  balance: number;
+};
 
 const localSecret = process.env.LOCAL_AUTH_SECRET ?? '';
 const localClient = process.env.LOCAL_AUTH_CLIENT_ID ?? 'souvenote-local-web';
@@ -338,7 +352,7 @@ describe('Section 2 API security boundary (integration)', () => {
   });
 
   it('enforces the Section 3 catalog, credit, reservation, and mock authorization contracts concurrently', async () => {
-    const catalog = responseBody<{
+    const pricingCatalog = responseBody<{
       data: Array<{
         id: string;
         unitAmountMinor: number;
@@ -347,7 +361,15 @@ describe('Section 2 API security boundary (integration)', () => {
         currency: string;
         checkoutEnabled: boolean;
       }>;
-    }>(await request(server).get('/api/v1/pricing').expect(200)).data;
+      creditPacks: Array<{
+        id: string;
+        creditQuantity: number;
+        unitAmountMinor: number;
+        currency: string;
+        checkoutEnabled: boolean;
+      }>;
+    }>(await request(server).get('/api/v1/pricing').expect(200));
+    const catalog = pricingCatalog.data;
     expect(
       catalog.map((offer) => ({
         code: offer.id,
@@ -363,6 +385,115 @@ describe('Section 2 API security boundary (integration)', () => {
       { code: 'big_sender_11_20', currency: 'CAD', enabled: false, max: 20, min: 11, price: 799 },
       { code: 'big_sender_21_30', currency: 'CAD', enabled: false, max: 30, min: 21, price: 699 },
     ]);
+    expect(
+      pricingCatalog.creditPacks.map((offer) => ({
+        id: offer.id,
+        creditQuantity: offer.creditQuantity,
+        unitAmountMinor: offer.unitAmountMinor,
+        currency: offer.currency,
+        checkoutEnabled: offer.checkoutEnabled,
+      })),
+    ).toEqual([
+      {
+        id: 'credit_pack_10',
+        creditQuantity: 10,
+        unitAmountMinor: 200,
+        currency: 'CAD',
+        checkoutEnabled: false,
+      },
+      {
+        id: 'credit_pack_80',
+        creditQuantity: 80,
+        unitAmountMinor: 1000,
+        currency: 'CAD',
+        checkoutEnabled: false,
+      },
+      {
+        id: 'credit_pack_250',
+        creditQuantity: 250,
+        unitAmountMinor: 2500,
+        currency: 'CAD',
+        checkoutEnabled: false,
+      },
+    ]);
+
+    const purchaserToken = token(randomUUID(), `credit-pack-purchaser-${randomUUID()}@example.test`);
+    const purchaser = authenticated(server, purchaserToken);
+    const purchaserUser = responseBody<UserPayload>(await purchaser.get('/api/v1/me').expect(200)).user;
+    expect(responseBody<{ balance: number }>(await purchaser.get('/api/v1/credits').expect(200)).balance).toBe(2);
+
+    const purchaseKey = `credit-pack-purchase-${randomUUID()}`;
+    const purchaseResponses = await Promise.all(
+      Array.from({ length: 8 }, () =>
+        purchaser
+          .post('/api/v1/credits/purchases/mock')
+          .set('Idempotency-Key', purchaseKey)
+          .send({ offerCode: 'credit_pack_10' })
+          .expect(201),
+      ),
+    );
+    const purchases = purchaseResponses.map((response) => responseBody<CreditPackPurchasePayload>(response));
+    expect(new Set(purchases.map((response) => response.purchase.id)).size).toBe(1);
+    expect(purchases.every((response) => response.balance === 12)).toBe(true);
+    expect(purchases[0]).toMatchObject({
+      purchase: {
+        offerCode: 'credit_pack_10',
+        status: 'captured',
+        provider: 'mock',
+        amountMinor: 200,
+        creditsGranted: 10,
+        currency: 'CAD',
+        mockMode: true,
+        productionEnabled: false,
+      },
+      balance: 12,
+    });
+    await purchaser
+      .post('/api/v1/credits/purchases/mock')
+      .set('Idempotency-Key', purchaseKey)
+      .send({ offerCode: 'credit_pack_80' })
+      .expect(409);
+
+    const secondPurchase = responseBody<CreditPackPurchasePayload>(
+      await purchaser
+        .post('/api/v1/credits/purchases/mock')
+        .set('Idempotency-Key', `credit-pack-purchase-${randomUUID()}`)
+        .send({ offerCode: 'credit_pack_80' })
+        .expect(201),
+    );
+    expect(secondPurchase).toMatchObject({
+      purchase: { offerCode: 'credit_pack_80', amountMinor: 1000, creditsGranted: 80 },
+      balance: 92,
+    });
+    await purchaser
+      .post('/api/v1/credits/purchases/mock')
+      .set('Idempotency-Key', `credit-pack-invalid-${randomUUID()}`)
+      .send({ offerCode: 'credit_pack_999' })
+      .expect(400);
+    const purchaseLedger = await pool.query<{ count: string; amount: string }>(
+      `SELECT count(*)::text AS count, COALESCE(sum(amount), 0)::text AS amount
+       FROM credit_ledger
+       WHERE user_id = $1
+         AND event_type = 'purchase_grant'
+         AND source_type = 'credit_pack_purchase';`,
+      [purchaserUser.id],
+    );
+    expect(purchaseLedger.rows[0]).toEqual({ count: '2', amount: '90' });
+    expect(
+      (
+        await pool.query<{ count: string }>(
+          `SELECT count(*)::text AS count
+           FROM credit_pack_purchases
+           WHERE user_id = $1 AND status = 'captured';`,
+          [purchaserUser.id],
+        )
+      ).rows[0]?.count,
+    ).toBe('2');
+
+    const otherPurchaser = authenticated(server, token(randomUUID(), `credit-pack-other-${randomUUID()}@example.test`));
+    await otherPurchaser.get('/api/v1/me').expect(200);
+    await otherPurchaser.get(`/api/v1/credits/purchases/${purchases[0]?.purchase.id}`).expect(404);
+    await purchaser.get(`/api/v1/credits/purchases/${purchases[0]?.purchase.id}`).expect(200);
 
     const primaryToken = token(randomUUID(), `section-three-primary-${randomUUID()}@example.test`);
     const primary = authenticated(server, primaryToken);

@@ -168,3 +168,13 @@ Approval reference:
 - Supersedes: Any interpretation of the fresh-task or worker rules that permits multiple visible tasks or multiple agents to mutate the same canonical worktree concurrently.
 - Consequence: Duplicate or misnamed tasks stop before their next mutation, report their last mutation, are renamed `Retired — <original purpose>`, and are archived after the lead reconciles their work. An unanswered user question pauses the entire section and cannot be bypassed by another task or worker.
 - Approval reference: Direct user instruction after the Section 3 task-state audit.
+
+### MVP-022 - Standalone credit packs and signup trial
+
+- Date: 2026-07-23
+- Status: approved
+- Decision: Standalone credit packs are real Canada-first MVP products that authenticated users may purchase repeatedly: 10 credits for CAD $2.00, 80 credits for CAD $10.00, and 250 credits for CAD $25.00. Every newly provisioned user receives two free trial credits exactly once so they can try the creation experience before purchasing.
+- Reason: The existing interface already presented these three pack choices, but incorrectly treated them as disabled placeholders instead of approved products.
+- Supersedes: Section 3 copy and behavior that labels standalone credit top-ups as unavailable or Coming soon.
+- Consequence: Section 3 owns the server-authoritative catalog, idempotent mock purchase/grant state, and customer presentation. Section 5 owns Stripe-hosted payment collection and production checkout activation. Credit quantities, prices, currency, payment state, and ledger grants are never browser authority.
+- Approval reference: Direct user decision in the Section 3 correction task.

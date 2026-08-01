@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { NextResponse } from 'next/server';
 import type { LocalUser } from '../cognitoAuth';
 import { AUTH_CSRF_HEADER, MAX_PROXY_BODY_BYTES } from './constants';
-import { getBffConfig } from './config';
+import { getBffConfig, resolveAuthMode, resolveLoopbackRequestOrigin } from './config';
 import { safeEquals } from './security';
 import { getActiveAccessSession } from './session';
 import type { AccessSession } from './types';
@@ -71,10 +71,16 @@ async function requireMutationCsrf(request: Request, session: AccessSession | nu
 }
 
 export function assertSameOriginMutation(request: Request, requestId: string = randomUUID()) {
-  const requestUrl = new URL(request.url);
   const origin = request.headers.get('origin');
   const fetchSite = request.headers.get('sec-fetch-site');
-  if (origin !== requestUrl.origin || (fetchSite && fetchSite !== 'same-origin')) {
+  let expectedOrigin: string;
+  try {
+    expectedOrigin =
+      resolveAuthMode() === 'local' ? resolveLoopbackRequestOrigin(request) : new URL(request.url).origin;
+  } catch {
+    throw apiError(403, 'CSRF_ORIGIN_REJECTED', 'Cross-origin mutation requests are not accepted.', requestId);
+  }
+  if (origin !== expectedOrigin || (fetchSite && fetchSite !== 'same-origin')) {
     throw apiError(403, 'CSRF_ORIGIN_REJECTED', 'Cross-origin mutation requests are not accepted.', requestId);
   }
 }

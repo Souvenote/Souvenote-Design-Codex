@@ -19,6 +19,17 @@ type OfferRow = {
   metadata: Record<string, unknown>;
 };
 
+type CreditPackOfferRow = {
+  id: string;
+  offer_code: string;
+  credit_quantity: number;
+  unit_amount_minor: number;
+  checkout_enabled: boolean;
+  currency: string;
+  market_country: string;
+  metadata: Record<string, unknown>;
+};
+
 @Injectable()
 export class PricingRepository {
   constructor(private readonly database: DatabaseService) {}
@@ -41,6 +52,22 @@ export class PricingRepository {
     return result.rows;
   }
 
+  async findActiveCanadaCreditPacks(): Promise<CreditPackOfferRow[]> {
+    const result = await this.database.query<CreditPackOfferRow>(
+      `SELECT offer.id, offer.offer_code, offer.credit_quantity,
+              offer.unit_amount_minor, offer.checkout_enabled, book.currency,
+              book.market_country, offer.metadata
+       FROM credit_pack_offers offer
+       JOIN price_books book ON book.id = offer.price_book_id
+       WHERE book.market_country = 'CA' AND book.currency = 'CAD'
+         AND book.status = 'active' AND offer.catalog_visible = TRUE
+         AND (book.effective_from IS NULL OR book.effective_from <= clock_timestamp())
+         AND (book.effective_until IS NULL OR book.effective_until > clock_timestamp())
+       ORDER BY offer.credit_quantity;`,
+    );
+    return result.rows;
+  }
+
   static toApi(row: OfferRow) {
     return {
       id: row.offer_code,
@@ -56,6 +83,19 @@ export class PricingRepository {
       maximumQuantity: row.maximum_quantity,
       creditsPerCard: row.credits_per_card,
       shippingIncluded: row.shipping_included,
+      checkoutEnabled: row.checkout_enabled,
+      metadata: row.metadata,
+    };
+  }
+
+  static creditPackToApi(row: CreditPackOfferRow) {
+    return {
+      id: row.offer_code,
+      offerId: row.id,
+      creditQuantity: row.credit_quantity,
+      unitAmountMinor: row.unit_amount_minor,
+      currency: row.currency,
+      marketCountry: row.market_country,
       checkoutEnabled: row.checkout_enabled,
       metadata: row.metadata,
     };

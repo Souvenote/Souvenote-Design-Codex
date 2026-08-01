@@ -24,6 +24,21 @@ export type PricingOffer = {
   metadata: Record<string, unknown>;
 };
 
+export type CreditPackCode = Schemas['PurchaseCreditPackDto']['offerCode'];
+
+export type CreditPackOffer = {
+  id: CreditPackCode;
+  offerId: string;
+  name: string;
+  creditQuantity: number;
+  priceCents: number;
+  currency: 'CAD';
+  checkoutEnabled: boolean;
+  metadata: Record<string, unknown>;
+};
+
+export type CreditPackPurchaseStart = Schemas['CreditPackPurchaseStartResponseDto'];
+
 export type CreditBalance = Schemas['CreditBalanceResponseDto'];
 
 export type CardDraft = Schemas['CardDraftViewDto'] & {
@@ -105,6 +120,21 @@ export async function fetchPricingOffers(): Promise<PricingOffer[]> {
   }));
 }
 
+export async function fetchCreditPackOffers(): Promise<CreditPackOffer[]> {
+  const result = await api.GET('/api/v1/pricing');
+  if (result.error) throw errorFrom(result, `Pricing request failed with status ${result.response.status}.`);
+  return (result.data?.creditPacks ?? []).map((offer) => ({
+    id: offer.id,
+    offerId: offer.offerId,
+    name: typeof offer.metadata.display_name === 'string' ? offer.metadata.display_name : offer.id,
+    creditQuantity: offer.creditQuantity,
+    priceCents: offer.unitAmountMinor,
+    currency: offer.currency,
+    checkoutEnabled: offer.checkoutEnabled,
+    metadata: offer.metadata,
+  }));
+}
+
 export async function fetchAuthenticatedUser(): Promise<LocalUser> {
   const session = await fetchBffSession();
   if (!session.authenticated || !session.user) throw new Error('Authentication is required.');
@@ -125,6 +155,18 @@ export async function fetchCreditBalance(): Promise<CreditBalance> {
   const balance = Number(result.data?.balance);
   if (!Number.isFinite(balance)) throw new Error('Credit balance response was invalid.');
   return { balance };
+}
+
+export async function purchaseMockCreditPack(offerCode: CreditPackCode): Promise<CreditPackPurchaseStart> {
+  const idempotencyKey = createLocalIdempotencyKey('credit-pack-purchase');
+  const result = await api.POST('/api/v1/credits/purchases/mock', {
+    params: { header: { 'Idempotency-Key': idempotencyKey } },
+    body: { offerCode },
+    headers: await mutationHeaders(idempotencyKey),
+  });
+  if (result.error) throw errorFrom(result, `Credit-pack purchase failed with status ${result.response.status}.`);
+  if (!result.data) throw new Error('Credit-pack purchase returned no result.');
+  return result.data;
 }
 
 export async function createCardDraft(input: CreateCardDraftRequest): Promise<CardDraft> {

@@ -424,6 +424,142 @@
         "required": ["balance"],
         "type": "object"
       },
+      "CreditPackOfferViewDto": {
+        "properties": {
+          "checkoutEnabled": {
+            "description": "False until Section 5 activates Stripe-hosted checkout.",
+            "type": "boolean"
+          },
+          "creditQuantity": {
+            "enum": [10, 80, 250],
+            "type": "integer"
+          },
+          "currency": {
+            "enum": ["CAD"],
+            "type": "string"
+          },
+          "id": {
+            "enum": ["credit_pack_10", "credit_pack_80", "credit_pack_250"],
+            "type": "string"
+          },
+          "marketCountry": {
+            "enum": ["CA"],
+            "type": "string"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "offerId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "unitAmountMinor": {
+            "enum": [200, 1000, 2500],
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "offerId",
+          "creditQuantity",
+          "unitAmountMinor",
+          "currency",
+          "marketCountry",
+          "checkoutEnabled",
+          "metadata"
+        ],
+        "type": "object"
+      },
+      "CreditPackPurchaseResponseDto": {
+        "properties": {
+          "purchase": {
+            "$ref": "#/components/schemas/CreditPackPurchaseViewDto"
+          }
+        },
+        "required": ["purchase"],
+        "type": "object"
+      },
+      "CreditPackPurchaseStartResponseDto": {
+        "properties": {
+          "balance": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "purchase": {
+            "$ref": "#/components/schemas/CreditPackPurchaseViewDto"
+          }
+        },
+        "required": ["purchase", "balance"],
+        "type": "object"
+      },
+      "CreditPackPurchaseViewDto": {
+        "properties": {
+          "amountMinor": {
+            "enum": [200, 1000, 2500],
+            "type": "integer"
+          },
+          "capturedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "creditsGranted": {
+            "enum": [10, 80, 250],
+            "type": "integer"
+          },
+          "currency": {
+            "enum": ["CAD"],
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "mockMode": {
+            "enum": [true],
+            "type": "boolean"
+          },
+          "offerCode": {
+            "enum": ["credit_pack_10", "credit_pack_80", "credit_pack_250"],
+            "type": "string"
+          },
+          "productionEnabled": {
+            "enum": [false],
+            "type": "boolean"
+          },
+          "provider": {
+            "enum": ["mock"],
+            "type": "string"
+          },
+          "status": {
+            "enum": ["captured"],
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "offerCode",
+          "status",
+          "provider",
+          "currency",
+          "amountMinor",
+          "creditsGranted",
+          "capturedAt",
+          "createdAt",
+          "updatedAt",
+          "mockMode",
+          "productionEnabled"
+        ],
+        "type": "object"
+      },
       "FulfillmentJobResponseDto": {
         "properties": {
           "fulfillmentJob": {
@@ -739,6 +875,12 @@
       },
       "PricingCatalogResponseDto": {
         "properties": {
+          "creditPacks": {
+            "items": {
+              "$ref": "#/components/schemas/CreditPackOfferViewDto"
+            },
+            "type": "array"
+          },
           "data": {
             "items": {
               "$ref": "#/components/schemas/PricingOfferViewDto"
@@ -746,7 +888,7 @@
             "type": "array"
           }
         },
-        "required": ["data"],
+        "required": ["data", "creditPacks"],
         "type": "object"
       },
       "PricingOfferViewDto": {
@@ -887,6 +1029,16 @@
           }
         },
         "required": ["id", "status"],
+        "type": "object"
+      },
+      "PurchaseCreditPackDto": {
+        "properties": {
+          "offerCode": {
+            "enum": ["credit_pack_10", "credit_pack_80", "credit_pack_250"],
+            "type": "string"
+          }
+        },
+        "required": ["offerCode"],
         "type": "object"
       },
       "RequestUploadDto": {
@@ -2623,6 +2775,207 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/CreditBalanceResponseDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Request conflict"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Rate limit exceeded"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "",
+        "tags": ["credits"]
+      }
+    },
+    "/api/v1/credits/purchases/{purchaseId}": {
+      "get": {
+        "operationId": "getCreditPackPurchase",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "purchaseId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreditPackPurchaseResponseDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Request conflict"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Rate limit exceeded"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "",
+        "tags": ["credits"]
+      }
+    },
+    "/api/v1/credits/purchases/mock": {
+      "post": {
+        "operationId": "purchaseMockCreditPack",
+        "parameters": [
+          {
+            "description": "Unique 16-128 character retry key scoped to the authenticated operation.",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 128,
+              "minLength": 16,
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PurchaseCreditPackDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreditPackPurchaseStartResponseDto"
                 }
               }
             },

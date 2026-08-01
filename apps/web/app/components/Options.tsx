@@ -3,7 +3,8 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { fetchPricingOffers, type PricingOffer } from '../lib/api';
+import { fetchCreditPackOffers, fetchPricingOffers, purchaseMockCreditPack, type PricingOffer } from '../lib/api';
+import { publishCreditBalanceValue } from '../lib/creditBalance';
 import { StampCorners } from './Ornaments';
 import { useAuth } from './AuthProvider';
 import {
@@ -17,6 +18,7 @@ import {
   makeTryRiskFreeCartItem,
 } from './pricingCatalog';
 import { MIN_GENERATION_CREDITS } from './createFlowRules';
+import { creditPackFromOffer, creditPackPurchaseLabel, type CreditPackCard as CreditPack } from './creditPackCatalog';
 
 // Options.tsx - dedicated to the create-options, pricing, referral, and modal surfaces.
 // Independent copy: edits here do NOT affect the "0 Credits · Modal" view (Options.intercept.jsx).
@@ -103,17 +105,6 @@ type CardPacksData = {
   twentyfive: null;
   community: CardPack;
   saved: CardPack;
-};
-
-type CreditPack = {
-  id: string;
-  name: string;
-  price: string;
-  tokens: string;
-  blurb: string;
-  accent: string;
-  featured?: boolean;
-  badge?: string;
 };
 
 type CartItem = {
@@ -808,37 +799,31 @@ function CardPacks(_props: CardPacksProps) {
 // ============================================================
 // SECTION — AI CREDIT PACKS
 // ============================================================
-const AI_PACKS: CreditPack[] = [
-  {
-    id: 'starter',
-    name: 'Starter',
-    price: 'Coming soon',
-    tokens: '10',
-    blurb: 'Top off a short session.',
-    accent: 'platinum',
-  },
-  {
-    id: 'creator',
-    name: 'Creator',
-    price: 'Coming soon',
-    tokens: '80',
-    blurb: 'A full evening of iteration.',
-    accent: 'gold',
-    featured: true,
-    badge: 'Most popular',
-  },
-  {
-    id: 'power',
-    name: 'Power',
-    price: 'Coming soon',
-    tokens: '250',
-    blurb: 'For repeat senders and remixers.',
-    accent: 'rose',
-  },
-];
-
 function CreditPacks({ variant = undefined }: CreditPacksProps) {
   const lowCredits = variant === 'lowCredits';
+  const [packs, setPacks] = React.useState<CreditPack[]>([]);
+  const [pricingStatus, setPricingStatus] = React.useState<'loading' | 'ready' | 'error'>('loading');
+  const [pricingError, setPricingError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    let active = true;
+    fetchCreditPackOffers()
+      .then((offers) => {
+        if (!active) return;
+        setPacks(offers.map(creditPackFromOffer));
+        setPricingStatus('ready');
+        setPricingError(null);
+      })
+      .catch((error: unknown) => {
+        if (!active) return;
+        setPricingStatus('error');
+        setPricingError(error instanceof Error ? error.message : 'Credit-pack pricing could not be loaded.');
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   return (
     <section className="opt-pricing opt-pricing-ai" data-screen-label="05 Credit Packs" id="credit-packs">
       <div className="opt-pricing-head">
@@ -854,7 +839,7 @@ function CreditPacks({ variant = undefined }: CreditPacksProps) {
               Top up <span className="souv-hero-italic text-metallic-rose-gold">credits</span>
             </h2>
             <p className="opt-pricing-lede">
-              Credit top-ups are not available in the Canada-first MVP yet.
+              Start with 2 free trial credits, then add a standalone pack whenever you need more.
               <br />
               <span style={{ whiteSpace: 'nowrap' }}>
                 1 credit = 1 action for design generation, image editing, or optional QR-song creation.
@@ -863,8 +848,19 @@ function CreditPacks({ variant = undefined }: CreditPacksProps) {
           </>
         )}
       </div>
+      {pricingStatus === 'loading' && (
+        <p className="opt-pricing-state" aria-live="polite">
+          Loading standalone credit packs...
+        </p>
+      )}
+      {pricingStatus === 'error' && (
+        <p className="opt-pricing-state is-error" role="status">
+          Could not load credit-pack pricing from the backend.
+          {pricingError ? ` ${pricingError}` : ''}
+        </p>
+      )}
       <div className="opt-pricing-grid opt-pricing-grid-3">
-        {AI_PACKS.map((p) => (
+        {packs.map((p) => (
           <PackCard key={p.id} pack={p} kind="credit" />
         ))}
       </div>
@@ -910,8 +906,13 @@ function useSouvBuyAndGo() {
 
 function PackCard({ pack, kind, compact, wide }: PackCardProps) {
   const buyAndGo = useSouvBuyAndGo();
+  const router = useRouter();
+  const auth = useAuth();
+  const [purchaseStatus, setPurchaseStatus] = React.useState<'idle' | 'purchasing' | 'success' | 'error'>('idle');
+  const [purchaseMessage, setPurchaseMessage] = React.useState<string | null>(null);
   const isCardPack = kind === 'card';
   const cardPack = isCardPack ? (pack as CardPack) : null;
+  const creditPack = kind === 'credit' ? (pack as CreditPack) : null;
   const priceUnit = cardPack?.priceUnit;
   const cardCount = cardPack ? parseFirstNumber(cardPack.cards) : undefined;
   const rawCreditsPerCard = cardPack?.creditsPerCard ?? cardPack?.tokens;
@@ -966,9 +967,28 @@ function PackCard({ pack, kind, compact, wide }: PackCardProps) {
       <p className="opt-pack-blurb">{pack.blurb}</p>
       <button
         className={`opt-pack-cta ${pack.featured ? 'is-gold' : ''}`}
-        disabled={kind === 'credit'}
-        onClick={() => {
-          if (kind === 'credit') return;
+        disabled={kind === 'credit' && purchaseStatus === 'purchasing'}
+        onClick={async () => {
+          if (kind === 'credit' && creditPack) {
+            if (auth.status !== 'authenticated') {
+              router.push(`/signup?returnTo=${encodeURIComponent('/pricing#credit-packs')}`);
+              return;
+            }
+            setPurchaseStatus('purchasing');
+            setPurchaseMessage(null);
+            try {
+              const result = await purchaseMockCreditPack(creditPack.id);
+              publishCreditBalanceValue(result.balance);
+              setPurchaseStatus('success');
+              setPurchaseMessage(
+                `Local mock purchase complete: ${result.purchase.creditsGranted} credits added. New balance: ${result.balance}.`,
+              );
+            } catch (error: unknown) {
+              setPurchaseStatus('error');
+              setPurchaseMessage(error instanceof Error ? error.message : 'The credit pack could not be purchased.');
+            }
+            return;
+          }
           buyAndGo({
             id: `${kind}-${pack.id}`,
             type: 'pack',
@@ -983,9 +1003,24 @@ function PackCard({ pack, kind, compact, wide }: PackCardProps) {
           });
         }}
       >
-        <span>{kind === 'credit' ? 'Coming soon' : `Choose ${pack.name}`}</span>
+        <span>
+          {kind === 'credit'
+            ? creditPack
+              ? creditPackPurchaseLabel(creditPack, purchaseStatus === 'purchasing')
+              : 'Add credits'
+            : `Choose ${pack.name}`}
+        </span>
         <IconSparkArrow />
       </button>
+      {kind === 'credit' && purchaseMessage && (
+        <p
+          className={`opt-pricing-state ${purchaseStatus === 'error' ? 'is-error' : ''}`}
+          role="status"
+          aria-live="polite"
+        >
+          {purchaseMessage}
+        </p>
+      )}
     </article>
   );
 }

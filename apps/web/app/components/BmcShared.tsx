@@ -2,6 +2,9 @@
 
 import * as React from 'react';
 import { createPortal } from 'react-dom';
+import { useRouter } from 'next/navigation';
+import { fetchCreditPackOffers } from '../lib/api';
+import { creditPackFromOffer, type CreditPackCard } from './creditPackCatalog';
 
 export type BmcIconName =
   | 'check'
@@ -75,15 +78,6 @@ type BmcCheckProps = {
   onChange?: (checked: boolean) => void;
   error?: boolean;
   children: React.ReactNode;
-};
-
-type CreditPack = {
-  id: string;
-  name: string;
-  credits: number;
-  price: string;
-  blurb: string;
-  featured: boolean;
 };
 
 type BmcPricingModalProps = {
@@ -373,34 +367,29 @@ function BmcCheck({ checked, onChange, error = false, children }: BmcCheckProps)
   );
 }
 
-const CREDIT_PACKS: CreditPack[] = [
-  {
-    id: 'single',
-    name: 'Single',
-    credits: 10,
-    price: '$2',
-    blurb: 'A quick top-up for one more card.',
-    featured: false,
-  },
-  {
-    id: 'studio',
-    name: 'Studio',
-    credits: 80,
-    price: '$10',
-    blurb: 'Our most popular: a season of cards & songs.',
-    featured: true,
-  },
-  {
-    id: 'atelier',
-    name: 'Atelier',
-    credits: 250,
-    price: '$25',
-    blurb: 'Best value for gift-givers and makers.',
-    featured: false,
-  },
-];
-
 function BmcPricingModal({ open, onClose }: BmcPricingModalProps) {
+  const router = useRouter();
+  const [packs, setPacks] = React.useState<CreditPackCard[]>([]);
+  const [pricingError, setPricingError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (!open) return;
+    let active = true;
+    fetchCreditPackOffers()
+      .then((offers) => {
+        if (!active) return;
+        setPacks(offers.map(creditPackFromOffer));
+        setPricingError(null);
+      })
+      .catch((error: unknown) => {
+        if (!active) return;
+        setPricingError(error instanceof Error ? error.message : 'Credit-pack pricing is unavailable.');
+      });
+    return () => {
+      active = false;
+    };
+  }, [open]);
+
   if (!open) return null;
 
   return (
@@ -421,13 +410,19 @@ function BmcPricingModal({ open, onClose }: BmcPricingModalProps) {
           1 credit = 1 generation action. Image + optional QR song costs 2, image or song alone costs 1, and the inside
           message is always free.
         </p>
+        {packs.length === 0 && !pricingError && <p className="bmc-modal-sub">Loading standalone credit packs...</p>}
+        {pricingError && (
+          <p className="bmc-modal-sub" role="status">
+            {pricingError}
+          </p>
+        )}
         <div className="bmc-packs">
-          {CREDIT_PACKS.map((pack) => (
+          {packs.map((pack) => (
             <div key={pack.id} className={`bmc-pack ${pack.featured ? 'is-featured' : ''}`}>
               {pack.featured && <span className="bmc-pack-badge">Most popular</span>}
               <div className="bmc-pack-name">{pack.name}</div>
               <div className="bmc-pack-credits">
-                <span className="text-metallic-rose-gold">{pack.credits}</span>
+                <span className="text-metallic-rose-gold">{pack.tokens}</span>
               </div>
               <div className="bmc-pack-credits-label">Credits</div>
               <div className="bmc-pack-price">
@@ -438,8 +433,12 @@ function BmcPricingModal({ open, onClose }: BmcPricingModalProps) {
                 type="button"
                 className={pack.featured ? 'bmc-cta' : 'bmc-cta-secondary'}
                 style={{ width: '100%' }}
+                onClick={() => {
+                  onClose();
+                  router.push('/pricing#credit-packs');
+                }}
               >
-                Choose {pack.name}
+                View {pack.name}
               </button>
             </div>
           ))}
@@ -516,7 +515,6 @@ export {
   CreditCost,
   BmcCheck,
   BmcPricingModal,
-  CREDIT_PACKS,
   BmcNavContext,
   BmcErrorModal,
   bmcError,
