@@ -1,13 +1,15 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
 
-type AssetRow = {
+export type AssetRow = {
   id: string;
   card_draft_id: string;
   revision_id: string;
   generation_job_id: string | null;
   asset_type: string;
   generation_status: string;
+  storage_provider: string;
+  storage_key: string;
   media_type: string;
   byte_size: number | string;
   width_pixels: number | null;
@@ -21,7 +23,7 @@ type AssetRow = {
 
 const ASSET_COLUMNS = `
   id, card_draft_id, revision_id, generation_job_id, asset_type,
-  generation_status, media_type, byte_size, width_pixels, height_pixels,
+  generation_status, storage_provider, storage_key, media_type, byte_size, width_pixels, height_pixels,
   duration_seconds, moderation_status, approved_at, created_at, updated_at
 `;
 

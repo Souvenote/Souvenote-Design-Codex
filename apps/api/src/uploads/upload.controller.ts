@@ -1,5 +1,14 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Req } from '@nestjs/common';
-import { ApiBearerAuth, ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiProperty, ApiTags } from '@nestjs/swagger';
+import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Put, Req } from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiConsumes,
+  ApiCreatedResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiProperty,
+  ApiTags,
+} from '@nestjs/swagger';
 import { UploadResponseDto } from '../common/api-response.dto';
 import { IsBoolean, IsIn, IsInt, IsString, IsUUID, Matches, Max, MaxLength, Min, MinLength } from 'class-validator';
 import type { AuthenticatedRequest } from '../auth/auth.types';
@@ -60,6 +69,20 @@ export class UploadController {
     @Param('uploadId', new ParseUUIDPipe({ version: '4' })) uploadId: string,
   ) {
     return this.uploadService.get(request.user.id, uploadId);
+  }
+
+  @Put(':uploadId/content')
+  @Idempotent()
+  @ApiConsumes('application/octet-stream')
+  @ApiBody({ schema: { type: 'string', format: 'binary' } })
+  @ApiOperation({ operationId: 'storeMockUploadContent' })
+  @ApiOkResponse({ type: UploadResponseDto })
+  async storeContent(
+    @Req() request: AuthenticatedRequest,
+    @Param('uploadId', new ParseUUIDPipe({ version: '4' })) uploadId: string,
+    @Body() content: Buffer,
+  ) {
+    return this.uploadService.storeContent(request.user.id, uploadId, request.header('idempotency-key')!, content);
   }
 
   @Patch(':uploadId/complete')

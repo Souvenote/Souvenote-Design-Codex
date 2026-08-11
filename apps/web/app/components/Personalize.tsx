@@ -7,29 +7,25 @@ import { BmcErrorModal, bmcError } from './BmcShared';
 import { OrnamentDivider } from './Ornaments';
 import { AttestationGate } from './AttestationGate';
 import {
+  approveCardDraft,
   createCardDraft,
   fetchCardDraftAssets,
   fetchCardDraftById,
-  mockUpload,
   refreshCardDraftBackendState,
   startGeneration,
   updateCardDraft,
 } from '../lib/api';
 import type { CardDraftAsset } from '../lib/api';
 import { publishCreditBalance } from '../lib/creditBalance';
-import {
-  rememberGeneratedAssets,
-  rememberSelectedAsset,
-  resetMockMvpOrderState,
-  writeMockMvpFlowState,
-} from '../lib/mockMvpFlow';
 import type { CreditBalanceStatus } from '../lib/creditBalance';
 import { getTotalCredits, type AccountBalance } from './createFlowRules';
 import { CARD_WITH_QR_SONG_CREDITS, MIN_GENERATION_CREDITS } from './createFlowRules';
 import { goToPricingAfterPurchase } from './PricingReturn';
 import { AuthGatePrompt } from './AuthGatePrompt';
-
-// Personalize.tsx - Page 3: Personalize a Template (marketplace + modal + chatbot).
+import { registerPendingUpload, releasePendingUpload } from '../lib/pendingUploads';
+import { persistableCreativeBrief, preserveUploadedReferenceMarkers } from '../lib/referenceUploads';
+import { RetrySafeIdempotencyKeys } from '../lib/retrySafeIdempotency';
+import { useReferenceUploads } from '../lib/useReferenceUploads';
 
 type PtIconName =
   | 'arrow'
@@ -104,8 +100,10 @@ type ModalStep = {
 type PhotoPreview = {
   url: string;
   name: string;
+  clientKey?: string;
   mimeType?: string;
   size?: number;
+  uploaded?: boolean;
 };
 
 type PtPersonalizeModalProps = {
@@ -149,14 +147,6 @@ type PersonalizeDraftInput = {
   relationship?: string;
   creativeBrief: Record<string, unknown>;
 };
-
-type ReferenceImageUpload = {
-  filename: string;
-  mimeType: string;
-  size: number;
-};
-
-const CURRENT_CARD_DRAFT_ID_KEY = 'souv_current_card_draft_id';
 
 function buildTemplateDraftInput(tmpl: Template): PersonalizeDraftInput {
   return {
@@ -211,34 +201,12 @@ function referenceImageValue(value: unknown): PhotoPreview[] {
         url: '/assets/LogoMark.png',
         mimeType: textValue(record.mimeType) || undefined,
         size: numberValue(record.size, 0) || undefined,
+        uploaded: booleanValue(record.uploaded),
       },
     ];
   });
 }
 
-function getReferenceImageUploads(input: PersonalizeDraftInput): ReferenceImageUpload[] {
-  const photo = nestedRecord(input.creativeBrief, 'photo');
-  const referenceImages = photo.referenceImages;
-  if (!Array.isArray(referenceImages)) return [];
-
-  return referenceImages.flatMap((item) => {
-    const record = asRecord(item);
-    const filename = textValue(record.filename) || textValue(record.name);
-    const mimeType = textValue(record.mimeType);
-    const size = numberValue(record.size);
-
-    if (!filename || !mimeType.includes('/') || size <= 0) return [];
-    return [{ filename, mimeType, size }];
-  });
-}
-
-function referenceUploadSignature(cardDraftId: string, uploads: ReferenceImageUpload[]) {
-  return `${cardDraftId}:${JSON.stringify(uploads)}`;
-}
-
-// ============================================================
-// ICONS
-// ============================================================
 function PtIcon({ name, w = 18 }: PtIconProps) {
   const props: React.SVGProps<SVGSVGElement> = {
     width: w,
@@ -1408,6 +1376,7 @@ function PtPersonalizeModal({
         : initialReferenceImageNames.map((name) => ({ name, url: '/assets/LogoMark.png' }))
       : [],
   );
+  const photoPreviewsRef = React.useRef<PhotoPreview[]>([]);
   const [attested, setAttested] = React.useState(booleanValue(initialPhoto.attested));
   const [gateOpen, setGateOpen] = React.useState(false);
   const [describe, setDescribe] = React.useState(textValue(initialPhoto.mode) === 'description');
@@ -1431,10 +1400,17 @@ function PtPersonalizeModal({
     setStep(initialStep);
   }, [open, initialStep]);
   React.useEffect(() => {
-    return () => {
-      photoPreviews.forEach((photo) => URL.revokeObjectURL(photo.url));
-    };
+    photoPreviewsRef.current = photoPreviews;
   }, [photoPreviews]);
+  React.useEffect(
+    () => () => {
+      photoPreviewsRef.current.forEach((photo) => {
+        if (photo.url.startsWith('blob:')) URL.revokeObjectURL(photo.url);
+        releasePendingUpload(photo.clientKey);
+      });
+    },
+    [],
+  );
 
   if (!open || !tmpl) return null;
 
@@ -1459,16 +1435,20 @@ function PtPersonalizeModal({
     if (idx > 0) setStep(MODAL_STEPS[idx - 1].id);
   };
   const addPersonalizeFiles = (list: FileList | File[] | null) => {
-    const file = Array.from(list || []).find((incoming) => incoming.type.startsWith('image/'));
+    const file = Array.from(list || []).find((incoming) => /image\/(jpeg|png|webp)/.test(incoming.type));
     if (!file) return;
     setPhotoPreviews((current) => {
-      current.forEach((photo) => URL.revokeObjectURL(photo.url));
+      current.forEach((photo) => {
+        if (photo.url.startsWith('blob:')) URL.revokeObjectURL(photo.url);
+        releasePendingUpload(photo.clientKey);
+      });
       return [
         {
           url: URL.createObjectURL(file),
           name: file.name,
           mimeType: file.type,
           size: file.size,
+          clientKey: registerPendingUpload(file),
         },
       ];
     });
@@ -1477,7 +1457,10 @@ function PtPersonalizeModal({
   };
   const removePersonalizePhoto = () => {
     setPhotoPreviews((current) => {
-      current.forEach((photo) => URL.revokeObjectURL(photo.url));
+      current.forEach((photo) => {
+        if (photo.url.startsWith('blob:')) URL.revokeObjectURL(photo.url);
+        releasePendingUpload(photo.clientKey);
+      });
       return [];
     });
     setAttested(false);
@@ -1533,6 +1516,8 @@ function PtPersonalizeModal({
           filename: photo.name,
           mimeType: photo.mimeType,
           size: photo.size,
+          clientKey: photo.clientKey,
+          uploaded: photo.uploaded,
         })),
         attested,
       },
@@ -1612,14 +1597,14 @@ function PtPersonalizeModal({
                     <PtIcon name="upload" w={28} />
                   </span>
                   <span className="pt-upload-title">{hasPhoto ? 'Photo ready' : 'Drop a photo here'}</span>
-                  <span className="pt-upload-sub">Or click to browse. JPG · PNG · HEIC · WEBP</span>
+                  <span className="pt-upload-sub">Or click to browse. JPG · PNG · WEBP</span>
                   <span className="pt-upload-rules">
                     <span>· 10 MB max</span>
                     <span>· faces stay recognizable</span>
                   </span>
                   <input
                     type="file"
-                    accept="image/*"
+                    accept="image/jpeg,image/png,image/webp"
                     style={{ position: 'absolute', opacity: 0, pointerEvents: 'none' }}
                     onChange={(event) => {
                       addPersonalizeFiles(event.target.files);
@@ -2149,7 +2134,6 @@ function PersonalizeApp({
   const [reviewGen, setReviewGen] = React.useState(false);
   const [reviewIncludeSong, setReviewIncludeSong] = React.useState(true);
   const [generationPending, setGenerationPending] = React.useState(false);
-  const [uploadPending, setUploadPending] = React.useState(false);
   const [reviewAssets, setReviewAssets] = React.useState<CardDraftAsset[]>([]);
   const [reviewAssetsStatus, setReviewAssetsStatus] = React.useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const [reviewAssetsError, setReviewAssetsError] = React.useState<string | null>(null);
@@ -2159,31 +2143,27 @@ function PersonalizeApp({
   const currentDraftIdRef = React.useRef<string | null>(null);
   const draftSavePromiseRef = React.useRef<Promise<string> | null>(null);
   const draftSaveVersionRef = React.useRef(0);
-  const uploadedReferenceSignatureRef = React.useRef<string>('');
+  const uploadedDraftInputRef = React.useRef<PersonalizeDraftInput | null>(null);
+  const idempotencyKeysRef = React.useRef(new RetrySafeIdempotencyKeys());
+  const referenceUploads = useReferenceUploads((uploadedDraftInput) => {
+    uploadedDraftInputRef.current = uploadedDraftInput;
+  });
   const totalCredits = getTotalCredits(accountBalance);
 
   const rememberDraftId = React.useCallback((draftId: string | null) => {
     currentDraftIdRef.current = draftId;
     setCurrentDraftId(draftId);
-
-    try {
-      if (draftId) {
-        window.localStorage.setItem(CURRENT_CARD_DRAFT_ID_KEY, draftId);
-        writeMockMvpFlowState({ cardDraftId: draftId });
-      } else {
-        window.localStorage.removeItem(CURRENT_CARD_DRAFT_ID_KEY);
-        resetMockMvpOrderState(null);
-      }
-    } catch {
-      // Local draft id persistence is best-effort until auth-backed state exists.
-    }
+    const url = new URL(window.location.href);
+    if (draftId) url.searchParams.set('draftId', draftId);
+    else url.searchParams.delete('draftId');
+    window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
   }, []);
 
   const applyReviewAssets = React.useCallback((cardDraftId: string, assets: CardDraftAsset[]) => {
+    void cardDraftId;
     setReviewAssets(assets);
     setReviewAssetsStatus('ready');
     setReviewAssetsError(null);
-    rememberGeneratedAssets(cardDraftId, assets);
   }, []);
 
   const refreshReviewAssets = React.useCallback(
@@ -2206,42 +2186,16 @@ function PersonalizeApp({
     [applyReviewAssets],
   );
 
-  const uploadReferenceImages = React.useCallback(async (cardDraftId: string, draftInput: PersonalizeDraftInput) => {
-    const uploads = getReferenceImageUploads(draftInput);
-    if (!uploads.length) return;
-
-    const signature = referenceUploadSignature(cardDraftId, uploads);
-    if (uploadedReferenceSignatureRef.current === signature) return;
-
-    setUploadPending(true);
-    try {
-      await Promise.all(
-        uploads.map((upload) =>
-          mockUpload({
-            cardDraftId,
-            filename: upload.filename,
-            mimeType: upload.mimeType,
-            size: upload.size,
-          }),
-        ),
-      );
-      uploadedReferenceSignatureRef.current = signature;
-      await refreshCardDraftBackendState(cardDraftId);
-    } finally {
-      setUploadPending(false);
-    }
-  }, []);
-
   const ensureDraftSaved = React.useCallback(
     async (draftInput: PersonalizeDraftInput, includeSong = true) => {
       if (currentDraftIdRef.current) {
         await updateCardDraft(currentDraftIdRef.current, {
           occasion: draftInput.occasion,
           relationship: draftInput.relationship,
-          creativeBrief: {
+          creativeBrief: persistableCreativeBrief({
             ...draftInput.creativeBrief,
             includeSong,
-          },
+          }),
         });
         return currentDraftIdRef.current;
       }
@@ -2251,15 +2205,14 @@ function PersonalizeApp({
       const savePromise = createCardDraft({
         occasion: draftInput.occasion,
         relationship: draftInput.relationship,
-        creativeBrief: {
+        creativeBrief: persistableCreativeBrief({
           ...draftInput.creativeBrief,
           includeSong,
-        },
+        }),
       })
         .then(async (cardDraft) => {
           if (saveVersion === draftSaveVersionRef.current) {
             rememberDraftId(cardDraft.id);
-            resetMockMvpOrderState(cardDraft.id);
           }
           await refreshCardDraftBackendState(cardDraft.id);
           return cardDraft.id;
@@ -2284,7 +2237,9 @@ function PersonalizeApp({
       setReviewAssets([]);
       setReviewAssetsStatus('idle');
       setReviewAssetsError(null);
-      uploadedReferenceSignatureRef.current = '';
+      uploadedDraftInputRef.current = null;
+      referenceUploads.reset();
+      idempotencyKeysRef.current.clear();
       rememberDraftId(null);
       setChosen(template);
       setModalOpen(true);
@@ -2299,8 +2254,6 @@ function PersonalizeApp({
   );
 
   React.useEffect(() => {
-    if (!openModal) return;
-
     if (resumeDraftId) {
       let cancelled = false;
       fetchCardDraftById(resumeDraftId)
@@ -2316,7 +2269,14 @@ function PersonalizeApp({
           });
           rememberDraftId(draft.id);
           setChosen(TEMPLATES.find((candidate) => candidate.id === templateId) || TEMPLATES[0]);
-          setModalOpen(true);
+          if (draft.status === 'review' || draft.status === 'approved') {
+            setReviewIncludeSong(booleanValue(brief.includeSong, true));
+            setModalOpen(false);
+            setView('review');
+            void refreshReviewAssets(draft.id);
+          } else {
+            setModalOpen(true);
+          }
         })
         .catch((error) => {
           if (!cancelled) {
@@ -2332,10 +2292,12 @@ function PersonalizeApp({
       };
     }
 
+    if (!openModal) return;
+
     if (openModal) {
       beginTemplateDraft(TEMPLATES[0]);
     }
-  }, [beginTemplateDraft, openModal, rememberDraftId, resumeDraftId]);
+  }, [beginTemplateDraft, openModal, refreshReviewAssets, rememberDraftId, resumeDraftId]);
 
   const onPersonalize = (t: Template) => {
     beginTemplateDraft(t);
@@ -2343,10 +2305,13 @@ function PersonalizeApp({
   const onClose = async (draftInput?: PersonalizeDraftInput) => {
     if (draftInput && currentDraftIdRef.current) {
       try {
+        const creativeBrief = uploadedDraftInputRef.current
+          ? preserveUploadedReferenceMarkers(draftInput.creativeBrief, uploadedDraftInputRef.current.creativeBrief)
+          : draftInput.creativeBrief;
         await updateCardDraft(currentDraftIdRef.current, {
           occasion: draftInput.occasion,
           relationship: draftInput.relationship,
-          creativeBrief: draftInput.creativeBrief,
+          creativeBrief: persistableCreativeBrief(creativeBrief),
         });
         await refreshCardDraftBackendState(currentDraftIdRef.current);
       } catch {
@@ -2360,7 +2325,7 @@ function PersonalizeApp({
   };
   // Create my Card → close modal, jump to the Review page (which auto-opens the invite modal while generating).
   const onCreate = async (includeSong = true, draftInput: PersonalizeDraftInput = { creativeBrief: {} }) => {
-    if (generationPending || uploadPending) return;
+    if (generationPending || referenceUploads.uploading) return;
     if (requireAuthToContinue) {
       setAuthPromptOpen(true);
       return;
@@ -2395,15 +2360,23 @@ function PersonalizeApp({
 
     try {
       const cardDraftId = await ensureDraftSaved(draftInput, includeSong);
-      await uploadReferenceImages(cardDraftId, draftInput);
+      await referenceUploads.upload(cardDraftId, draftInput);
 
+      const actionType = includeSong ? 'initial_image_song' : 'initial_image';
+      const actionSignature = `${cardDraftId}:${actionType}`;
+      const idempotencyKey = idempotencyKeysRef.current.keyFor(actionSignature, 'frontend-generation');
       const response = await startGeneration({
         cardDraftId,
-        idempotencyKey: `frontend-generation-${Date.now()}`,
-        actionType: 'initial_image_song',
+        idempotencyKey,
+        actionType,
       });
       const backendState = await refreshCardDraftBackendState(cardDraftId);
       applyReviewAssets(cardDraftId, backendState.assets);
+      idempotencyKeysRef.current.complete(actionSignature, idempotencyKey);
+
+      if (response.generationJob.status !== 'succeeded') {
+        throw new Error('The deterministic mock failed safely and any reserved credits were refunded.');
+      }
 
       if (response.balance) {
         publishCreditBalance(response.balance);
@@ -2433,6 +2406,8 @@ function PersonalizeApp({
   };
   const backToMarketplace = () => {
     rememberDraftId(null);
+    uploadedDraftInputRef.current = null;
+    idempotencyKeysRef.current.clear();
     setReviewGen(false);
     setReviewAssets([]);
     setReviewAssetsStatus('idle');
@@ -2448,12 +2423,33 @@ function PersonalizeApp({
     });
   }, [currentDraftId, refreshReviewAssets, view]);
 
-  const spendRegenerationCredit = async () => {
-    bmcError(
-      'One-credit image and song regeneration is coming in the approved creation-workflow section. No credit was charged.',
-      'Regeneration coming soon',
-    );
-    return false;
+  const regenerateAsset = async (assetType: 'image' | 'song' | 'message', creativeDirection?: string) => {
+    if (!currentDraftId) return false;
+    const actionType =
+      assetType === 'image' ? 'regenerate_image' : assetType === 'song' ? 'regenerate_song' : 'inside_message';
+    const actionSignature = `${currentDraftId}:${actionType}:${creativeDirection?.trim() || ''}`;
+    const idempotencyKey = idempotencyKeysRef.current.keyFor(actionSignature, 'frontend-regeneration');
+    try {
+      const response = await startGeneration({
+        cardDraftId: currentDraftId,
+        idempotencyKey,
+        actionType,
+        creativeDirection,
+      });
+      const assets = await refreshReviewAssets(currentDraftId);
+      applyReviewAssets(currentDraftId, assets);
+      idempotencyKeysRef.current.complete(actionSignature, idempotencyKey);
+      publishCreditBalance(response.balance);
+      if (response.generationJob.status !== 'succeeded') {
+        bmcError('The deterministic mock failed safely and any reserved credits were refunded.', 'Regeneration failed');
+        return false;
+      }
+      return true;
+    } catch (error) {
+      bmcError(error instanceof Error ? error.message : 'Regeneration failed.', 'Regeneration failed');
+      await refreshCredits?.();
+      return false;
+    }
   };
 
   if (view === 'review') {
@@ -2468,20 +2464,21 @@ function PersonalizeApp({
           assetsStatus={reviewAssetsStatus}
           assetsError={reviewAssetsError}
           onStartOver={backToMarketplace}
-          onApproveAll={(selectedAssetId) => {
-            if (!currentDraftId || !selectedAssetId) {
+          onApproveAll={async (selection) => {
+            if (!currentDraftId) {
               bmcError(
-                'Generated image assets are not ready yet. Try again after the review assets finish loading.',
+                'Generated assets are not ready yet. Try again after the review assets finish loading.',
                 'Review assets unavailable',
               );
               return;
             }
-
-            rememberSelectedAsset(currentDraftId, selectedAssetId, reviewAssets);
-            router.push('/delivery');
+            const approved = await approveCardDraft(currentDraftId, selection);
+            router.push(
+              `/delivery?draftId=${encodeURIComponent(approved.id)}&assetId=${encodeURIComponent(selection.imageAssetId)}`,
+            );
           }}
           onTopUp={openPricingForCredits}
-          onRegenerateAsset={spendRegenerationCredit}
+          onRegenerateAsset={regenerateAsset}
         />
         <BmcErrorModal />
       </div>
@@ -2499,7 +2496,7 @@ function PersonalizeApp({
         onCreate={onCreate}
         initialStep={openModal ? initialModalStep : 'photo'}
         initialDraftInput={resumeDraftInput}
-        generating={generationPending || uploadPending}
+        generating={generationPending || referenceUploads.uploading}
         requireAuthToContinue={requireAuthToContinue}
         onAuthRequired={() => setAuthPromptOpen(true)}
       />

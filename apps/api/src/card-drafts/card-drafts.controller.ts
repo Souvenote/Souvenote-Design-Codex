@@ -1,4 +1,16 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Query, Req } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+  Req,
+} from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiCreatedResponse,
@@ -12,6 +24,7 @@ import { Type } from 'class-transformer';
 import { CardDraftListResponseDto, CardDraftResponseDto } from '../common/api-response.dto';
 import { IsIn, IsInt, IsObject, IsOptional, IsString, IsUUID, Max, MaxLength, Min } from 'class-validator';
 import type { AuthenticatedRequest } from '../auth/auth.types';
+import { Idempotent } from '../common/idempotent.decorator';
 import { CardDraftsService } from './card-drafts.service';
 
 export class CreateCardDraftDto {
@@ -71,6 +84,21 @@ export class CardDraftListQueryDto {
   cursor?: string;
 }
 
+export class ApproveCardDraftDto {
+  @ApiProperty({ format: 'uuid' })
+  @IsUUID()
+  imageAssetId!: string;
+
+  @ApiProperty({ format: 'uuid' })
+  @IsUUID()
+  messageAssetId!: string;
+
+  @ApiPropertyOptional({ format: 'uuid' })
+  @IsOptional()
+  @IsUUID()
+  songAssetId?: string;
+}
+
 @ApiTags('card-drafts')
 @ApiBearerAuth()
 @Controller('card-drafts')
@@ -110,5 +138,18 @@ export class CardDraftsController {
     @Body() dto: UpdateCardDraftDto,
   ) {
     return this.cardDraftsService.update(request.user.id, draftId, dto);
+  }
+
+  @Post(':draftId/approve')
+  @HttpCode(HttpStatus.OK)
+  @Idempotent()
+  @ApiOperation({ operationId: 'approveCardDraft' })
+  @ApiOkResponse({ type: CardDraftResponseDto })
+  async approve(
+    @Req() request: AuthenticatedRequest,
+    @Param('draftId', new ParseUUIDPipe({ version: '4' })) draftId: string,
+    @Body() dto: ApproveCardDraftDto,
+  ) {
+    return this.cardDraftsService.approve(request.user.id, draftId, request.header('idempotency-key')!, dto);
   }
 }

@@ -1,7 +1,7 @@
 import { type INestApplication, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule, type OpenAPIObject } from '@nestjs/swagger';
-import { json } from 'express';
+import { json, raw } from 'express';
 import type { CorsOptions } from '@nestjs/common/interfaces/external/cors-options.interface';
 import { readPositiveInteger, resolveCorsAllowedOrigins } from './config/runtime-config';
 import { RequestIdMiddleware } from './common/request-id.middleware';
@@ -29,6 +29,12 @@ export function configureApi(app: INestApplication): OpenAPIObject {
     },
   };
   app.enableCors(corsOptions);
+  app.use(
+    raw({
+      limit: 10_485_760,
+      type: 'application/octet-stream',
+    }),
+  );
   app.use(
     json({
       limit: bodyLimit,

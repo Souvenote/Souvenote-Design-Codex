@@ -5,8 +5,11 @@ import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { BmcIcon, bmcError } from './BmcShared';
 import type { CardDraftAsset } from '../lib/api';
-import { findGeneratedImageAsset, hasGeneratedAsset } from '../lib/mockMvpFlow';
+import { assetContentUrl } from '../lib/api';
 import { GENRE_GROUPS } from './BmcSteps';
+import { BmcReviewConfirmModal } from './BmcReviewConfirmModal';
+import { BmcReviewMessage } from './BmcReviewMessage';
+import { useBmcReviewAssets } from './useBmcReviewAssets';
 
 // BmcReview.tsx - Build My Card Review page.
 // Front Card, Song, Inside Message panels + bottom action bar + "Are you sure?" modal.
@@ -20,7 +23,7 @@ type PanelStatusProps = {
 type ReviewPanelProps = PanelStatusProps & {
   onApprove: () => void;
   onInvalidate?: () => void;
-  onRegenerate?: () => boolean | Promise<boolean>;
+  onRegenerate?: (creativeDirection?: string) => boolean | Promise<boolean>;
   editing: boolean;
   setEditing: (editing: boolean) => void;
 };
@@ -40,20 +43,18 @@ type ModalProps = {
   onClose: () => void;
 };
 
-type BmcConfirmModalProps = ModalProps & {
-  onConfirm: () => void;
-  includeSong?: boolean;
-};
-
 type BmcInviteModalProps = ModalProps & {
   includeSong?: boolean;
 };
 
 type BmcReviewProps = {
   onStartOver?: () => void;
-  onApproveAll?: (selectedAssetId?: string) => void;
+  onApproveAll?: (selection: ReviewSelection) => void | Promise<void>;
   onTopUp?: () => void;
-  onRegenerateAsset?: () => boolean | Promise<boolean>;
+  onRegenerateAsset?: (
+    assetType: 'image' | 'song' | 'message',
+    creativeDirection?: string,
+  ) => boolean | Promise<boolean>;
   credits?: number;
   generating?: boolean;
   includeSong?: boolean;
@@ -61,6 +62,12 @@ type BmcReviewProps = {
   assets?: CardDraftAsset[];
   assetsStatus?: 'idle' | 'loading' | 'ready' | 'error';
   assetsError?: string | null;
+};
+
+export type ReviewSelection = {
+  imageAssetId: string;
+  songAssetId?: string;
+  messageAssetId: string;
 };
 
 type EditingState = {
@@ -96,7 +103,8 @@ function BmcReviewFront({
   editing,
   setEditing,
   generating,
-}: ReviewPanelProps) {
+  imageUrl,
+}: ReviewPanelProps & { imageUrl?: string }) {
   const [instr, setInstr] = React.useState(INITIAL_IMAGE_EDIT);
   const [regenerating, setRegenerating] = React.useState(false);
   const timer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -113,7 +121,7 @@ function BmcReviewFront({
   async function regenerate() {
     if (!editMade || panelGenerating) return;
     setRegenerating(true);
-    const spent = await (onRegenerate?.() ?? true);
+    const spent = await (onRegenerate?.(instr.trim()) ?? true);
     if (!spent) {
       setRegenerating(false);
       return;
@@ -137,13 +145,23 @@ function BmcReviewFront({
       </div>
 
       <div className="bmc-front-art">
-        <div className="bmc-front-noise" />
-        <div className="bmc-front-glyph">
-          To the moon
-          <br />
-          and back
-        </div>
-        <div className="bmc-front-fig" />
+        {imageUrl ? (
+          <img
+            src={imageUrl}
+            alt="Deterministic beta mock card preview"
+            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+          />
+        ) : (
+          <>
+            <div className="bmc-front-noise" />
+            <div className="bmc-front-glyph">
+              To the moon
+              <br />
+              and back
+            </div>
+            <div className="bmc-front-fig" />
+          </>
+        )}
       </div>
       <div className="bmc-front-caption">5x7 portrait - Transform - Cinematic - Heartfelt + Elegant</div>
 
@@ -256,7 +274,8 @@ function BmcReviewSong({
   editing,
   setEditing,
   generating,
-}: ReviewPanelProps) {
+  songUrl,
+}: ReviewPanelProps & { songUrl?: string }) {
   const [playing, setPlaying] = React.useState(false);
   const [genre, setGenre] = React.useState(INITIAL_SONG_GENRE);
   const [lyrics, setLyrics] = React.useState(INITIAL_SONG_LYRICS);
@@ -279,7 +298,7 @@ function BmcReviewSong({
   async function regenerate() {
     if (!editMade || panelGenerating) return;
     setRegenerating(true);
-    const spent = await (onRegenerate?.() ?? true);
+    const spent = await (onRegenerate?.(`Genre: ${genre}\nLyrics: ${lyrics}`) ?? true);
     if (!spent) {
       setRegenerating(false);
       return;
@@ -308,6 +327,9 @@ function BmcReviewSong({
       </div>
 
       <div className="bmc-song-player">
+        {songUrl ? (
+          <audio controls preload="metadata" src={songUrl} style={{ width: '100%', marginBottom: 12 }} />
+        ) : null}
         <div className="bmc-song-meta">
           <button
             className="bmc-song-fab"
@@ -373,81 +395,6 @@ function BmcReviewSong({
       </div>
     </div>
   );
-}
-
-const INSIDE_MESSAGE = `Mom — for every quiet morning that turned out to mean everything, thank you. I love you to the moon and back, every single day. — Cameron`;
-
-function BmcReviewMessage({ approved, onApprove, editing, setEditing, generating }: ReviewPanelProps) {
-  return (
-    <div className="bmc-panel">
-      <div className="bmc-panel-head">
-        <div className="bmc-panel-title">Inside message</div>
-        <PanelStatus generating={generating} approved={approved} />
-      </div>
-
-      {editing ? (
-        <>
-          <label className="bmc-label">Edit message</label>
-          <textarea className="bmc-textarea" defaultValue={INSIDE_MESSAGE} style={{ minHeight: 180 }} />
-          <p className="bmc-help" style={{ marginTop: 8 }}>
-            Message edits and regenerations are always{' '}
-            <b style={{ color: 'var(--gold-hi)', fontStyle: 'normal', marginLeft: '3px' }}>free</b>.
-          </p>
-          <div className="bmc-panel-acts" style={{ marginTop: 14, marginBottom: 0 }}>
-            <button type="button" className="bmc-cta-secondary">
-              <BmcIcon name="refresh" w={14} /> Regenerate Message
-            </button>
-          </div>
-        </>
-      ) : (
-        <div className="bmc-msg-single">{INSIDE_MESSAGE}</div>
-      )}
-
-      <div className="bmc-panel-acts">
-        <button type="button" className="bmc-cta" onClick={onApprove} disabled={approved || generating}>
-          <BmcIcon name="check" w={14} /> {generating ? 'Generating\u2026' : approved ? 'Approved' : 'Approve Message'}
-        </button>
-        <button type="button" className="bmc-cta-secondary" onClick={() => setEditing(!editing)}>
-          <BmcIcon name="edit" w={14} /> {editing ? 'Close' : 'Edit'}
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function BmcConfirmModal({ open, onClose, onConfirm, includeSong = true }: BmcConfirmModalProps) {
-  if (!open) return null;
-  const generationCost = includeSong ? 2 : 1;
-  const ui = (
-    <div className="bmc-modal-wrap" role="dialog" aria-modal="true" data-screen-label="07 Modal · Start From Scratch">
-      <div className="bmc-modal-scrim" onClick={onClose} />
-      <div className="bmc-modal">
-        <h2 className="bmc-modal-title">
-          <span className="text-metallic-rose-gold">Are </span>
-          <span className="souv-hero-italic text-metallic-rose-gold">you sure?</span>
-        </h2>
-        <p className="bmc-modal-sub">
-          Starting from scratch will cost another{' '}
-          <b className="text-metallic-gold">
-            {generationCost} {generationCost === 1 ? 'credit' : 'credits'}
-          </b>{' '}
-          when you can edit
-          {includeSong ? ' just the image or QR song' : ' the image'} for <b className="text-metallic-gold">1 credit</b>
-          .
-        </p>
-        <div className="bmc-modal-acts">
-          <button type="button" className="bmc-cta-secondary" onClick={onClose}>
-            Keep editing
-          </button>
-          <button type="button" className="bmc-cta" onClick={onConfirm}>
-            Yes, start over
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-  if (typeof document === 'undefined') return null;
-  return createPortal(ui, document.body);
 }
 
 function BmcInviteModal({ open, onClose, includeSong = true }: BmcInviteModalProps) {
@@ -532,15 +479,25 @@ function BmcReview({
   assetsError = null,
 }: BmcReviewProps) {
   const router = useRouter();
-  const [imgApproved, setImgApproved] = React.useState(false);
-  const [songApproved, setSongApproved] = React.useState(false);
-  const [msgApproved, setMsgApproved] = React.useState(false);
   const [editing, setEditing] = React.useState<EditingState>({ image: false, song: false, message: false });
   const [confirm, setConfirm] = React.useState(false);
   const [inviteOpen, setInviteOpen] = React.useState(false);
-  const generatedImageAsset = React.useMemo(() => findGeneratedImageAsset(assets), [assets]);
-  const hasSongAsset = React.useMemo(() => hasGeneratedAsset(assets, 'song'), [assets]);
-  const hasMessageAsset = React.useMemo(() => hasGeneratedAsset(assets, 'message'), [assets]);
+  const [approving, setApproving] = React.useState(false);
+  const {
+    generatedImageAsset,
+    songAsset,
+    messageAsset,
+    imgApproved,
+    songApproved,
+    msgApproved,
+    setImgApproved,
+    setSongApproved,
+    setMsgApproved,
+    messageText,
+    capabilityLabel,
+  } = useBmcReviewAssets(assets);
+  const hasSongAsset = Boolean(songAsset);
+  const hasMessageAsset = Boolean(messageAsset);
   const assetsLoading = assetsStatus === 'loading';
   const assetsUnavailable = assetsStatus === 'error';
 
@@ -555,16 +512,16 @@ function BmcReview({
   const approveAll = onApproveAll || (() => router.push('/delivery'));
   const topUp = onTopUp || (() => router.push('/pricing'));
   const outOfCredits = credits <= 0;
-  const spendRegenerationCredit = async () => {
-    if (credits <= 0) {
+  const spendRegenerationCredit = async (assetType: 'image' | 'song' | 'message', creativeDirection?: string) => {
+    if (assetType !== 'message' && credits <= 0) {
       topUp();
       return false;
     }
-    return await (onRegenerateAsset?.() ?? true);
+    return await (onRegenerateAsset?.(assetType, creativeDirection) ?? true);
   };
-  const handleApproveAll = () => {
-    if (generating || assetsLoading) return;
-    if (!generatedImageAsset?.id) {
+  const handleApproveAll = async () => {
+    if (generating || assetsLoading || approving) return;
+    if (!generatedImageAsset?.id || !messageAsset?.id || (includeSong && !songAsset?.id)) {
       bmcError(
         assetsUnavailable
           ? `We could not load generated assets from the backend. ${assetsError || ''}`.trim()
@@ -577,7 +534,18 @@ function BmcReview({
     setImgApproved(true);
     if (includeSong) setSongApproved(true);
     setMsgApproved(true);
-    approveAll(generatedImageAsset.id);
+    setApproving(true);
+    try {
+      await approveAll({
+        imageAssetId: generatedImageAsset.id,
+        messageAssetId: messageAsset.id,
+        ...(includeSong && songAsset?.id ? { songAssetId: songAsset.id } : {}),
+      });
+    } catch (error) {
+      bmcError(error instanceof Error ? error.message : 'The card could not be approved.', 'Approval failed');
+    } finally {
+      setApproving(false);
+    }
   };
 
   return (
@@ -595,6 +563,9 @@ function BmcReview({
           {includeSong
             ? 'Front, QR song, and inside message, each independently editable. Approve each piece, then send the bundle to Delivery.'
             : 'Front and inside message, each independently editable. Approve both pieces, then send the card to Delivery.'}
+        </p>
+        <p className="bmc-help" style={{ margin: '10px auto 0', maxWidth: 680 }}>
+          {capabilityLabel} · image, song, and message are simulations. Nothing is sent, printed, or charged.
         </p>
         {cardDraftId && (
           <p className="bmc-help" style={{ margin: '14px auto 0', maxWidth: 680 }}>
@@ -615,13 +586,14 @@ function BmcReview({
           generating={generating || assetsLoading}
           onApprove={() => setImgApproved(true)}
           onInvalidate={() => setImgApproved(false)}
-          onRegenerate={async () => {
-            const spent = await spendRegenerationCredit();
+          onRegenerate={async (creativeDirection) => {
+            const spent = await spendRegenerationCredit('image', creativeDirection);
             if (spent) setImgApproved(false);
             return spent;
           }}
           editing={editing.image}
           setEditing={(v) => setEditing((s) => ({ ...s, image: v }))}
+          imageUrl={generatedImageAsset?.id ? assetContentUrl(generatedImageAsset.id) : undefined}
         />
         <div className="bmc-review-stack">
           {includeSong && (
@@ -630,21 +602,28 @@ function BmcReview({
               generating={generating || assetsLoading}
               onApprove={() => setSongApproved(true)}
               onInvalidate={() => setSongApproved(false)}
-              onRegenerate={async () => {
-                const spent = await spendRegenerationCredit();
+              onRegenerate={async (creativeDirection) => {
+                const spent = await spendRegenerationCredit('song', creativeDirection);
                 if (spent) setSongApproved(false);
                 return spent;
               }}
               editing={editing.song}
               setEditing={(v) => setEditing((s) => ({ ...s, song: v }))}
+              songUrl={songAsset?.id ? assetContentUrl(songAsset.id) : undefined}
             />
           )}
           <BmcReviewMessage
             approved={msgApproved}
             generating={generating || assetsLoading}
             onApprove={() => setMsgApproved(true)}
+            onRegenerate={async (creativeDirection) => {
+              const regenerated = await spendRegenerationCredit('message', creativeDirection);
+              if (regenerated) setMsgApproved(false);
+              return regenerated;
+            }}
             editing={editing.message}
             setEditing={(v) => setEditing((s) => ({ ...s, message: v }))}
+            messageText={messageText}
           />
         </div>
       </div>
@@ -678,13 +657,19 @@ function BmcReview({
               </>
             )}
           </span>
-          <button type="button" className="bmc-cta" onClick={handleApproveAll} disabled={generating || assetsLoading}>
-            {assetsLoading ? 'Loading assets...' : 'Approve All'} <BmcIcon name="arrow" w={16} />
+          <button
+            type="button"
+            className="bmc-cta"
+            onClick={() => void handleApproveAll()}
+            disabled={generating || assetsLoading || approving}
+          >
+            {assetsLoading ? 'Loading assets...' : approving ? 'Saving approval...' : 'Approve All'}{' '}
+            <BmcIcon name="arrow" w={16} />
           </button>
         </div>
       </div>
 
-      <BmcConfirmModal
+      <BmcReviewConfirmModal
         open={confirm}
         onClose={() => setConfirm(false)}
         onConfirm={() => {
@@ -699,4 +684,4 @@ function BmcReview({
   );
 }
 
-export { BmcReview, BmcConfirmModal, BmcInviteModal, BmcReviewFront, BmcReviewSong, BmcReviewMessage };
+export { BmcReview };

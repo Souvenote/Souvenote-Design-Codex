@@ -1,19 +1,21 @@
 import { type INestApplication } from '@nestjs/common';
 import { Test, type TestingModule } from '@nestjs/testing';
-import { createHmac, randomUUID } from 'node:crypto';
+import { createHash, createHmac, randomUUID } from 'node:crypto';
 import type { Server } from 'node:http';
 import { Pool } from 'pg';
 import request, { type Response } from 'supertest';
 import { configureApi } from '../src/api-configuration';
 import { AppModule } from '../src/app.module';
 import type { AccessTokenClaims } from '../src/auth/auth.types';
-import { GenerationService } from '../src/generation/generation.service';
 
 type UserPayload = { user: { id: string; email: string } };
 type DraftPayload = { cardDraft: { id: string; status: string } };
-type UploadPayload = { upload: { id: string; status: string } };
-type AssetListPayload = { data: Array<{ id: string; assetType: string }> };
-type GenerationPayload = { generationJob: { id: string }; balance: number };
+type UploadPayload = { upload: { id: string; status: string; widthPixels?: number; heightPixels?: number } };
+type AssetListPayload = { data: Array<{ id: string; assetType: string; approvedAt?: string | null }> };
+type GenerationPayload = {
+  generationJob: { id: string; status: string; creditsReserved: number; creditsRefunded: number };
+  balance: number;
+};
 type OrderPayload = { order: { id: string; totalMinor: number; currency: string } };
 type CreditPackPurchasePayload = {
   purchase: {
@@ -61,6 +63,7 @@ function authenticated(server: Server, accessToken: string) {
   return {
     get: (path: string) => request(server).get(path).set('Authorization', `Bearer ${accessToken}`),
     post: (path: string) => request(server).post(path).set('Authorization', `Bearer ${accessToken}`),
+    put: (path: string) => request(server).put(path).set('Authorization', `Bearer ${accessToken}`),
     patch: (path: string) => request(server).patch(path).set('Authorization', `Bearer ${accessToken}`),
   };
 }
@@ -73,6 +76,14 @@ const address = {
   postalCode: 'V6B 1A1',
   country: 'CA' as const,
 };
+
+const validPng = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Z8p8AAAAASUVORK5CYII=',
+  'base64',
+);
+const validPngHash = createHash('sha256').update(validPng).digest('hex');
+
+jest.setTimeout(120_000);
 
 describe('Section 2 API security boundary (integration)', () => {
   let app: INestApplication;
@@ -148,6 +159,19 @@ describe('Section 2 API security boundary (integration)', () => {
     const provisioning = await Promise.all(Array.from({ length: 8 }, () => one.get('/api/v1/me').expect(200)));
     const userOne = responseBody<UserPayload>(provisioning[0]).user;
     const userTwo = responseBody<UserPayload>(await two.get('/api/v1/me').expect(200)).user;
+    expect(
+      responseBody<{
+        creative: { image: string; music: string; text: string };
+        checkout: string;
+        fulfillment: string;
+        externalProviderCallsEnabled: boolean;
+      }>(await one.get('/api/v1/capabilities').expect(200)),
+    ).toMatchObject({
+      creative: { image: 'deterministic_mock', music: 'deterministic_mock', text: 'deterministic_mock' },
+      checkout: 'disabled',
+      fulfillment: 'disabled',
+      externalProviderCallsEnabled: false,
+    });
     expect(responseBody<{ balance: number }>(await one.get('/api/v1/credits').expect(200)).balance).toBe(2);
     const starter = await pool.query<{ count: string; amount: string }>(
       `SELECT count(*)::text AS count, COALESCE(sum(amount), 0)::text AS amount
@@ -182,10 +206,10 @@ describe('Section 2 API security boundary (integration)', () => {
         .set('Idempotency-Key', uploadKey)
         .send({
           cardDraftId: draftOne.id,
-          filename: 'photo.jpg',
-          mimeType: 'image/jpeg',
-          size: 1024,
-          contentSha256: 'a'.repeat(64),
+          filename: 'photo.png',
+          mimeType: 'image/png',
+          size: validPng.length,
+          contentSha256: validPngHash,
         })
         .expect(201),
     ).upload;
@@ -203,6 +227,38 @@ describe('Section 2 API security boundary (integration)', () => {
       .expect(404);
 
     const completeKey = `complete-${randomUUID()}`;
+    await one
+      .patch(`/api/v1/uploads/${uploadOne.id}/complete`)
+      .set('Idempotency-Key', `complete-before-content-${randomUUID()}`)
+      .send({ attestationAccepted: true })
+      .expect(409);
+    const contentKey = `content-${randomUUID()}`;
+    const storedUpload = responseBody<UploadPayload>(
+      await one
+        .put(`/api/v1/uploads/${uploadOne.id}/content`)
+        .set('Content-Type', 'application/octet-stream')
+        .set('Idempotency-Key', contentKey)
+        .send(validPng)
+        .expect(200),
+    ).upload;
+    expect(storedUpload).toMatchObject({ status: 'upload_done', widthPixels: 1, heightPixels: 1 });
+    await one
+      .put(`/api/v1/uploads/${uploadOne.id}/content`)
+      .set('Content-Type', 'application/octet-stream')
+      .set('Idempotency-Key', contentKey)
+      .send(validPng)
+      .expect(200);
+    await two
+      .put(`/api/v1/uploads/${uploadOne.id}/content`)
+      .set('Content-Type', 'application/octet-stream')
+      .set('Idempotency-Key', `content-${randomUUID()}`)
+      .send(validPng)
+      .expect(404);
+    await one
+      .patch(`/api/v1/uploads/${uploadOne.id}/complete`)
+      .set('Idempotency-Key', `complete-no-rights-${randomUUID()}`)
+      .send({ attestationAccepted: false })
+      .expect(400);
     await one
       .patch(`/api/v1/uploads/${uploadOne.id}/complete`)
       .set('Idempotency-Key', completeKey)
@@ -238,6 +294,7 @@ describe('Section 2 API security boundary (integration)', () => {
         .expect(201),
     );
     expect(firstGeneration.balance).toBe(0);
+    expect(firstGeneration.generationJob.status).toBe('succeeded');
     const retryGeneration = responseBody<GenerationPayload>(
       await one
         .post('/api/v1/generation-jobs')
@@ -253,6 +310,49 @@ describe('Section 2 API security boundary (integration)', () => {
       .send({ cardDraftId: draftTwo.id, actionType: 'initial_image_song' })
       .expect(409);
     await two.get(`/api/v1/generation-jobs/${firstGeneration.generationJob.id}`).expect(404);
+    const generatedAssets = responseBody<AssetListPayload>(
+      await one.get(`/api/v1/assets?cardDraftId=${draftOne.id}&limit=100`).expect(200),
+    ).data;
+    const imageAsset = generatedAssets.find((asset) => asset.assetType === 'image');
+    const songAsset = generatedAssets.find((asset) => asset.assetType === 'song');
+    const messageAsset = generatedAssets.find((asset) => asset.assetType === 'message');
+    expect(imageAsset && songAsset && messageAsset).toBeTruthy();
+    await two.get(`/api/v1/assets/${imageAsset?.id}/content`).expect(404);
+    const imageContent = await one.get(`/api/v1/assets/${imageAsset?.id}/content`).expect(200);
+    expect(imageContent.headers['content-type']).toContain('image/svg+xml');
+    expect(Buffer.from(imageContent.body as Uint8Array).toString('utf8')).toContain('DETERMINISTIC BETA MOCK');
+
+    const duplicateApproval = await one
+      .post(`/api/v1/card-drafts/${draftOne.id}/approve`)
+      .set('Idempotency-Key', `approval-${randomUUID()}`)
+      .send({ imageAssetId: messageAsset?.id, messageAssetId: messageAsset?.id })
+      .expect(400);
+    expect(responseBody<{ code: string }>(duplicateApproval).code).toBe('APPROVAL_ASSETS_MUST_BE_DISTINCT');
+
+    const approvalKey = `approval-${randomUUID()}`;
+    const approvalInput = {
+      imageAssetId: imageAsset?.id,
+      songAssetId: songAsset?.id,
+      messageAssetId: messageAsset?.id,
+    };
+    const approvedDraft = responseBody<DraftPayload>(
+      await one
+        .post(`/api/v1/card-drafts/${draftOne.id}/approve`)
+        .set('Idempotency-Key', approvalKey)
+        .send(approvalInput)
+        .expect(200),
+    ).cardDraft;
+    expect(approvedDraft.status).toBe('approved');
+    await one
+      .post(`/api/v1/card-drafts/${draftOne.id}/approve`)
+      .set('Idempotency-Key', approvalKey)
+      .send(approvalInput)
+      .expect(200);
+    await two
+      .post(`/api/v1/card-drafts/${draftOne.id}/approve`)
+      .set('Idempotency-Key', `approval-${randomUUID()}`)
+      .send(approvalInput)
+      .expect(404);
     await request(server)
       .post('/api/v1/credits')
       .set('Authorization', `Bearer ${tokenOne}`)
@@ -268,9 +368,6 @@ describe('Section 2 API security boundary (integration)', () => {
       'SELECT current_revision_id FROM card_drafts WHERE id = $1 AND user_id = $2;',
       [draftOne.id, userOne.id],
     );
-    await pool.query("UPDATE card_drafts SET status = 'generating' WHERE id = $1;", [draftOne.id]);
-    await pool.query("UPDATE card_drafts SET status = 'review' WHERE id = $1;", [draftOne.id]);
-    await pool.query("UPDATE card_drafts SET status = 'approved' WHERE id = $1;", [draftOne.id]);
     const printAsset = await pool.query<{ id: string }>(
       `INSERT INTO assets
          (user_id, card_draft_id, revision_id, asset_type, storage_key, media_type, content_sha256, byte_size,
@@ -499,7 +596,10 @@ describe('Section 2 API security boundary (integration)', () => {
     const primary = authenticated(server, primaryToken);
     const primaryUser = responseBody<UserPayload>(await primary.get('/api/v1/me').expect(200)).user;
     const draft = responseBody<DraftPayload>(
-      await primary.post('/api/v1/card-drafts').send({ creationRoute: 'build_my_card' }).expect(201),
+      await primary
+        .post('/api/v1/card-drafts')
+        .send({ creationRoute: 'build_my_card', creativeBrief: { mockScenario: 'timeout_song' } })
+        .expect(201),
     ).cardDraft;
 
     const initialKey = `section-three-initial-${randomUUID()}`;
@@ -514,7 +614,6 @@ describe('Section 2 API security boundary (integration)', () => {
     );
     const initialJobs = initialResponses.map((response) => responseBody<GenerationPayload>(response));
     expect(new Set(initialJobs.map((response) => response.generationJob.id)).size).toBe(1);
-    expect(initialJobs.every((response) => response.balance === 0)).toBe(true);
     const initialJobId = initialJobs[0]?.generationJob.id;
     expect(initialJobId).toBeDefined();
     expect(
@@ -527,11 +626,12 @@ describe('Section 2 API security boundary (integration)', () => {
       ).rows[0]?.count,
     ).toBe('1');
 
-    const generationService = app.get(GenerationService);
-    const refunds = await Promise.all(
-      Array.from({ length: 8 }, () => generationService.failAndRefund(primaryUser.id, initialJobId, 'timed_out')),
-    );
-    expect(refunds.every((refund) => refund.balance === 2 && refund.generationJob.status === 'refunded')).toBe(true);
+    expect(
+      responseBody<{ generationJob: { status: string; creditsRefunded: number } }>(
+        await primary.get(`/api/v1/generation-jobs/${initialJobId}`).expect(200),
+      ).generationJob,
+    ).toMatchObject({ status: 'refunded', creditsRefunded: 2 });
+    expect(responseBody<{ balance: number }>(await primary.get('/api/v1/credits').expect(200)).balance).toBe(2);
     expect(
       (
         await pool.query<{ count: string }>(
@@ -541,6 +641,12 @@ describe('Section 2 API security boundary (integration)', () => {
         )
       ).rows[0]?.count,
     ).toBe('1');
+    const partialAssets = responseBody<AssetListPayload>(
+      await primary.get(`/api/v1/assets?cardDraftId=${draft.id}&limit=100`).expect(200),
+    ).data;
+    expect(partialAssets.some((asset) => asset.assetType === 'image')).toBe(true);
+    expect(partialAssets.some((asset) => asset.assetType === 'song')).toBe(false);
+    await primary.patch(`/api/v1/card-drafts/${draft.id}`).send({ creativeBrief: {} }).expect(200);
 
     const imageRegeneration = responseBody<GenerationPayload>(
       await primary

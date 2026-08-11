@@ -2,6 +2,7 @@ import { createSouvenoteApiClient, type ApiError, type components } from '@souve
 import { AUTH_CSRF_HEADER } from './auth/constants';
 import { fetchBffSession } from './cognitoAuth';
 import type { LocalUser } from './cognitoAuth';
+import { createDeterministicIdempotencyKey } from './retrySafeIdempotency';
 
 type Schemas = components['schemas'];
 const api = createSouvenoteApiClient();
@@ -40,6 +41,7 @@ export type CreditPackOffer = {
 export type CreditPackPurchaseStart = Schemas['CreditPackPurchaseStartResponseDto'];
 
 export type CreditBalance = Schemas['CreditBalanceResponseDto'];
+export type EnvironmentCapabilities = Schemas['EnvironmentCapabilitiesDto'];
 
 export type CardDraft = Schemas['CardDraftViewDto'] & {
   user_id?: string;
@@ -57,13 +59,14 @@ export type CardDraftAsset = Schemas['AssetViewDto'] & {
   asset_type?: string;
 };
 
-export type MockUploadRequest = Omit<Schemas['RequestUploadDto'], 'contentSha256' | 'mimeType'> & { mimeType: string };
+export type MockUploadRequest = { cardDraftId: string; file: File };
 export type MockUploadResponse = Schemas['UploadResponseDto'];
 
 export type StartGenerationRequest = {
   cardDraftId?: string;
   idempotencyKey: string;
   actionType: Schemas['StartGenerationDto']['actionType'];
+  creativeDirection?: string;
 };
 export type GenerationStartResponse = Omit<Schemas['GenerationStartResponseDto'], 'balance'> & {
   balance: CreditBalance;
@@ -157,6 +160,13 @@ export async function fetchCreditBalance(): Promise<CreditBalance> {
   return { balance };
 }
 
+export async function fetchEnvironmentCapabilities(): Promise<EnvironmentCapabilities> {
+  const result = await api.GET('/api/v1/capabilities');
+  if (result.error) throw errorFrom(result, `Capabilities request failed with status ${result.response.status}.`);
+  if (!result.data) throw new Error('Capabilities response was empty.');
+  return result.data;
+}
+
 export async function purchaseMockCreditPack(offerCode: CreditPackCode): Promise<CreditPackPurchaseStart> {
   const idempotencyKey = createLocalIdempotencyKey('credit-pack-purchase');
   const result = await api.POST('/api/v1/credits/purchases/mock', {
@@ -214,30 +224,51 @@ export async function fetchCardDraftAssets(cardDraftId: string): Promise<CardDra
   return result.data?.data ?? [];
 }
 
-async function mockContentHash(input: MockUploadRequest) {
-  const bytes = new TextEncoder().encode(JSON.stringify(input));
+async function contentHash(file: File) {
+  const bytes = await file.arrayBuffer();
   const digest = await crypto.subtle.digest('SHA-256', bytes);
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
 export async function mockUpload(input: MockUploadRequest): Promise<MockUploadResponse> {
-  if (!['image/jpeg', 'image/png', 'image/webp'].includes(input.mimeType)) {
+  if (!['image/jpeg', 'image/png', 'image/webp'].includes(input.file.type)) {
     throw new Error('Only JPEG, PNG, and WebP reference images are accepted.');
   }
-  const requestKey = createLocalIdempotencyKey('upload-request');
+  if (input.file.size <= 0 || input.file.size > 10_485_760) {
+    throw new Error('Reference images must be between 1 byte and 10 MB.');
+  }
+  const sha256 = await contentHash(input.file);
+  const requestKey = `upload-request-${input.cardDraftId}-${sha256}`;
   const requested = await api.POST('/api/v1/uploads', {
     params: { header: { 'Idempotency-Key': requestKey } },
     body: {
-      ...input,
-      mimeType: input.mimeType as Schemas['RequestUploadDto']['mimeType'],
-      contentSha256: await mockContentHash(input),
+      cardDraftId: input.cardDraftId,
+      filename: input.file.name,
+      mimeType: input.file.type as Schemas['RequestUploadDto']['mimeType'],
+      size: input.file.size,
+      contentSha256: sha256,
     },
     headers: await mutationHeaders(requestKey),
   });
   if (requested.error) throw errorFrom(requested, `Upload request failed with status ${requested.response.status}.`);
   const upload = requested.data?.upload;
   if (!upload?.id) throw new Error('Upload request returned no upload.');
-  const completionKey = createLocalIdempotencyKey('upload-complete');
+  const contentKey = `upload-content-${upload.id}`;
+  const stored = await fetch(`/api/bff/api/v1/uploads/${encodeURIComponent(upload.id)}/content`, {
+    method: 'PUT',
+    credentials: 'same-origin',
+    body: input.file,
+    headers: {
+      ...(await mutationHeaders(contentKey)),
+      'Content-Type': 'application/octet-stream',
+      'Idempotency-Key': contentKey,
+    },
+  });
+  if (!stored.ok) {
+    const error = (await stored.json().catch(() => null)) as Partial<ApiError> | null;
+    throw new Error(error?.message || `Upload content failed with status ${stored.status}.`);
+  }
+  const completionKey = `upload-complete-${upload.id}`;
   const completed = await api.PATCH('/api/v1/uploads/{uploadId}/complete', {
     params: { path: { uploadId: upload.id }, header: { 'Idempotency-Key': completionKey } },
     body: { attestationAccepted: true },
@@ -246,6 +277,29 @@ export async function mockUpload(input: MockUploadRequest): Promise<MockUploadRe
   if (completed.error) throw errorFrom(completed, `Upload completion failed with status ${completed.response.status}.`);
   if (!completed.data) throw new Error('Upload completion returned no upload.');
   return completed.data;
+}
+
+export async function approveCardDraft(cardDraftId: string, input: Schemas['ApproveCardDraftDto']): Promise<CardDraft> {
+  const approvalSignature = [
+    cardDraftId,
+    input.imageAssetId,
+    input.songAssetId ?? 'no-song',
+    input.messageAssetId,
+  ].join(':');
+  const idempotencyKey = await createDeterministicIdempotencyKey('draft-approval', approvalSignature);
+  const result = await api.POST('/api/v1/card-drafts/{draftId}/approve', {
+    params: { path: { draftId: cardDraftId }, header: { 'Idempotency-Key': idempotencyKey } },
+    body: input,
+    headers: await mutationHeaders(idempotencyKey),
+  });
+  if (result.error) throw errorFrom(result, `Card approval failed with status ${result.response.status}.`);
+  const draft = result.data?.cardDraft;
+  if (!draft) throw new Error('Card approval returned no draft.');
+  return cardDraftFromApi(draft);
+}
+
+export function assetContentUrl(assetId: string): string {
+  return `/api/bff/api/v1/assets/${encodeURIComponent(assetId)}/content`;
 }
 
 export async function refreshCardDraftBackendState(cardDraftId: string) {
@@ -260,7 +314,11 @@ export async function startGeneration(input: StartGenerationRequest): Promise<Ge
   if (!input.cardDraftId) throw new Error('Save the card draft before starting generation.');
   const result = await api.POST('/api/v1/generation-jobs', {
     params: { header: { 'Idempotency-Key': input.idempotencyKey } },
-    body: { cardDraftId: input.cardDraftId, actionType: input.actionType },
+    body: {
+      cardDraftId: input.cardDraftId,
+      actionType: input.actionType,
+      ...(input.creativeDirection ? { creativeDirection: input.creativeDirection } : {}),
+    },
     headers: await mutationHeaders(input.idempotencyKey),
   });
   if (result.error) throw errorFrom(result, `Generation request failed with status ${result.response.status}.`);

@@ -433,7 +433,7 @@ function DlvScheduleSection({ when, setWhen, date, setDate }: DlvScheduleSection
     <div className="bmc-card dlv-section">
       <div className="dlv-section-head">
         <div className="dlv-section-title">
-          <span className="dlv-section-num">3</span> When should it mail?
+          <span className="dlv-section-num">3</span> Planned mailing timing
         </div>
         <div className="bmc-chip-row">
           <button
@@ -470,11 +470,7 @@ function DlvScheduleSection({ when, setWhen, date, setDate }: DlvScheduleSection
       ) : (
         <div className="dlv-eta-note">
           <BmcIcon name="sparkle" w={16} />
-          <span>
-            {
-              'Into production within one business day. Most cards are written, posted, and on their way within 1\u20132 business days.'
-            }
-          </span>
+          <span>{'Beta preview only. No production or mailing job will be created.'}</span>
         </div>
       )}
     </div>

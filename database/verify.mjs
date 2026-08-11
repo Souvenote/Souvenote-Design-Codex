@@ -10,6 +10,7 @@ const contractTests = [
   path.join(databaseDirectory, 'tests', '0001_mvp_baseline.test.sql'),
   path.join(databaseDirectory, 'tests', '0002_pricing_credits_entitlements.test.sql'),
   path.join(databaseDirectory, 'tests', '0003_standalone_credit_packs.test.sql'),
+  path.join(databaseDirectory, 'tests', '0004_creation_workflow.test.sql'),
 ];
 const imageTag = 'postgres:16-alpine';
 const containerName = `souvenote-db-verify-${randomBytes(6).toString('hex')}`;
@@ -120,6 +121,9 @@ function runApiIntegration(databaseUrl) {
       DATABASE_SSL_MODE: 'disable',
       RATE_LIMIT_MAX_REQUESTS: '10000',
       PAYMENT_PROVIDER_MODE: 'mock',
+      IMAGE_PROVIDER_MODE: 'mock',
+      MUSIC_PROVIDER_MODE: 'mock',
+      TEXT_PROVIDER_MODE: 'mock',
       STRIPE_WEBHOOK_SECRET: 'stripe-integration-webhook-secret',
       SCRIBELESS_WEBHOOK_SECRET: 'scribeless-integration-webhook-secret',
     },
@@ -154,9 +158,12 @@ async function main() {
     run(process.execPath, [migrationRunner, '--verify-only']);
     runMigration(databaseUrl);
     const secondRun = runMigration(databaseUrl);
-    if (!secondRun.stdout.includes('already applied 0001_mvp_baseline.sql') ||
-        !secondRun.stdout.includes('already applied 0002_pricing_credits_entitlements.sql') ||
-        !secondRun.stdout.includes('already applied 0003_standalone_credit_packs.sql')) {
+    if (
+      !secondRun.stdout.includes('already applied 0001_mvp_baseline.sql') ||
+      !secondRun.stdout.includes('already applied 0002_pricing_credits_entitlements.sql') ||
+      !secondRun.stdout.includes('already applied 0003_standalone_credit_packs.sql') ||
+      !secondRun.stdout.includes('already applied 0004_creation_workflow.sql')
+    ) {
       throw new Error('second migration run did not prove every migration is idempotent');
     }
 

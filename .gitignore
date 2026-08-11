@@ -21,6 +21,7 @@ build/
 !**/.env.example
 
 # Local/debug files
+.local-assets-section4/
 .DS_Store
 *.pem
 npm-debug.log*

@@ -176,7 +176,7 @@ function CurrencySelect({ currency, setCurrency, open, setOpen }: CurrencySelect
   const active = CURRENCIES.find((option) => option.code === currency) || CURRENCIES[0];
 
   return (
-    <div className="souv-iconbtn-wrap">
+    <div className="souv-iconbtn-wrap souv-mobile-hide-currency">
       <button
         className={`souv-currency ${open ? 'is-open' : ''}`}
         onClick={() => setOpen(!open)}
@@ -350,7 +350,7 @@ function NavRight({
         )}
       </div>
 
-      <div className="souv-iconbtn-wrap">
+      <div className="souv-iconbtn-wrap souv-mobile-hide-cart">
         <Link className="souv-iconbtn" aria-label="Cart" href="/cart">
           <IconCart />
           {cartCount > 0 && <span className="souv-cart-badge">{cartCount}</span>}

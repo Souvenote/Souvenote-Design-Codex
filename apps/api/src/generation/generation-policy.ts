@@ -1,4 +1,5 @@
 export const GENERATION_ACTIONS = [
+  'initial_image',
   'initial_image_song',
   'regenerate_image',
   'regenerate_song',
@@ -17,6 +18,7 @@ export const GENERATION_FAILURE_CATEGORIES = [
 export type GenerationFailureCategory = (typeof GENERATION_FAILURE_CATEGORIES)[number];
 
 const CREDIT_COST: Readonly<Record<GenerationAction, number>> = Object.freeze({
+  initial_image: 1,
   initial_image_song: 2,
   regenerate_image: 1,
   regenerate_song: 1,

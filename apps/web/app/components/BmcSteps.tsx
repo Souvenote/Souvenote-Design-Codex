@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { BmcIcon, BmcHead, BmcFoot, FreeCost, CreditCost, BmcCheck, bmcError } from './BmcShared';
 import { AttestationGate } from './AttestationGate';
+import { registerPendingUpload, releasePendingUpload } from '../lib/pendingUploads';
 
 // BmcSteps.tsx - the five intake steps (Photo, Basics, Image Flow, Inside Message, Build Song).
 // Depends on shared primitives from BmcShared.
@@ -21,8 +22,10 @@ export type BmcDraftInputPatch = {
 type PhotoPreview = {
   url: string;
   name: string;
+  clientKey?: string;
   mimeType?: string;
   size?: number;
+  uploaded?: boolean;
 };
 
 type BmcPhotoStepProps = StepNavProps & {
@@ -118,6 +121,7 @@ function referenceImageValue(value: unknown): PhotoPreview[] {
         url: '/assets/LogoMark.png',
         mimeType: textValue(record.mimeType) || undefined,
         size: numberValue(record.size, 0) || undefined,
+        uploaded: booleanValue(record.uploaded),
       },
     ];
   });
@@ -185,6 +189,8 @@ function BmcPhotoStep({
             filename: file.name,
             mimeType: file.mimeType,
             size: file.size,
+            clientKey: file.clientKey,
+            uploaded: file.uploaded,
           })),
           attested,
         },
@@ -193,7 +199,10 @@ function BmcPhotoStep({
   }, [attested, describe, describeText, files, onDraftPatch]);
   React.useEffect(() => {
     return () => {
-      filesRef.current.forEach((file) => URL.revokeObjectURL(file.url));
+      filesRef.current.forEach((file) => {
+        if (file.url.startsWith('blob:')) URL.revokeObjectURL(file.url);
+        releasePendingUpload(file.clientKey);
+      });
     };
   }, []);
 
@@ -210,6 +219,7 @@ function BmcPhotoStep({
           name: file.name,
           mimeType: file.type,
           size: file.size,
+          clientKey: registerPendingUpload(file),
         })),
       ].slice(0, MAX_REFS);
       return next;
@@ -222,7 +232,10 @@ function BmcPhotoStep({
   const removeAt = (i: number) =>
     setFiles((curr) => {
       const removed = curr[i];
-      if (removed) URL.revokeObjectURL(removed.url);
+      if (removed) {
+        if (removed.url.startsWith('blob:')) URL.revokeObjectURL(removed.url);
+        releasePendingUpload(removed.clientKey);
+      }
       return curr.filter((_, idx) => idx !== i);
     });
 
@@ -240,7 +253,10 @@ function BmcPhotoStep({
 
   const openDescribeSection = () => {
     setFiles((current) => {
-      current.forEach((file) => URL.revokeObjectURL(file.url));
+      current.forEach((file) => {
+        if (file.url.startsWith('blob:')) URL.revokeObjectURL(file.url);
+        releasePendingUpload(file.clientKey);
+      });
       return [];
     });
     setDescribe(true);
