@@ -49,9 +49,16 @@ export class UploadService {
     return { upload: UploadRepository.toApi(await this.repository.get(userId, uploadId)) };
   }
 
-  async storeContent(userId: string, uploadId: string, idempotencyKey: string, content: Buffer) {
+  async storeContent(userId: string, uploadId: string, idempotencyKey: string, content: unknown) {
     const upload = await this.repository.get(userId, uploadId);
-    if (!Buffer.isBuffer(content) || content.length === 0 || content.length > 10_485_760) {
+    if (
+      typeof content !== 'object' ||
+      content === null ||
+      Array.isArray(content) ||
+      !Buffer.isBuffer(content) ||
+      content.length === 0 ||
+      content.length > 10_485_760
+    ) {
       throw new BadRequestException({ code: 'UPLOAD_BYTES_INVALID', message: 'Upload content is empty or too large.' });
     }
     if (content.length !== Number(upload.size_bytes)) {
