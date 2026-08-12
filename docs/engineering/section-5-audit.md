@@ -6,7 +6,7 @@ Branch: `codex/section-5-checkout-fulfillment-mocks`
 
 Base: `44a91a2146e69f0c91a86e1ebb093e4ec457b064`
 
-Status: local implementation and functional gate complete. Draft-PR and exact-head CI evidence are recorded in the Section 5 handoff. The in-app browser runtime was unavailable during final acceptance, so this audit does not claim responsive visual evidence.
+Status: implementation, local functional gate, draft PR #11, and exact-head CI complete. The in-app browser runtime was unavailable during final acceptance, so this audit does not claim responsive visual evidence.
 
 ## Scope and authority
 

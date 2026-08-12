@@ -5,7 +5,7 @@ Milestone and PR: Section 5 checkout and fulfillment mocks; draft PR #11 (https:
 Build-plan section and gate: Section 5 - Checkout and fulfillment mocks; checkout, webhook, payment-resolution, fulfillment, duplicate, retry, failure, reconciliation, and recovery integration tests pass
 Goal: Replace checkout/fulfillment placeholders and direct mock capture with secure server-owned hosted-checkout and deterministic fulfillment contracts, without external provider traffic.
 Codex task title: Section 5 — Checkout and fulfillment mocks
-Task lifecycle: active pending publication and exact-head CI
+Task lifecycle: complete-and-ready-to-archive
 Canonical repository: C:\Users\wilso\Desktop\Souvenote_Design_Codex
 Branch: codex/section-5-checkout-fulfillment-mocks
 Commit: 0f2e4cf45292eeb99ea2372162af2b353427b834
@@ -51,7 +51,7 @@ Tests and checks executed:
 - Command: in-app browser acceptance.
   Result: unavailable because the browser runtime reported no browser instance; no substitute evidence is claimed.
 - Command: GitHub exact-head checks.
-  Result: pending publication.
+  Result: Workspace quality gate and Credential-free local stack passed on the published Section 5 handoff head; repeated on the final documentation-only head before retirement.
 
 Security/privacy review:
 - Raw payment data stays outside Souvenote DTOs, adapters, persistence, logs, and analytics; a rejected-input integration fixture proves unknown raw-card fields fail validation.
@@ -85,7 +85,7 @@ Exact recommended next task prompt:
 Prepare Section 6 — Approved AWS staging — from the approved build plan using the final Section 5 head. First repeat Section 5 responsive browser acceptance if an in-app browser is available, then produce the minimum CDK resource and gross-cost approval packet. Do not mutate AWS or deploy staging until the user approves that exact scoped resource/cost packet. Keep every paid provider flag off and preserve the Section 5 checkout/fulfillment deterministic rollback path.
 
 Task retirement:
-- Final exact-head checks passed: pending.
-- Rename to `Section 5 — Checkout and fulfillment mocks (Complete)`: pending exact-head CI.
-- Archive before the next section starts: pending exact-head CI.
+- Final exact-head checks passed: yes; both required checks passed on the final branch head.
+- Rename to `Section 5 — Checkout and fulfillment mocks (Complete)`: the prior sidebar record is unavailable; the durable title/state is preserved here and in draft PR #11.
+- Archive before the next section starts: ready; retain draft PR #11 and this handoff as the durable record.
 ```
