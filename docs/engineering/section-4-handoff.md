@@ -8,7 +8,8 @@ Codex task title: Section 4 — Creation workflow with mocks (Complete)
 Task lifecycle: complete-and-ready-to-archive
 Canonical repository: C:\Users\wilso\Desktop\Souvenote_Design_Codex
 Branch: codex/section-4-creation-workflow
-Commit: e14103abb7c52a804fba2bfbdb20f6a36eb23ca3
+Final implementation commit: 4138d37398760467518938f6b2e5f3a78d1e047a
+Verification-record commit: this document's commit; use the draft PR head for the current record
 Base commit: 9ecf2e7ac0c064b4d5e32c278d52503ec8fc5899
 
 Concurrency/worktree record:
@@ -50,11 +51,16 @@ Tests and checks executed:
   Result: both routes completed generation, approval, and Delivery handoff with no horizontal overflow, browser warnings, or errors.
 - Command: GitHub exact-head checks on e14103abb7c52a804fba2bfbdb20f6a36eb23ca3.
   Result: Workspace quality gate and Credential-free local stack both passed.
+- Command: focused API formatting, lint, strict typecheck, and Jest after upload-body hardening.
+  Result: all passed; four parameter-tampering cases prove string, array, plain-object, and null bodies fail closed before storage.
+- Command: GitHub exact-head checks and open CodeQL alert query on 4138d37398760467518938f6b2e5f3a78d1e047a.
+  Result: CodeQL, both CodeQL language analyses, Workspace quality gate, and Credential-free local stack all passed; open PR alerts: zero.
 
 Security/privacy review:
 - Authentication-by-default and owner scoping remain enforced for drafts, uploads, jobs, assets, and private content.
 - Customer identity, credit charges, lifecycle status, selected assets, and approval remain server-authoritative.
 - Uploads require validated bytes, rights attestation, and moderation before use.
+- Upload content now enters the service as `unknown` and must pass explicit object, array, Buffer-brand, and byte-length checks before any Buffer API or storage call.
 - Logs and analytics receive no prompts, messages, recipient data, private photo references, tokens, or private asset URLs.
 - Idempotency and transactional credit refund behavior are covered under retry and partial-failure tests.
 
@@ -80,7 +86,7 @@ Exact recommended next task prompt:
 Implement complete Section 5 — Checkout and fulfillment mocks — from the approved build plan in a fresh GPT-5.6 Sol task. Work only in C:\Users\wilso\Desktop\Souvenote_Design_Codex from the final Section 4 head. Implement server-owned CAD order totals, Stripe-compatible hosted test checkout contracts without raw card data, verified/idempotent webhook reconciliation, exact-once credit-pack grants, five-day Try Risk-Free resolution, Big Sender and one-card blank-card entitlement behavior, and a typed deterministic Scribeless adapter with retry/reconciliation/recovery tests. Preserve the Delivery/checkout presentation. Make no AWS mutation, live payment, physical print submission, paid call, email, analytics, or deployment. Finish with full pinned-toolchain, disposable PostgreSQL, responsive browser, security/privacy/cost, audit/handoff, draft PR, and exact-head CI evidence; do not merge without explicit user direction.
 
 Task retirement:
-- Final exact-head checks passed: yes, both required checks passed on e14103abb7c52a804fba2bfbdb20f6a36eb23ca3.
+- Final exact-head checks passed: yes, every required check passed on 4138d37398760467518938f6b2e5f3a78d1e047a and the PR has zero open CodeQL alerts.
 - Rename to `Section 4 — Creation workflow with mocks (Complete)`: completed in the archived task record.
 - Archive before the next section starts: completed; the task is preserved in the local archived-session store.
 ```
