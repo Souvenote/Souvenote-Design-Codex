@@ -334,10 +334,12 @@ The MVP is not complete until current evidence proves all of the following:
 
 Current section status:
 
-| Section | Status                                       | Evidence                                                               |
-| ------- | -------------------------------------------- | ---------------------------------------------------------------------- |
-| 0       | Merged                                       | PR #1 and `docs/product/decision-register.md`                          |
-| 1       | Merged                                       | PR #2 and `docs/engineering/section-1-audit.md`                        |
-| 2       | Merged                                       | PR #3 and `docs/engineering/section-2-audit.md`                        |
-| 3       | Merged; approved credit-pack correction open | PR #4 and `docs/engineering/section-3-credit-pack-correction-audit.md` |
-| 4-8     | Not started                                  | Must follow this document in fresh PR-sized tasks                      |
+| Section | Status                                                | Evidence                                                               |
+| ------- | ----------------------------------------------------- | ---------------------------------------------------------------------- |
+| 0       | Merged                                                | PR #1 and `docs/product/decision-register.md`                          |
+| 1       | Merged                                                | PR #2 and `docs/engineering/section-1-audit.md`                        |
+| 2       | Merged                                                | PR #3 and `docs/engineering/section-2-audit.md`                        |
+| 3       | Merged; approved credit-pack correction open          | PR #4 and `docs/engineering/section-3-credit-pack-correction-audit.md` |
+| 4       | Draft PR; implementation and hardening verified       | PR #6 and `docs/engineering/section-4-handoff.md`                      |
+| 5       | Draft PR; hardening complete; mobile evidence pending | PR #11 and `docs/engineering/section-5-audit.md`                       |
+| 6-8     | Not started                                           | Must follow this document in fresh PR-sized tasks                      |
