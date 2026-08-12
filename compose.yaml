@@ -20,4 +20,4 @@ services:
 
 volumes:
   souvenote-postgres-data:
-    name: souvenote-local-postgres-data
+    name: ${SOUVENOTE_POSTGRES_VOLUME_NAME:-souvenote-local-postgres-data}

@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import test from 'node:test';
-import { createSafeLocalEnvironment, workspaceEnvironment } from './local-runtime.mjs';
+import {
+  composeArgumentsFor,
+  createSafeLocalEnvironment,
+  isolatedComposeProject,
+  workspaceEnvironment,
+} from './local-runtime.mjs';
 
 test('local runtime overrides unsafe modes and neutralizes provider credentials', () => {
   const environment = createSafeLocalEnvironment({
@@ -75,4 +80,13 @@ test('PostgreSQL port override is shared by Compose and DATABASE_URL', () => {
   const environment = JSON.parse(result.stdout);
   assert.equal(environment.postgresHostPort, '55555');
   assert.match(environment.databaseUrl, /127\.0\.0\.1:55555\/souvenote$/);
+});
+
+test('isolated smoke uses a dedicated project and disposable named volume', () => {
+  const environment = createSafeLocalEnvironment({}, { isolated: true });
+  const arguments_ = composeArgumentsFor(isolatedComposeProject, 'down', '--remove-orphans', '--volumes');
+
+  assert.equal(environment.SOUVENOTE_POSTGRES_VOLUME_NAME, 'souvenote-audit-postgres-data');
+  assert.deepEqual(arguments_.slice(0, 3), ['compose', '--project-name', 'souvenote-audit']);
+  assert.deepEqual(arguments_.slice(-3), ['down', '--remove-orphans', '--volumes']);
 });

@@ -169,8 +169,10 @@ export async function fetchEnvironmentCapabilities(): Promise<EnvironmentCapabil
   return result.data;
 }
 
-export async function startCreditPackCheckout(offerCode: CreditPackCode): Promise<CheckoutSession> {
-  const idempotencyKey = createLocalIdempotencyKey('credit-pack-checkout');
+export async function startCreditPackCheckout(
+  offerCode: CreditPackCode,
+  idempotencyKey: string,
+): Promise<CheckoutSession> {
   const result = await api.POST('/api/v1/checkout/credit-packs', {
     params: { header: { 'Idempotency-Key': idempotencyKey } },
     body: { offerCode },
@@ -243,6 +245,14 @@ export async function submitMockFulfillment(
   if (result.error) throw errorFrom(result, `Fulfillment failed with status ${result.response.status}.`);
   const job = result.data?.fulfillmentJob;
   if (!job) throw new Error('Fulfillment returned no job.');
+  return job;
+}
+
+export async function fetchFulfillmentJob(jobId: string): Promise<FulfillmentJob> {
+  const result = await api.GET('/api/v1/fulfillment-jobs/{jobId}', { params: { path: { jobId } } });
+  if (result.error) throw errorFrom(result, `Fulfillment request failed with status ${result.response.status}.`);
+  const job = result.data?.fulfillmentJob;
+  if (!job) throw new Error('Fulfillment response returned no job.');
   return job;
 }
 

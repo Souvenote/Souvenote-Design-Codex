@@ -7,15 +7,7 @@ import { Navbar } from './Navbar';
 import { Footer } from './Footer';
 import { BmcIcon, BmcErrorModal, bmcError } from './BmcShared';
 import { DlvKeepsake } from './DeliveryKeepsake';
-import {
-  assetContentUrl,
-  createPhysicalOrder,
-  fetchCardDraftAssets,
-  fetchCardDraftById,
-  fetchPricingOffers,
-  startPhysicalCheckout,
-} from '../lib/api';
-import type { CardDraftAsset, PricingOffer } from '../lib/api';
+import { assetContentUrl, createPhysicalOrder, startPhysicalCheckout } from '../lib/api';
 import {
   DLV_EMPTY_RECIP,
   dlvValidate,
@@ -38,8 +30,14 @@ import {
   MAX_BIG_SENDER_CARDS,
   MIN_BIG_SENDER_CARDS,
 } from './pricingCatalog';
-
-type BackendAction = 'idle' | 'loading_assets' | 'starting_checkout';
+import { DeliveryCheckoutSection } from './DeliveryCheckoutSection';
+import {
+  deliveryOfferStatus,
+  selectDeliveryOffer,
+  toCanadianPostalAddress,
+  type FulfillmentVariant,
+} from './deliveryCheckout';
+import { useDeliveryBackendData } from './useDeliveryBackendData';
 
 type DlvBlankGiftModalProps = {
   open: boolean;
@@ -301,16 +299,11 @@ function DeliveryApp({ user, initialCards = 0, initialCredits = DELIVERY_DEFAULT
   const [song, setSong] = React.useState(false);
   const cardDraftId = searchParams.get('draftId');
   const requestedAssetId = searchParams.get('assetId');
-  const [generatedAssets, setGeneratedAssets] = React.useState<CardDraftAsset[]>([]);
-  const [selectedImageAssetId, setSelectedImageAssetId] = React.useState<string | null>(requestedAssetId);
-  const [messageText, setMessageText] = React.useState('');
-  const [pricingOffers, setPricingOffers] = React.useState<PricingOffer[]>([]);
-  const [fulfillmentVariant, setFulfillmentVariant] = React.useState<'personalized' | 'blank_handoff'>('personalized');
-  const [backendAction, setBackendAction] = React.useState<BackendAction>('idle');
-  const [backendError, setBackendError] = React.useState<string | null>(null);
-  const assetType = (asset: CardDraftAsset) => String(asset.assetType || asset.asset_type);
-  const songAsset = generatedAssets.find((asset) => assetType(asset) === 'song') || null;
-  const messageAsset = generatedAssets.find((asset) => assetType(asset) === 'message') || null;
+  const backend = useDeliveryBackendData(cardDraftId, requestedAssetId);
+  const { messageText, pricingOffers, selectedImageAssetId, songAsset } = backend;
+  const [fulfillmentVariant, setFulfillmentVariant] = React.useState<FulfillmentVariant>('personalized');
+  const [checkoutBusy, setCheckoutBusy] = React.useState(false);
+  const [checkoutError, setCheckoutError] = React.useState<string | null>(null);
   const songIncluded = Boolean(songAsset);
   const blankGiftCount: number = 0;
   const [giftReminderDismissed, setGiftReminderDismissed] = React.useState(false);
@@ -323,92 +316,14 @@ function DeliveryApp({ user, initialCards = 0, initialCredits = DELIVERY_DEFAULT
   const hasBackendOrderInputs = Boolean(cardDraftId && selectedImageAssetId);
   const enough = hasBackendOrderInputs && cardsNeeded > 0;
   const needsCardTopUp = false;
-  const backendBusy = backendAction !== 'idle';
-  React.useEffect(() => {
-    if (!cardDraftId) {
-      setGeneratedAssets([]);
-      setSelectedImageAssetId(null);
-      setBackendError('Open Delivery from an approved card in Review or Saved Cards & Songs.');
-      return;
-    }
-
-    let active = true;
-    setBackendAction('loading_assets');
-    setBackendError(null);
-
-    setGeneratedAssets([]);
-    setSelectedImageAssetId(null);
-
-    Promise.all([fetchCardDraftById(cardDraftId), fetchCardDraftAssets(cardDraftId), fetchPricingOffers()])
-      .then(([cardDraft, assets, offers]) => {
-        if (!active) return;
-        if (cardDraft.status !== 'approved') {
-          throw new Error('This card has not been approved. Go back to Review and approve the selected outputs first.');
-        }
-
-        const approvedIds = new Set(
-          [cardDraft.approvedImageAssetId, cardDraft.approvedSongAssetId, cardDraft.approvedMessageAssetId].filter(
-            (assetId): assetId is string => Boolean(assetId),
-          ),
-        );
-        const approvedAssets = assets.filter((asset) => approvedIds.has(asset.id));
-        const approvedImage = approvedAssets.find(
-          (asset) => asset.id === cardDraft.approvedImageAssetId && assetType(asset) === 'image',
-        );
-        const approvedMessage = approvedAssets.find(
-          (asset) => asset.id === cardDraft.approvedMessageAssetId && assetType(asset) === 'message',
-        );
-
-        if (!approvedImage || !approvedMessage) {
-          throw new Error('The approved card outputs are unavailable. Go back to Review and try approval again.');
-        }
-        if (requestedAssetId && requestedAssetId !== approvedImage.id) {
-          throw new Error('The requested image is not the approved image for this card.');
-        }
-
-        setGeneratedAssets(approvedAssets);
-        setSelectedImageAssetId(approvedImage.id);
-        setPricingOffers(offers.filter((offer) => offer.checkoutEnabled));
-      })
-      .catch((error) => {
-        if (!active) return;
-        setBackendError(
-          error instanceof Error ? error.message : 'Generated assets could not be loaded from the backend.',
-        );
-      })
-      .finally(() => {
-        if (active) setBackendAction('idle');
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [cardDraftId, requestedAssetId]);
-
-  React.useEffect(() => {
-    if (!messageAsset?.id) {
-      setMessageText('');
-      return;
-    }
-    let active = true;
-    fetch(assetContentUrl(messageAsset.id), { credentials: 'same-origin', cache: 'no-store' })
-      .then(async (response) => (response.ok ? response.text() : ''))
-      .then((text) => {
-        if (active) setMessageText(text.trim());
-      })
-      .catch(() => {
-        if (active) setMessageText('');
-      });
-    return () => {
-      active = false;
-    };
-  }, [messageAsset?.id]);
+  const backendBusy = backend.loading || checkoutBusy;
+  const backendError = checkoutError ?? backend.error;
 
   function validateDeliveryInputs() {
     if (!cardDraftId || !selectedImageAssetId) {
       const message =
         'Review a generated card first so Delivery can use the real card draft and generated image asset.';
-      setBackendError(message);
+      setCheckoutError(message);
       bmcError(message, 'Generated card needed');
       return false;
     }
@@ -472,24 +387,6 @@ function DeliveryApp({ user, initialCards = 0, initialCredits = DELIVERY_DEFAULT
     return true;
   }
 
-  function toPostalAddress(value: DeliveryRecipient) {
-    return {
-      name: [value.firstName, value.lastName].filter(Boolean).join(' '),
-      line1: value.address1.trim(),
-      ...([value.company, value.address2, value.address3].some((part) => part.trim())
-        ? { line2: [value.company, value.address2, value.address3].filter((part) => part.trim()).join(', ') }
-        : {}),
-      city: value.city.trim(),
-      region: value.state.trim().toUpperCase(),
-      postalCode: value.postalCode.trim().toUpperCase(),
-      country: 'CA' as const,
-    };
-  }
-
-  function handlePrimaryAction() {
-    return handleSend();
-  }
-
   async function handleSend() {
     if (needsCardTopUp) {
       setCardTopUpOpen(true);
@@ -503,12 +400,7 @@ function DeliveryApp({ user, initialCards = 0, initialCredits = DELIVERY_DEFAULT
       return;
     }
 
-    const selectedOffer = pricingOffers.find(
-      (offer) =>
-        cardsNeeded >= offer.cardCountMin &&
-        cardsNeeded <= offer.cardCountMax &&
-        (cardsNeeded === 1 ? offer.type === 'try_risk_free' : offer.type === 'big_sender'),
-    );
+    const selectedOffer = selectDeliveryOffer(pricingOffers, cardsNeeded);
     if (!selectedOffer) {
       bmcError('No active server-owned CAD offer matches this quantity.', 'Price unavailable');
       return;
@@ -518,15 +410,15 @@ function DeliveryApp({ user, initialCards = 0, initialCredits = DELIVERY_DEFAULT
       return;
     }
 
-    setBackendAction('starting_checkout');
-    setBackendError(null);
+    setCheckoutBusy(true);
+    setCheckoutError(null);
     const orderInput = {
       cardDraftId: cardDraftId!,
       selectedAssetId: selectedImageAssetId!,
       offerId: selectedOffer.offerId,
       quantity: cardsNeeded,
-      recipientAddress: toPostalAddress(draft),
-      senderAddress: toPostalAddress(sender),
+      recipientAddress: toCanadianPostalAddress(draft),
+      senderAddress: toCanadianPostalAddress(sender),
     };
     const orderSignature = JSON.stringify(orderInput);
     const orderKey = checkoutKeys.current.keyFor(orderSignature, 'physical-order');
@@ -538,9 +430,9 @@ function DeliveryApp({ user, initialCards = 0, initialCredits = DELIVERY_DEFAULT
       router.push(fulfillmentVariant === 'blank_handoff' ? `${checkoutUrl}?variant=blank_handoff` : checkoutUrl);
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Checkout could not be started.';
-      setBackendError(message);
+      setCheckoutError(message);
       bmcError(message, 'Checkout unavailable');
-      setBackendAction('idle');
+      setCheckoutBusy(false);
     }
   }
 
@@ -564,22 +456,13 @@ function DeliveryApp({ user, initialCards = 0, initialCredits = DELIVERY_DEFAULT
   }
 
   const primaryActionLabel = (() => {
-    if (backendAction === 'loading_assets') return 'Loading assets...';
-    if (backendAction === 'starting_checkout') return 'Starting checkout...';
+    if (backend.loading) return 'Loading assets...';
+    if (checkoutBusy) return 'Starting checkout...';
     return 'Continue to test checkout';
   })();
 
-  const matchingOffer = pricingOffers.find(
-    (offer) =>
-      cardsNeeded >= offer.cardCountMin &&
-      cardsNeeded <= offer.cardCountMax &&
-      (cardsNeeded === 1 ? offer.type === 'try_risk_free' : offer.type === 'big_sender'),
-  );
-  const backendStatus = matchingOffer
-    ? cardsNeeded === 1
-      ? 'Try Risk-Free · CAD $9.99 authorization'
-      : `${cardsNeeded} cards · CAD $${((matchingOffer.priceCents * cardsNeeded) / 100).toFixed(2)}`
-    : 'Loading server-owned CAD price';
+  const matchingOffer = selectDeliveryOffer(pricingOffers, cardsNeeded);
+  const backendStatus = deliveryOfferStatus(matchingOffer, cardsNeeded);
 
   return (
     <>
@@ -654,32 +537,11 @@ function DeliveryApp({ user, initialCards = 0, initialCredits = DELIVERY_DEFAULT
             <DlvReturnSection on={returnOn} setOn={setReturnOn} sender={sender} setSender={setSender} />
             <DlvScheduleSection when={when} setWhen={setWhen} date={date} setDate={setDate} />
             <DlvShippingSection shipping={shipping} setShipping={setShipping} country={draft.country} />
-            <div className="bmc-card dlv-section">
-              <div className="dlv-section-title">
-                <span className="dlv-section-num">5</span> Fulfillment variant
-              </div>
-              <div className="bmc-chip-row" style={{ marginTop: 18 }}>
-                <button
-                  type="button"
-                  className={`bmc-chip ${fulfillmentVariant === 'personalized' ? 'is-active' : ''}`}
-                  onClick={() => setFulfillmentVariant('personalized')}
-                >
-                  Personalized card
-                </button>
-                <button
-                  type="button"
-                  className={`bmc-chip ${fulfillmentVariant === 'blank_handoff' ? 'is-active' : ''}`}
-                  disabled={cardsNeeded !== 1}
-                  onClick={() => setFulfillmentVariant('blank_handoff')}
-                >
-                  Blank-card handoff
-                </button>
-              </div>
-              <p className="bmc-help" style={{ margin: '14px 0 0' }}>
-                Blank-card handoff consumes the one-card entitlement and remains a local/test-only feature until the
-                final Scribeless blank payload is approved.
-              </p>
-            </div>
+            <DeliveryCheckoutSection
+              cardsNeeded={cardsNeeded}
+              variant={fulfillmentVariant}
+              onVariantChange={setFulfillmentVariant}
+            />
           </div>
         </div>
 
@@ -715,7 +577,7 @@ function DeliveryApp({ user, initialCards = 0, initialCredits = DELIVERY_DEFAULT
             <button
               type="button"
               className="bmc-cta bmc-cta-lg"
-              onClick={() => void handlePrimaryAction()}
+              onClick={() => void handleSend()}
               disabled={backendBusy}
             >
               {primaryActionLabel} <BmcIcon name="arrow" w={16} />

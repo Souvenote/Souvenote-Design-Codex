@@ -69,6 +69,18 @@ npm.cmd run smoke:stack
 
 `smoke:stack` owns start, explicitly applies the verified baseline, verifies the full local boundary, and shuts down what it starts. It never deletes the PostgreSQL volume.
 
+When the preserved development volume intentionally cannot be migrated—for example,
+while auditing a historical checksum mismatch—run the disposable variant:
+
+```powershell
+npm.cmd run smoke:stack:isolated
+```
+
+This uses the dedicated `souvenote-audit` Compose project and
+`souvenote-audit-postgres-data` volume, proves a clean stack, and removes only that
+audit project and volume during cleanup. It never reads, rewrites, or deletes
+`souvenote-local-postgres-data`.
+
 ## Local endpoints
 
 | Service       | Liveness                                   | Readiness or customer endpoint              |

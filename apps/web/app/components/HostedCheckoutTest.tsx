@@ -49,19 +49,13 @@ function HostedCheckoutTest({ sessionId, variant }: HostedCheckoutTestProps) {
     try {
       const completed = await completeMockCheckout(session.id);
       let fulfillmentJobId = '';
-      let fulfillmentStatus = '';
       if (completed.purpose === 'physical_order' && completed.orderId) {
         const job = await submitMockFulfillment(completed.orderId, variant);
         fulfillmentJobId = job.id;
-        fulfillmentStatus = job.status;
       }
       const params = new URLSearchParams({
         sessionId: completed.id,
-        purpose: completed.purpose,
-        ...(completed.orderId ? { orderId: completed.orderId } : {}),
-        ...(completed.creditPackPurchaseId ? { purchaseId: completed.creditPackPurchaseId } : {}),
-        ...(fulfillmentJobId ? { fulfillmentJobId, fulfillmentStatus } : {}),
-        variant,
+        ...(fulfillmentJobId ? { fulfillmentJobId } : {}),
       });
       router.push(`/delivery/confirmation?${params.toString()}`);
     } catch (error: unknown) {

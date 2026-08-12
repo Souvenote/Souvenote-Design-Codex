@@ -18,6 +18,7 @@ import {
 } from './pricingCatalog';
 import { MIN_GENERATION_CREDITS } from './createFlowRules';
 import { creditPackFromOffer, creditPackPurchaseLabel, type CreditPackCard as CreditPack } from './creditPackCatalog';
+import { RetrySafeIdempotencyKeys } from '../lib/retrySafeIdempotency';
 
 // Options.tsx - dedicated to the create-options, pricing, referral, and modal surfaces.
 // Independent copy: edits here do NOT affect the "0 Credits · Modal" view (Options.intercept.jsx).
@@ -907,6 +908,7 @@ function PackCard({ pack, kind, compact, wide }: PackCardProps) {
   const buyAndGo = useSouvBuyAndGo();
   const router = useRouter();
   const auth = useAuth();
+  const checkoutKeys = React.useRef(new RetrySafeIdempotencyKeys());
   const [purchaseStatus, setPurchaseStatus] = React.useState<'idle' | 'purchasing' | 'success' | 'error'>('idle');
   const [purchaseMessage, setPurchaseMessage] = React.useState<string | null>(null);
   const isCardPack = kind === 'card';
@@ -975,8 +977,11 @@ function PackCard({ pack, kind, compact, wide }: PackCardProps) {
             }
             setPurchaseStatus('purchasing');
             setPurchaseMessage(null);
+            const checkoutSignature = `credit-pack:${creditPack.id}`;
+            const idempotencyKey = checkoutKeys.current.keyFor(checkoutSignature, 'credit-pack-checkout');
             try {
-              const session = await startCreditPackCheckout(creditPack.id);
+              const session = await startCreditPackCheckout(creditPack.id, idempotencyKey);
+              checkoutKeys.current.complete(checkoutSignature, idempotencyKey);
               setPurchaseStatus('success');
               setPurchaseMessage('Secure test checkout ready. Redirecting…');
               router.push(session.checkoutUrl || `/checkout/test/${session.id}`);
