@@ -1,14 +1,14 @@
 # Section 5 checkout and fulfillment mocks handoff
 
 ```text
-Milestone and PR: Section 5 checkout and fulfillment mocks; draft PR pending publication
+Milestone and PR: Section 5 checkout and fulfillment mocks; draft PR #11 (https://github.com/Souvenote/Souvenote-Design-Codex/pull/11)
 Build-plan section and gate: Section 5 - Checkout and fulfillment mocks; checkout, webhook, payment-resolution, fulfillment, duplicate, retry, failure, reconciliation, and recovery integration tests pass
 Goal: Replace checkout/fulfillment placeholders and direct mock capture with secure server-owned hosted-checkout and deterministic fulfillment contracts, without external provider traffic.
 Codex task title: Section 5 — Checkout and fulfillment mocks
 Task lifecycle: active pending publication and exact-head CI
 Canonical repository: C:\Users\wilso\Desktop\Souvenote_Design_Codex
 Branch: codex/section-5-checkout-fulfillment-mocks
-Commit: pending final commit
+Commit: 0f2e4cf45292eeb99ea2372162af2b353427b834
 Base commit: 44a91a2146e69f0c91a86e1ebb093e4ec457b064
 
 Concurrency/worktree record:
