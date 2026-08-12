@@ -81,6 +81,16 @@ This uses the dedicated `souvenote-audit` Compose project and
 audit project and volume during cleanup. It never reads, rewrites, or deletes
 `souvenote-local-postgres-data`.
 
+For longer interactive or browser acceptance, use:
+
+```powershell
+npm.cmd run dev:setup:isolated
+```
+
+This runs the credential-free stack on the same dedicated audit project and volume
+without the smoke command's automatic ready-and-exit behavior. Press Ctrl+C when
+finished; cleanup removes only the disposable audit volume.
+
 ## Local endpoints
 
 | Service       | Liveness                                   | Readiness or customer endpoint              |

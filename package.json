@@ -15,6 +15,7 @@
     "prepare": "npm run build --workspace=@souvenote/contracts",
     "dev": "node scripts/dev.mjs",
     "dev:setup": "node scripts/dev.mjs --migrate",
+    "dev:setup:isolated": "node scripts/dev.mjs --migrate --isolated",
     "dev:web": "npm run dev --workspace=@souvenote/web",
     "dev:api": "npm run dev --workspace=@souvenote/api",
     "dev:worker": "npm run dev --workspace=@souvenote/worker",

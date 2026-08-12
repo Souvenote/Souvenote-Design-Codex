@@ -40,9 +40,9 @@ function DeliveryConfirmationApp() {
         setFulfillmentJob(nextJob);
         setLoadState('ready');
       })
-      .catch((error: unknown) => {
+      .catch(() => {
         if (!active) return;
-        setLoadError(error instanceof Error ? error.message : 'The server-owned confirmation could not be verified.');
+        setLoadError('The authenticated server records could not verify this confirmation.');
         setLoadState('error');
       });
     return () => {

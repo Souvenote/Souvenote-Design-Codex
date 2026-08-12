@@ -17,7 +17,7 @@ import { assertCanonicalToolchain } from './lib/toolchain.mjs';
 assertCanonicalToolchain();
 
 const smokeMode = process.argv.slice(2).includes('--smoke');
-const isolatedMode = smokeMode && process.argv.slice(2).includes('--isolated');
+const isolatedMode = process.argv.slice(2).includes('--isolated');
 const migrateMode = smokeMode || process.argv.slice(2).includes('--migrate');
 const ownedChildren = [];
 const environment = createSafeLocalEnvironment(process.env, { isolated: isolatedMode });
