@@ -1,5 +1,5 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { DatabaseService } from '../database/database.service';
 import type { CreateOrderInput } from './orders.service';
 
@@ -84,8 +84,8 @@ export class OrdersRepository {
         });
       }
 
-      const asset = await client.query<{ revision_id: string }>(
-        `SELECT asset.revision_id
+      const asset = await client.query<{ revision_id: string; approved_song_asset_id: string | null }>(
+        `SELECT asset.revision_id, draft.approved_song_asset_id
          FROM assets asset JOIN card_drafts draft ON draft.id = asset.card_draft_id AND draft.user_id = asset.user_id
          WHERE asset.id = $1 AND asset.user_id = $2 AND asset.card_draft_id = $3
            AND asset.generation_status = 'ready' AND asset.asset_type IN ('image', 'print')
@@ -114,17 +114,36 @@ export class OrdersRepository {
         ],
       );
       const order = this.requireRow(inserted.rows[0]);
+      const shareToken = randomBytes(32).toString('base64url');
+      const shareLink = await client.query<{ id: string }>(
+        `INSERT INTO card_share_links
+           (user_id, card_draft_id, song_asset_id, token_hash, public_path,
+            qr_payload_version, metadata)
+         VALUES ($1, $2, $3, $4, $5, 1, jsonb_build_object('order_id', $6::text))
+         RETURNING id;`,
+        [
+          userId,
+          input.cardDraftId,
+          asset.rows[0].approved_song_asset_id,
+          createHash('sha256').update(shareToken).digest('hex'),
+          `/card/${shareToken}`,
+          order.id,
+        ],
+      );
+      const shareLinkId = shareLink.rows[0]?.id;
+      if (!shareLinkId) throw new Error('Order share-link creation returned no row.');
       await client.query(
         `INSERT INTO order_items
-           (user_id, order_id, card_draft_id, price_offer_id, print_asset_id,
+           (user_id, order_id, card_draft_id, price_offer_id, print_asset_id, share_link_id,
             quantity, unit_amount_minor, total_amount_minor, currency)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);`,
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);`,
         [
           userId,
           order.id,
           input.cardDraftId,
           selectedOffer.id,
           input.selectedAssetId,
+          shareLinkId,
           input.quantity,
           selectedOffer.unit_amount_minor,
           subtotal,

@@ -20,6 +20,8 @@ test('local runtime overrides unsafe modes and neutralizes provider credentials'
   assert.equal(environment.FAL_KEY, '');
   assert.equal(environment.IMAGE_PROVIDER_MODE, 'mock');
   assert.equal(environment.PAYMENT_PROVIDER_MODE, 'mock');
+  assert.equal(environment.FULFILLMENT_PROVIDER_MODE, 'mock');
+  assert.equal(environment.BLANK_CARD_HANDOFF_ENABLED, 'true');
   assert.equal(environment.NEXT_PUBLIC_COGNITO_CLIENT_ID, '');
   assert.equal(environment.PATH, 'inherited-path');
   assert.equal(environment.STRIPE_SECRET_KEY, '');

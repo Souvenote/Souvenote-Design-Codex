@@ -7,8 +7,15 @@ import { Navbar } from './Navbar';
 import { Footer } from './Footer';
 import { BmcIcon, BmcErrorModal, bmcError } from './BmcShared';
 import { DlvKeepsake } from './DeliveryKeepsake';
-import { assetContentUrl, fetchCardDraftAssets, fetchCardDraftById } from '../lib/api';
-import type { CardDraftAsset } from '../lib/api';
+import {
+  assetContentUrl,
+  createPhysicalOrder,
+  fetchCardDraftAssets,
+  fetchCardDraftById,
+  fetchPricingOffers,
+  startPhysicalCheckout,
+} from '../lib/api';
+import type { CardDraftAsset, PricingOffer } from '../lib/api';
 import {
   DLV_EMPTY_RECIP,
   dlvValidate,
@@ -21,6 +28,7 @@ import type { DeliveryErrors, DeliveryMode, DeliveryRecipient, DeliveryWhen } fr
 import type { DemoCredits, DemoUser } from './DemoUser';
 import { useAuth } from './AuthProvider';
 import { rememberPricingReturn } from './PricingReturn';
+import { RetrySafeIdempotencyKeys } from '../lib/retrySafeIdempotency';
 import {
   addPricingCartItemToCart,
   BIG_SENDER_TIERS,
@@ -31,7 +39,7 @@ import {
   MIN_BIG_SENDER_CARDS,
 } from './pricingCatalog';
 
-type BackendAction = 'idle' | 'loading_assets';
+type BackendAction = 'idle' | 'loading_assets' | 'starting_checkout';
 
 type DlvBlankGiftModalProps = {
   open: boolean;
@@ -270,6 +278,7 @@ function DeliveryApp({ user, initialCards = 0, initialCredits = DELIVERY_DEFAULT
   const router = useRouter();
   const searchParams = useSearchParams();
   const auth = useAuth();
+  const checkoutKeys = React.useRef(new RetrySafeIdempotencyKeys());
   const displayUser = auth.displayUser ?? user;
 
   const [mode, setMode] = React.useState<DeliveryMode>('single');
@@ -295,6 +304,8 @@ function DeliveryApp({ user, initialCards = 0, initialCredits = DELIVERY_DEFAULT
   const [generatedAssets, setGeneratedAssets] = React.useState<CardDraftAsset[]>([]);
   const [selectedImageAssetId, setSelectedImageAssetId] = React.useState<string | null>(requestedAssetId);
   const [messageText, setMessageText] = React.useState('');
+  const [pricingOffers, setPricingOffers] = React.useState<PricingOffer[]>([]);
+  const [fulfillmentVariant, setFulfillmentVariant] = React.useState<'personalized' | 'blank_handoff'>('personalized');
   const [backendAction, setBackendAction] = React.useState<BackendAction>('idle');
   const [backendError, setBackendError] = React.useState<string | null>(null);
   const assetType = (asset: CardDraftAsset) => String(asset.assetType || asset.asset_type);
@@ -328,8 +339,8 @@ function DeliveryApp({ user, initialCards = 0, initialCredits = DELIVERY_DEFAULT
     setGeneratedAssets([]);
     setSelectedImageAssetId(null);
 
-    Promise.all([fetchCardDraftById(cardDraftId), fetchCardDraftAssets(cardDraftId)])
-      .then(([cardDraft, assets]) => {
+    Promise.all([fetchCardDraftById(cardDraftId), fetchCardDraftAssets(cardDraftId), fetchPricingOffers()])
+      .then(([cardDraft, assets, offers]) => {
         if (!active) return;
         if (cardDraft.status !== 'approved') {
           throw new Error('This card has not been approved. Go back to Review and approve the selected outputs first.');
@@ -357,6 +368,7 @@ function DeliveryApp({ user, initialCards = 0, initialCredits = DELIVERY_DEFAULT
 
         setGeneratedAssets(approvedAssets);
         setSelectedImageAssetId(approvedImage.id);
+        setPricingOffers(offers.filter((offer) => offer.checkoutEnabled));
       })
       .catch((error) => {
         if (!active) return;
@@ -401,6 +413,14 @@ function DeliveryApp({ user, initialCards = 0, initialCredits = DELIVERY_DEFAULT
       return false;
     }
 
+    if (mode === 'multiple') {
+      bmcError(
+        'The deterministic Section 5 provider contract accepts one Canadian delivery address per order. Choose One recipient; multi-address batching will remain disabled until its address-array contract is implemented.',
+        'Multi-address checkout unavailable',
+      );
+      return false;
+    }
+
     if (mode === 'single') {
       const nextErrors = dlvValidate(draft);
       if (Object.keys(nextErrors).length) {
@@ -412,10 +432,39 @@ function DeliveryApp({ user, initialCards = 0, initialCredits = DELIVERY_DEFAULT
         );
         return false;
       }
-    } else if (recipients.length === 0) {
+    }
+
+    if (draft.country !== 'CA') {
+      bmcError('Section 5 checkout is Canada-first. Enter a Canadian recipient address.', 'Canadian address needed');
+      return false;
+    }
+
+    if (!returnOn) {
       bmcError(
-        'Add at least one recipient address before sending. Fill in the required fields and tap Add recipient.',
-        'Address needed',
+        'Turn on Return address and enter the Canadian sender address required by fulfillment.',
+        'Return address needed',
+      );
+      return false;
+    }
+
+    const senderErrors = dlvValidate(sender);
+    if (Object.keys(senderErrors).length || sender.country !== 'CA') {
+      bmcError(
+        'Fill in the complete Canadian return address before checkout: name, street, city, province, and postal code.',
+        'Return address needed',
+      );
+      return false;
+    }
+
+    if (cardsNeeded > MAX_BIG_SENDER_CARDS) {
+      bmcError('Section 5 supports a maximum of 30 physical cards per checkout.', 'Quantity too high');
+      return false;
+    }
+
+    if (when === 'schedule') {
+      bmcError(
+        'Scheduled fulfillment is not represented by the Section 5 provider contract. Choose Send now for deterministic test checkout.',
+        'Scheduling unavailable',
       );
       return false;
     }
@@ -423,17 +472,25 @@ function DeliveryApp({ user, initialCards = 0, initialCredits = DELIVERY_DEFAULT
     return true;
   }
 
-  function showCheckoutPlaceholder() {
-    const message = 'Checkout is coming soon. No payment, order, credit, or fulfillment action was performed.';
-    setBackendError(message);
-    bmcError(message, 'Coming soon');
+  function toPostalAddress(value: DeliveryRecipient) {
+    return {
+      name: [value.firstName, value.lastName].filter(Boolean).join(' '),
+      line1: value.address1.trim(),
+      ...([value.company, value.address2, value.address3].some((part) => part.trim())
+        ? { line2: [value.company, value.address2, value.address3].filter((part) => part.trim()).join(', ') }
+        : {}),
+      city: value.city.trim(),
+      region: value.state.trim().toUpperCase(),
+      postalCode: value.postalCode.trim().toUpperCase(),
+      country: 'CA' as const,
+    };
   }
 
   function handlePrimaryAction() {
-    handleSend();
+    return handleSend();
   }
 
-  function handleSend() {
+  async function handleSend() {
     if (needsCardTopUp) {
       setCardTopUpOpen(true);
       return;
@@ -441,24 +498,62 @@ function DeliveryApp({ user, initialCards = 0, initialCredits = DELIVERY_DEFAULT
 
     if (!validateDeliveryInputs()) return;
 
-    if (blankGiftCount > 0) {
-      setGiftModalOpen(true);
+    if (auth.status !== 'authenticated') {
+      bmcError('Log in before creating an order and starting checkout.', 'Authentication required');
       return;
     }
 
-    showCheckoutPlaceholder();
+    const selectedOffer = pricingOffers.find(
+      (offer) =>
+        cardsNeeded >= offer.cardCountMin &&
+        cardsNeeded <= offer.cardCountMax &&
+        (cardsNeeded === 1 ? offer.type === 'try_risk_free' : offer.type === 'big_sender'),
+    );
+    if (!selectedOffer) {
+      bmcError('No active server-owned CAD offer matches this quantity.', 'Price unavailable');
+      return;
+    }
+    if (fulfillmentVariant === 'blank_handoff' && (cardsNeeded !== 1 || selectedOffer.type !== 'try_risk_free')) {
+      bmcError('Blank-card handoff requires a one-card Try Risk-Free checkout.', 'Blank handoff unavailable');
+      return;
+    }
+
+    setBackendAction('starting_checkout');
+    setBackendError(null);
+    const orderInput = {
+      cardDraftId: cardDraftId!,
+      selectedAssetId: selectedImageAssetId!,
+      offerId: selectedOffer.offerId,
+      quantity: cardsNeeded,
+      recipientAddress: toPostalAddress(draft),
+      senderAddress: toPostalAddress(sender),
+    };
+    const orderSignature = JSON.stringify(orderInput);
+    const orderKey = checkoutKeys.current.keyFor(orderSignature, 'physical-order');
+    try {
+      const order = await createPhysicalOrder(orderInput, orderKey);
+      const session = await startPhysicalCheckout(order.id);
+      checkoutKeys.current.complete(orderSignature, orderKey);
+      const checkoutUrl = session.checkoutUrl || `/checkout/test/${session.id}`;
+      router.push(fulfillmentVariant === 'blank_handoff' ? `${checkoutUrl}?variant=blank_handoff` : checkoutUrl);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Checkout could not be started.';
+      setBackendError(message);
+      bmcError(message, 'Checkout unavailable');
+      setBackendAction('idle');
+    }
   }
 
   function keepGiftForLaterAndSend() {
     setGiftModalOpen(false);
     setGiftReminderDismissed(true);
-    showCheckoutPlaceholder();
+    void handleSend();
   }
 
   function saveGiftRecipientAndSend() {
     setGiftModalOpen(false);
     setGiftReminderDismissed(true);
-    showCheckoutPlaceholder();
+    void handleSend();
   }
 
   function reserveCardsForDelivery(quantity: number) {
@@ -470,11 +565,21 @@ function DeliveryApp({ user, initialCards = 0, initialCredits = DELIVERY_DEFAULT
 
   const primaryActionLabel = (() => {
     if (backendAction === 'loading_assets') return 'Loading assets...';
-    if (backendAction !== 'idle') return 'Checking card...';
-    return 'Checkout coming soon';
+    if (backendAction === 'starting_checkout') return 'Starting checkout...';
+    return 'Continue to test checkout';
   })();
 
-  const backendStatus = 'Checkout coming soon';
+  const matchingOffer = pricingOffers.find(
+    (offer) =>
+      cardsNeeded >= offer.cardCountMin &&
+      cardsNeeded <= offer.cardCountMax &&
+      (cardsNeeded === 1 ? offer.type === 'try_risk_free' : offer.type === 'big_sender'),
+  );
+  const backendStatus = matchingOffer
+    ? cardsNeeded === 1
+      ? 'Try Risk-Free · CAD $9.99 authorization'
+      : `${cardsNeeded} cards · CAD $${((matchingOffer.priceCents * cardsNeeded) / 100).toFixed(2)}`
+    : 'Loading server-owned CAD price';
 
   return (
     <>
@@ -496,8 +601,8 @@ function DeliveryApp({ user, initialCards = 0, initialCredits = DELIVERY_DEFAULT
             A card <span className="souv-hero-italic text-metallic-rose-gold">worth sending</span>
           </h1>
           <p className="bmc-lede" style={{ margin: '0 auto' }}>
-            Preview the approved card and enter synthetic delivery details for testing. Nothing has been printed,
-            mailed, ordered, or charged; checkout and fulfillment are disabled in this beta.
+            Preview the approved card and enter synthetic Canadian delivery details. Section 5 records deterministic
+            local checkout and fulfillment state; it makes no external payment, print, mail, or email call.
           </p>
         </div>
 
@@ -549,6 +654,32 @@ function DeliveryApp({ user, initialCards = 0, initialCredits = DELIVERY_DEFAULT
             <DlvReturnSection on={returnOn} setOn={setReturnOn} sender={sender} setSender={setSender} />
             <DlvScheduleSection when={when} setWhen={setWhen} date={date} setDate={setDate} />
             <DlvShippingSection shipping={shipping} setShipping={setShipping} country={draft.country} />
+            <div className="bmc-card dlv-section">
+              <div className="dlv-section-title">
+                <span className="dlv-section-num">5</span> Fulfillment variant
+              </div>
+              <div className="bmc-chip-row" style={{ marginTop: 18 }}>
+                <button
+                  type="button"
+                  className={`bmc-chip ${fulfillmentVariant === 'personalized' ? 'is-active' : ''}`}
+                  onClick={() => setFulfillmentVariant('personalized')}
+                >
+                  Personalized card
+                </button>
+                <button
+                  type="button"
+                  className={`bmc-chip ${fulfillmentVariant === 'blank_handoff' ? 'is-active' : ''}`}
+                  disabled={cardsNeeded !== 1}
+                  onClick={() => setFulfillmentVariant('blank_handoff')}
+                >
+                  Blank-card handoff
+                </button>
+              </div>
+              <p className="bmc-help" style={{ margin: '14px 0 0' }}>
+                Blank-card handoff consumes the one-card entitlement and remains a local/test-only feature until the
+                final Scribeless blank payload is approved.
+              </p>
+            </div>
           </div>
         </div>
 
@@ -581,7 +712,12 @@ function DeliveryApp({ user, initialCards = 0, initialCredits = DELIVERY_DEFAULT
             >
               <BmcIcon name="back" w={14} /> Back to review
             </Link>
-            <button type="button" className="bmc-cta bmc-cta-lg" onClick={handlePrimaryAction} disabled={backendBusy}>
+            <button
+              type="button"
+              className="bmc-cta bmc-cta-lg"
+              onClick={() => void handlePrimaryAction()}
+              disabled={backendBusy}
+            >
               {primaryActionLabel} <BmcIcon name="arrow" w={16} />
             </button>
           </div>

@@ -14,7 +14,7 @@ Local startup must use `AUTH_MODE=disabled` and provider modes set to `mock` or
 `disabled`. Any live provider-mode value stops startup. The repository-level
 development supervisor supplies an idle safe profile.
 
-Section 3 adds one deterministic database schedule for expired mock Try Risk-Free
+Section 5 owns the deterministic database schedule for expired mock Try Risk-Free
 authorizations. It remains disabled by default and can run only in
 development/test with `WORKER_MODE=schedules`, `PAYMENT_PROVIDER_MODE=mock`, and
 `TRY_RISK_FREE_RESOLVER_ENABLED=true`. The repository calls the database-owned

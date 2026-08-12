@@ -162,3 +162,11 @@ Section 3 adds:
 - generated OpenAPI/client contracts, concurrent PostgreSQL/API coverage, and corrected Canada-first product copy.
 
 The Section 3 branch makes no AWS mutation, Stripe request, provider call, payment, email, or fulfillment action. External service cost remains CAD $0 / USD $0. Real checkout, Stripe test components/webhooks for offers, Scribeless fulfillment, paid AI providers, and AWS staging remain separately approved later sections.
+
+## Section 5 candidate baseline
+
+Status: implemented on `codex/section-5-checkout-fulfillment-mocks` on 2026-08-12; final evidence is recorded in `docs/engineering/section-5-audit.md` and `docs/engineering/section-5-handoff.md`.
+
+Section 5 adds owner-scoped hosted-checkout sessions, exact-once physical/credit-pack payment reconciliation, payment-linked Try Risk-Free authorization, server-owned Big Sender capture/entitlement conversion, verified idempotent webhook recovery, and typed deterministic Scribeless fulfillment including the feature-flagged one-card blank handoff. Delivery and credit-pack purchase now enter the hosted local/test flow without collecting raw payment details.
+
+Real Stripe/Scribeless traffic, AWS staging, physical output, email, analytics, and deployment remain off. External-service cost remains CAD $0 / USD $0. The browser runtime was unavailable for final responsive acceptance; that evidence gap and the deferred different-address Big Sender contract are recorded explicitly in the Section 5 audit.

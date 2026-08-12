@@ -65,7 +65,11 @@ export class CardEntitlementsController {
 
   @Post('try-risk-free/authorizations')
   @Idempotent()
-  @ApiOperation({ operationId: 'startMockTryRiskFreeAuthorization' })
+  @ApiOperation({
+    operationId: 'startMockTryRiskFreeAuthorization',
+    deprecated: true,
+    description: 'Retired in Section 5; Try Risk-Free authorization is created only by completed hosted checkout.',
+  })
   @ApiCreatedResponse({ type: TryRiskFreeStartResponseDto })
   authorizeTryRiskFree(@Req() request: AuthenticatedRequest) {
     return this.service.authorizeTryRiskFree(request.user.id, request.header('idempotency-key')!);

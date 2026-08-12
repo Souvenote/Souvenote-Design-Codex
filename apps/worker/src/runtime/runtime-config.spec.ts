@@ -79,6 +79,6 @@ describe('readWorkerRuntimeConfig', () => {
         ...validEnvironment(),
         NODE_ENV: 'production',
       }),
-    ).toThrow('The Section 3 worker is permitted only in development or test.');
+    ).toThrow('The Section 5 worker is permitted only in development or test.');
   });
 });

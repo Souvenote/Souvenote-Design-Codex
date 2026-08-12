@@ -33,7 +33,11 @@ export class CreditsController {
 
   @Post('purchases/mock')
   @Idempotent()
-  @ApiOperation({ operationId: 'purchaseMockCreditPack' })
+  @ApiOperation({
+    operationId: 'purchaseMockCreditPack',
+    deprecated: true,
+    description: 'Retired in Section 5; start hosted collection through /checkout/credit-packs.',
+  })
   @ApiCreatedResponse({ type: CreditPackPurchaseStartResponseDto })
   purchaseMock(@Req() request: AuthenticatedRequest, @Body() dto: PurchaseCreditPackDto) {
     return this.creditsService.purchaseMock(request.user.id, dto.offerCode, request.header('idempotency-key')!);

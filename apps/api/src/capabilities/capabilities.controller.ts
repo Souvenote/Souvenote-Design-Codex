@@ -37,8 +37,8 @@ export class CapabilitiesController {
       music: this.providerMode('MUSIC_PROVIDER_MODE'),
       text: this.providerMode('TEXT_PROVIDER_MODE'),
     };
-    const checkout: ProviderMode = 'disabled';
-    const fulfillment: ProviderMode = 'disabled';
+    const checkout = this.providerMode('PAYMENT_PROVIDER_MODE');
+    const fulfillment = this.providerMode('FULFILLMENT_PROVIDER_MODE');
     const modes = [...Object.values(creative), checkout, fulfillment];
     const releaseStage = this.releaseStage(environment);
     return {
@@ -48,9 +48,9 @@ export class CapabilitiesController {
       checkout,
       fulfillment,
       externalProviderCallsEnabled: modes.some((mode) => mode === 'sandbox' || mode === 'live'),
-      label: Object.values(creative).every((mode) => mode === 'deterministic_mock')
+      label: modes.every((mode) => mode === 'deterministic_mock')
         ? 'Deterministic beta mock'
-        : 'Provider capabilities vary by asset',
+        : 'Provider capabilities vary by workflow',
     };
   }
 

@@ -3,8 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { fetchCreditPackOffers, fetchPricingOffers, purchaseMockCreditPack, type PricingOffer } from '../lib/api';
-import { publishCreditBalanceValue } from '../lib/creditBalance';
+import { fetchCreditPackOffers, fetchPricingOffers, startCreditPackCheckout, type PricingOffer } from '../lib/api';
 import { StampCorners } from './Ornaments';
 import { useAuth } from './AuthProvider';
 import {
@@ -977,12 +976,10 @@ function PackCard({ pack, kind, compact, wide }: PackCardProps) {
             setPurchaseStatus('purchasing');
             setPurchaseMessage(null);
             try {
-              const result = await purchaseMockCreditPack(creditPack.id);
-              publishCreditBalanceValue(result.balance);
+              const session = await startCreditPackCheckout(creditPack.id);
               setPurchaseStatus('success');
-              setPurchaseMessage(
-                `Local mock purchase complete: ${result.purchase.creditsGranted} credits added. New balance: ${result.balance}.`,
-              );
+              setPurchaseMessage('Secure test checkout ready. Redirecting…');
+              router.push(session.checkoutUrl || `/checkout/test/${session.id}`);
             } catch (error: unknown) {
               setPurchaseStatus('error');
               setPurchaseMessage(error instanceof Error ? error.message : 'The credit pack could not be purchased.');
