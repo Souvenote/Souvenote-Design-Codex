@@ -1,0 +1,12 @@
+# Default ownership for every tracked path.
+* @Souvenote
+
+# Security-sensitive repository and service boundaries.
+/.github/ @Souvenote
+/apps/api/ @Souvenote
+/apps/worker/ @Souvenote
+/database/ @Souvenote
+/infra/ @Souvenote
+/scripts/ @Souvenote
+/compose.yaml @Souvenote
+/package-lock.json @Souvenote
