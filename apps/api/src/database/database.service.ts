@@ -1,6 +1,7 @@
 import { Inject, Injectable, OnApplicationShutdown } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Pool, PoolClient, QueryResult, QueryResultRow } from 'pg';
+import { readFileSync } from 'node:fs';
+import { Pool, PoolClient, type PoolConfig, QueryResult, QueryResultRow } from 'pg';
 import {
   type ConfigurationReader,
   readPositiveInteger,
@@ -25,50 +26,16 @@ export class DatabaseService implements OnApplicationShutdown {
     @Inject(ConfigService)
     private readonly configService: ConfigurationReader,
   ) {
-    const databaseUrl = readString(this.configService, 'DATABASE_URL');
-
-    if (!databaseUrl) {
-      throw new Error('DATABASE_URL is missing from environment variables.');
-    }
-
     const connectionTimeoutMillis = readPositiveInteger(this.configService, 'DATABASE_CONNECTION_TIMEOUT_MS', 5_000);
     const idleTimeoutMillis = readPositiveInteger(this.configService, 'DATABASE_IDLE_TIMEOUT_MS', 30_000);
     const queryTimeoutMillis = readPositiveInteger(this.configService, 'DATABASE_QUERY_TIMEOUT_MS', 10_000);
     this.readinessTimeoutMs = readPositiveInteger(this.configService, 'DATABASE_READINESS_TIMEOUT_MS', 2_000);
-    const sslMode =
-      readString(this.configService, 'DATABASE_SSL_MODE') ??
-      (runtimeEnvironment(this.configService) === 'production' ? 'verify-full' : 'disable');
-    if (sslMode !== 'disable' && sslMode !== 'verify-full') {
-      throw new Error('DATABASE_SSL_MODE must be either "disable" or "verify-full".');
-    }
-    if (runtimeEnvironment(this.configService) === 'production' && sslMode !== 'verify-full') {
-      throw new Error('Production database connections require DATABASE_SSL_MODE=verify-full.');
-    }
-    const ssl = sslMode === 'verify-full' ? this.readVerifiedTlsConfiguration() : undefined;
-
-    // gets the connection string from .env file and uses it to connect to the database
     this.pool = new Pool({
-      connectionString: databaseUrl,
+      ...resolveDatabasePoolConfig(this.configService),
       connectionTimeoutMillis,
       idleTimeoutMillis,
       query_timeout: queryTimeoutMillis,
-      ssl,
     });
-  }
-
-  private readVerifiedTlsConfiguration(): { rejectUnauthorized: true; ca: string } {
-    const encodedCa = readString(this.configService, 'DATABASE_SSL_CA_BASE64');
-    if (!encodedCa) throw new Error('DATABASE_SSL_CA_BASE64 is required for verified database TLS.');
-    let ca: string;
-    try {
-      ca = Buffer.from(encodedCa, 'base64').toString('utf8');
-    } catch {
-      throw new Error('DATABASE_SSL_CA_BASE64 must be valid base64.');
-    }
-    if (!ca.includes('-----BEGIN CERTIFICATE-----') || !ca.includes('-----END CERTIFICATE-----')) {
-      throw new Error('DATABASE_SSL_CA_BASE64 must contain a PEM certificate authority.');
-    }
-    return { rejectUnauthorized: true, ca };
   }
 
   // This what services will call to run SQL queries against the database
@@ -111,4 +78,64 @@ export class DatabaseService implements OnApplicationShutdown {
     this.isClosed = true;
     await this.pool.end();
   }
+}
+
+export function resolveDatabasePoolConfig(configuration: ConfigurationReader): PoolConfig {
+  const environment = runtimeEnvironment(configuration);
+  const sslMode =
+    readString(configuration, 'DATABASE_SSL_MODE') ?? (environment === 'production' ? 'verify-full' : 'disable');
+  if (sslMode !== 'disable' && sslMode !== 'verify-full') {
+    throw new Error('DATABASE_SSL_MODE must be either "disable" or "verify-full".');
+  }
+  if (environment === 'production' && sslMode !== 'verify-full') {
+    throw new Error('Production database connections require DATABASE_SSL_MODE=verify-full.');
+  }
+  const ssl = sslMode === 'verify-full' ? readVerifiedTlsConfiguration(configuration) : undefined;
+  const connectionString = readString(configuration, 'DATABASE_URL');
+  if (connectionString) return { connectionString, ssl };
+
+  const host = readString(configuration, 'DATABASE_HOST');
+  const database = readString(configuration, 'DATABASE_NAME');
+  const user = readString(configuration, 'DATABASE_USER');
+  const password = readString(configuration, 'DATABASE_PASSWORD');
+  if (!host || !database || !user || !password) {
+    throw new Error('DATABASE_URL or DATABASE_HOST, DATABASE_NAME, DATABASE_USER, and DATABASE_PASSWORD are required.');
+  }
+  if (!/^[A-Za-z0-9_.-]{1,253}$/u.test(host)) throw new Error('DATABASE_HOST is invalid.');
+  if (!/^[A-Za-z_][A-Za-z0-9_-]{0,62}$/u.test(database)) throw new Error('DATABASE_NAME is invalid.');
+  if (!/^[A-Za-z_][A-Za-z0-9_-]{0,62}$/u.test(user)) throw new Error('DATABASE_USER is invalid.');
+
+  return {
+    host,
+    port: readPositiveInteger(configuration, 'DATABASE_PORT', 5432, 65_535),
+    database,
+    user,
+    password,
+    ssl,
+  };
+}
+
+function readVerifiedTlsConfiguration(configuration: ConfigurationReader): { rejectUnauthorized: true; ca: string } {
+  const encodedCa = readString(configuration, 'DATABASE_SSL_CA_BASE64');
+  const caFile = readString(configuration, 'DATABASE_SSL_CA_FILE');
+  if (encodedCa && caFile) {
+    throw new Error('Set only one of DATABASE_SSL_CA_BASE64 or DATABASE_SSL_CA_FILE.');
+  }
+
+  let ca: string;
+  if (encodedCa) {
+    ca = Buffer.from(encodedCa, 'base64').toString('utf8');
+  } else if (caFile) {
+    try {
+      ca = readFileSync(caFile, 'utf8');
+    } catch {
+      throw new Error('DATABASE_SSL_CA_FILE could not be read.');
+    }
+  } else {
+    throw new Error('DATABASE_SSL_CA_BASE64 or DATABASE_SSL_CA_FILE is required for verified database TLS.');
+  }
+  if (!ca.includes('-----BEGIN CERTIFICATE-----') || !ca.includes('-----END CERTIFICATE-----')) {
+    throw new Error('Database TLS CA configuration must contain a PEM certificate authority.');
+  }
+  return { rejectUnauthorized: true, ca };
 }

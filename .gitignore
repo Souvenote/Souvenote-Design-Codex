@@ -14,6 +14,8 @@ out/
 build/
 **/dist/
 *.tsbuildinfo
+infra/cdk/cdk.out/
+infra/aws/section6-release-evidence.local.json
 
 # Environment files: examples are safe and intentionally tracked
 .env*

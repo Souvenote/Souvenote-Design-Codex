@@ -50,7 +50,7 @@ type CreditPackPurchasePayload = {
 
 const localSecret = process.env.LOCAL_AUTH_SECRET ?? '';
 const localClient = process.env.LOCAL_AUTH_CLIENT_ID ?? 'souvenote-local-web';
-const requiredScope = process.env.COGNITO_REQUIRED_SCOPES ?? 'souvenote:customer';
+const requiredScope = process.env.COGNITO_REQUIRED_SCOPES ?? 'souvenote/customer';
 
 function responseBody<T>(response: Response): T {
   const parsed: unknown = JSON.parse(response.text);

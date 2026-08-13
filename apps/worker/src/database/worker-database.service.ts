@@ -10,7 +10,7 @@ export class WorkerDatabaseService implements OnModuleDestroy {
   constructor(@Inject(WORKER_RUNTIME_CONFIG) config: WorkerRuntimeConfig) {
     this.pool = new Pool({
       application_name: 'souvenote-worker',
-      connectionString: config.databaseUrl,
+      ...config.database,
       connectionTimeoutMillis: 2_000,
       idleTimeoutMillis: 10_000,
       max: 2,

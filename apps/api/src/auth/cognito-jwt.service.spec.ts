@@ -6,7 +6,7 @@ import { CognitoJwtService } from './cognito-jwt.service';
 const LOCAL_SECRET = 'local-test-secret-that-is-longer-than-thirty-two-bytes';
 const LOCAL_ISSUER = 'souvenote-local';
 const LOCAL_CLIENT = 'souvenote-local-web';
-const REQUIRED_SCOPE = 'souvenote:customer';
+const REQUIRED_SCOPE = 'souvenote/customer';
 
 function configuration(values: Record<string, string>): ConfigurationReader {
   return { get: (key: string) => values[key] };

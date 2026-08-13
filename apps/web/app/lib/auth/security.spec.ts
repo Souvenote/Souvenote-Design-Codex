@@ -46,7 +46,7 @@ function setLocalEnvironment() {
     LOCAL_AUTH_CLIENT_ID: 'souvenote-local-web',
     LOCAL_AUTH_SUBJECT: '00000000-0000-4000-8000-000000000001',
     LOCAL_AUTH_EMAIL: 'local@souvenote.invalid',
-    LOCAL_AUTH_SCOPE: 'souvenote:customer',
+    LOCAL_AUTH_SCOPE: 'souvenote/customer',
   };
 }
 
@@ -127,7 +127,7 @@ describe('web BFF security primitives', () => {
       iss: 'souvenote-local',
       client_id: 'souvenote-local-web',
       token_use: 'access',
-      scope: 'souvenote:customer',
+      scope: 'souvenote/customer',
       iat: now - 1,
       exp: now + 60,
     };
@@ -155,6 +155,25 @@ describe('web BFF security primitives', () => {
     expect(cleanReturnTo('https://evil.example/path', '/')).toBe('/');
     expect(cleanReturnTo('//evil.example/path', '/')).toBe('/');
     expect(cleanReturnTo('/create?draft=1', '/')).toBe('/create?draft=1');
+  });
+
+  it('allows production Cognito to reach only its co-located loopback API', () => {
+    process.env = {
+      ...process.env,
+      NODE_ENV: 'production',
+      AUTH_MODE: 'cognito',
+      API_INTERNAL_BASE_URL: 'http://127.0.0.1:4000/api/v1',
+      BFF_SESSION_SECRET: sessionSecret,
+      COGNITO_CLIENT_ID: 'staging-client',
+      COGNITO_DOMAIN: 'https://souvenote.auth.ca-central-1.amazoncognito.com',
+      COGNITO_ISSUER: 'https://cognito-idp.ca-central-1.amazonaws.com/ca-central-1_example',
+      COGNITO_LOGOUT_URI: 'https://staging.example.test',
+      COGNITO_OAUTH_SCOPES: 'openid email profile souvenote/customer',
+      COGNITO_REDIRECT_URI: 'https://staging.example.test/api/auth/callback',
+    };
+    expect(getBffConfig().apiBaseUrl).toBe('http://127.0.0.1:4000/api/v1');
+    process.env.API_INTERNAL_BASE_URL = 'https://shared.example.test/api/v1';
+    expect(getBffConfig).toThrow('requires a loopback API_INTERNAL_BASE_URL');
   });
 
   it('requires same-origin browser metadata for cookie-backed mutations', () => {

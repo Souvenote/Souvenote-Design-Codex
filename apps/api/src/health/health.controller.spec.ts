@@ -1,12 +1,13 @@
 import { ServiceUnavailableException } from '@nestjs/common';
 import type { DatabaseService } from '../database/database.service';
-import { HealthController } from './health.controller';
+import { HealthController, StagingLoadBalancerHealthController } from './health.controller';
 
 describe('HealthController', () => {
   const databaseService: Pick<DatabaseService, 'ping'> = {
     ping: jest.fn(),
   };
   const controller = new HealthController(databaseService);
+  const stagingController = new StagingLoadBalancerHealthController(databaseService);
 
   beforeEach(() => {
     jest.resetAllMocks();
@@ -37,6 +38,12 @@ describe('HealthController', () => {
       status: 'ok',
       database: 'connected',
     });
+  });
+
+  it('keeps the existing staging load-balancer probes bounded to health behavior', async () => {
+    expect(stagingController.getLiveness()).toMatchObject({ status: 'ok', service: 'souvenote-backend' });
+    jest.mocked(databaseService.ping).mockResolvedValueOnce();
+    await expect(stagingController.getReadiness()).resolves.toMatchObject({ database: 'connected' });
   });
 
   it('returns a sanitized service-unavailable response when the database fails', async () => {

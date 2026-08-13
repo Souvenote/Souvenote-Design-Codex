@@ -165,7 +165,7 @@ async function readAndVerifyJournal(client, migrations) {
 
 async function runMigrations(connectionString, migrations, checkOnly) {
   const client = new Client({
-    connectionString,
+    ...connectionString,
     application_name: checkOnly ? 'souvenote-migration-check' : 'souvenote-migration-runner',
     connectionTimeoutMillis: 5_000,
     query_timeout: 120_000,
@@ -238,7 +238,7 @@ async function runMigrations(connectionString, migrations, checkOnly) {
 }
 
 async function main() {
-  const allowedArguments = new Set(['--verify-only', '--check']);
+  const allowedArguments = new Set(['--verify-only', '--check', '--create-database']);
   for (const argument of process.argv.slice(2)) {
     if (!allowedArguments.has(argument)) fail(`unsupported argument ${argument}`);
   }
@@ -248,12 +248,90 @@ async function main() {
     return;
   }
 
-  const connectionString = process.env.DATABASE_URL;
-  if (!connectionString) {
-    fail('DATABASE_URL is required');
+  const connectionConfig = await readDatabaseConnectionConfig();
+  if (process.argv.includes('--create-database')) {
+    await createTargetDatabaseIfMissing(connectionConfig);
+  }
+  await runMigrations(connectionConfig.target, migrations, process.argv.includes('--check'));
+}
+
+async function readDatabaseConnectionConfig() {
+  const sslMode = process.env.DATABASE_SSL_MODE ?? (process.env.NODE_ENV === 'production' ? 'verify-full' : 'disable');
+  if (sslMode !== 'disable' && sslMode !== 'verify-full') fail('DATABASE_SSL_MODE must be disable or verify-full');
+  if (process.env.NODE_ENV === 'production' && sslMode !== 'verify-full') {
+    fail('production migrations require DATABASE_SSL_MODE=verify-full');
   }
 
-  await runMigrations(connectionString, migrations, process.argv.includes('--check'));
+  let ssl;
+  if (sslMode === 'verify-full') {
+    if (process.env.DATABASE_SSL_CA_BASE64 && process.env.DATABASE_SSL_CA_FILE) {
+      fail('set only one of DATABASE_SSL_CA_BASE64 or DATABASE_SSL_CA_FILE');
+    }
+    let ca;
+    if (process.env.DATABASE_SSL_CA_BASE64) {
+      ca = Buffer.from(process.env.DATABASE_SSL_CA_BASE64, 'base64').toString('utf8');
+    } else if (process.env.DATABASE_SSL_CA_FILE) {
+      try {
+        ca = await readFile(process.env.DATABASE_SSL_CA_FILE, 'utf8');
+      } catch {
+        fail('DATABASE_SSL_CA_FILE could not be read');
+      }
+    } else {
+      fail('verified database TLS requires DATABASE_SSL_CA_BASE64 or DATABASE_SSL_CA_FILE');
+    }
+    if (!ca.includes('-----BEGIN CERTIFICATE-----') || !ca.includes('-----END CERTIFICATE-----')) {
+      fail('database TLS CA must contain a PEM certificate authority');
+    }
+    ssl = { rejectUnauthorized: true, ca };
+  }
+
+  if (process.env.DATABASE_URL) {
+    return { target: { connectionString: process.env.DATABASE_URL, ssl }, components: null };
+  }
+
+  const host = process.env.DATABASE_HOST;
+  const database = process.env.DATABASE_NAME;
+  const user = process.env.DATABASE_USER;
+  const password = process.env.DATABASE_PASSWORD;
+  const port = Number(process.env.DATABASE_PORT ?? '5432');
+  if (!host || !database || !user || !password) {
+    fail('DATABASE_URL or all managed database component values are required');
+  }
+  if (!/^[A-Za-z0-9_.-]{1,253}$/u.test(host)) fail('DATABASE_HOST is invalid');
+  if (!/^[A-Za-z_][A-Za-z0-9_-]{0,62}$/u.test(database)) fail('DATABASE_NAME is invalid');
+  if (!/^[A-Za-z_][A-Za-z0-9_-]{0,62}$/u.test(user)) fail('DATABASE_USER is invalid');
+  if (!Number.isInteger(port) || port < 1 || port > 65_535) fail('DATABASE_PORT is invalid');
+  const components = { host, database, user, password, port, ssl };
+  return { target: components, components };
+}
+
+async function createTargetDatabaseIfMissing(connectionConfig) {
+  if (!connectionConfig.components) {
+    fail('--create-database requires managed database component values instead of DATABASE_URL');
+  }
+  const targetName = connectionConfig.components.database;
+  if (!/^souvenote_mvp_[a-z0-9_]+$/u.test(targetName)) {
+    fail('--create-database target must use the souvenote_mvp_ prefix');
+  }
+  const admin = new Client({
+    ...connectionConfig.components,
+    database: process.env.DATABASE_ADMIN_DATABASE ?? 'postgres',
+    application_name: 'souvenote-database-bootstrap',
+    connectionTimeoutMillis: 5_000,
+    query_timeout: 30_000,
+  });
+  await admin.connect();
+  try {
+    const existing = await admin.query('SELECT 1 FROM pg_database WHERE datname = $1', [targetName]);
+    if (existing.rowCount === 0) {
+      await admin.query(`CREATE DATABASE "${targetName}"`);
+      console.log(`created isolated application database ${targetName}`);
+    } else {
+      console.log(`isolated application database ${targetName} already exists`);
+    }
+  } finally {
+    await admin.end().catch(() => undefined);
+  }
 }
 
 main().catch((error) => {
