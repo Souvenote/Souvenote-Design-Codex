@@ -7,8 +7,7 @@ import { Navbar } from './Navbar';
 import { Footer } from './Footer';
 import { BmcIcon, BmcErrorModal, bmcError } from './BmcShared';
 import { DlvKeepsake } from './DeliveryKeepsake';
-import { assetContentUrl, fetchCardDraftAssets, fetchCardDraftById } from '../lib/api';
-import type { CardDraftAsset } from '../lib/api';
+import { assetContentUrl, createPhysicalOrder, startPhysicalCheckout } from '../lib/api';
 import {
   DLV_EMPTY_RECIP,
   dlvValidate,
@@ -21,6 +20,7 @@ import type { DeliveryErrors, DeliveryMode, DeliveryRecipient, DeliveryWhen } fr
 import type { DemoCredits, DemoUser } from './DemoUser';
 import { useAuth } from './AuthProvider';
 import { rememberPricingReturn } from './PricingReturn';
+import { RetrySafeIdempotencyKeys } from '../lib/retrySafeIdempotency';
 import {
   addPricingCartItemToCart,
   BIG_SENDER_TIERS,
@@ -30,8 +30,14 @@ import {
   MAX_BIG_SENDER_CARDS,
   MIN_BIG_SENDER_CARDS,
 } from './pricingCatalog';
-
-type BackendAction = 'idle' | 'loading_assets';
+import { DeliveryCheckoutSection } from './DeliveryCheckoutSection';
+import {
+  deliveryOfferStatus,
+  selectDeliveryOffer,
+  toCanadianPostalAddress,
+  type FulfillmentVariant,
+} from './deliveryCheckout';
+import { useDeliveryBackendData } from './useDeliveryBackendData';
 
 type DlvBlankGiftModalProps = {
   open: boolean;
@@ -270,6 +276,7 @@ function DeliveryApp({ user, initialCards = 0, initialCredits = DELIVERY_DEFAULT
   const router = useRouter();
   const searchParams = useSearchParams();
   const auth = useAuth();
+  const checkoutKeys = React.useRef(new RetrySafeIdempotencyKeys());
   const displayUser = auth.displayUser ?? user;
 
   const [mode, setMode] = React.useState<DeliveryMode>('single');
@@ -292,14 +299,11 @@ function DeliveryApp({ user, initialCards = 0, initialCredits = DELIVERY_DEFAULT
   const [song, setSong] = React.useState(false);
   const cardDraftId = searchParams.get('draftId');
   const requestedAssetId = searchParams.get('assetId');
-  const [generatedAssets, setGeneratedAssets] = React.useState<CardDraftAsset[]>([]);
-  const [selectedImageAssetId, setSelectedImageAssetId] = React.useState<string | null>(requestedAssetId);
-  const [messageText, setMessageText] = React.useState('');
-  const [backendAction, setBackendAction] = React.useState<BackendAction>('idle');
-  const [backendError, setBackendError] = React.useState<string | null>(null);
-  const assetType = (asset: CardDraftAsset) => String(asset.assetType || asset.asset_type);
-  const songAsset = generatedAssets.find((asset) => assetType(asset) === 'song') || null;
-  const messageAsset = generatedAssets.find((asset) => assetType(asset) === 'message') || null;
+  const backend = useDeliveryBackendData(cardDraftId, requestedAssetId);
+  const { messageText, pricingOffers, selectedImageAssetId, songAsset } = backend;
+  const [fulfillmentVariant, setFulfillmentVariant] = React.useState<FulfillmentVariant>('personalized');
+  const [checkoutBusy, setCheckoutBusy] = React.useState(false);
+  const [checkoutError, setCheckoutError] = React.useState<string | null>(null);
   const songIncluded = Boolean(songAsset);
   const blankGiftCount: number = 0;
   const [giftReminderDismissed, setGiftReminderDismissed] = React.useState(false);
@@ -312,92 +316,23 @@ function DeliveryApp({ user, initialCards = 0, initialCredits = DELIVERY_DEFAULT
   const hasBackendOrderInputs = Boolean(cardDraftId && selectedImageAssetId);
   const enough = hasBackendOrderInputs && cardsNeeded > 0;
   const needsCardTopUp = false;
-  const backendBusy = backendAction !== 'idle';
-  React.useEffect(() => {
-    if (!cardDraftId) {
-      setGeneratedAssets([]);
-      setSelectedImageAssetId(null);
-      setBackendError('Open Delivery from an approved card in Review or Saved Cards & Songs.');
-      return;
-    }
-
-    let active = true;
-    setBackendAction('loading_assets');
-    setBackendError(null);
-
-    setGeneratedAssets([]);
-    setSelectedImageAssetId(null);
-
-    Promise.all([fetchCardDraftById(cardDraftId), fetchCardDraftAssets(cardDraftId)])
-      .then(([cardDraft, assets]) => {
-        if (!active) return;
-        if (cardDraft.status !== 'approved') {
-          throw new Error('This card has not been approved. Go back to Review and approve the selected outputs first.');
-        }
-
-        const approvedIds = new Set(
-          [cardDraft.approvedImageAssetId, cardDraft.approvedSongAssetId, cardDraft.approvedMessageAssetId].filter(
-            (assetId): assetId is string => Boolean(assetId),
-          ),
-        );
-        const approvedAssets = assets.filter((asset) => approvedIds.has(asset.id));
-        const approvedImage = approvedAssets.find(
-          (asset) => asset.id === cardDraft.approvedImageAssetId && assetType(asset) === 'image',
-        );
-        const approvedMessage = approvedAssets.find(
-          (asset) => asset.id === cardDraft.approvedMessageAssetId && assetType(asset) === 'message',
-        );
-
-        if (!approvedImage || !approvedMessage) {
-          throw new Error('The approved card outputs are unavailable. Go back to Review and try approval again.');
-        }
-        if (requestedAssetId && requestedAssetId !== approvedImage.id) {
-          throw new Error('The requested image is not the approved image for this card.');
-        }
-
-        setGeneratedAssets(approvedAssets);
-        setSelectedImageAssetId(approvedImage.id);
-      })
-      .catch((error) => {
-        if (!active) return;
-        setBackendError(
-          error instanceof Error ? error.message : 'Generated assets could not be loaded from the backend.',
-        );
-      })
-      .finally(() => {
-        if (active) setBackendAction('idle');
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [cardDraftId, requestedAssetId]);
-
-  React.useEffect(() => {
-    if (!messageAsset?.id) {
-      setMessageText('');
-      return;
-    }
-    let active = true;
-    fetch(assetContentUrl(messageAsset.id), { credentials: 'same-origin', cache: 'no-store' })
-      .then(async (response) => (response.ok ? response.text() : ''))
-      .then((text) => {
-        if (active) setMessageText(text.trim());
-      })
-      .catch(() => {
-        if (active) setMessageText('');
-      });
-    return () => {
-      active = false;
-    };
-  }, [messageAsset?.id]);
+  const backendBusy = backend.loading || checkoutBusy;
+  const backendError = checkoutError ?? backend.error;
 
   function validateDeliveryInputs() {
     if (!cardDraftId || !selectedImageAssetId) {
       const message =
         'Review a generated card first so Delivery can use the real card draft and generated image asset.';
-      setBackendError(message);
+      setCheckoutError(message);
       bmcError(message, 'Generated card needed');
+      return false;
+    }
+
+    if (mode === 'multiple') {
+      bmcError(
+        'The deterministic Section 5 provider contract accepts one Canadian delivery address per order. Choose One recipient; multi-address batching will remain disabled until its address-array contract is implemented.',
+        'Multi-address checkout unavailable',
+      );
       return false;
     }
 
@@ -412,10 +347,39 @@ function DeliveryApp({ user, initialCards = 0, initialCredits = DELIVERY_DEFAULT
         );
         return false;
       }
-    } else if (recipients.length === 0) {
+    }
+
+    if (draft.country !== 'CA') {
+      bmcError('Section 5 checkout is Canada-first. Enter a Canadian recipient address.', 'Canadian address needed');
+      return false;
+    }
+
+    if (!returnOn) {
       bmcError(
-        'Add at least one recipient address before sending. Fill in the required fields and tap Add recipient.',
-        'Address needed',
+        'Turn on Return address and enter the Canadian sender address required by fulfillment.',
+        'Return address needed',
+      );
+      return false;
+    }
+
+    const senderErrors = dlvValidate(sender);
+    if (Object.keys(senderErrors).length || sender.country !== 'CA') {
+      bmcError(
+        'Fill in the complete Canadian return address before checkout: name, street, city, province, and postal code.',
+        'Return address needed',
+      );
+      return false;
+    }
+
+    if (cardsNeeded > MAX_BIG_SENDER_CARDS) {
+      bmcError('Section 5 supports a maximum of 30 physical cards per checkout.', 'Quantity too high');
+      return false;
+    }
+
+    if (when === 'schedule') {
+      bmcError(
+        'Scheduled fulfillment is not represented by the Section 5 provider contract. Choose Send now for deterministic test checkout.',
+        'Scheduling unavailable',
       );
       return false;
     }
@@ -423,17 +387,7 @@ function DeliveryApp({ user, initialCards = 0, initialCredits = DELIVERY_DEFAULT
     return true;
   }
 
-  function showCheckoutPlaceholder() {
-    const message = 'Checkout is coming soon. No payment, order, credit, or fulfillment action was performed.';
-    setBackendError(message);
-    bmcError(message, 'Coming soon');
-  }
-
-  function handlePrimaryAction() {
-    handleSend();
-  }
-
-  function handleSend() {
+  async function handleSend() {
     if (needsCardTopUp) {
       setCardTopUpOpen(true);
       return;
@@ -441,24 +395,57 @@ function DeliveryApp({ user, initialCards = 0, initialCredits = DELIVERY_DEFAULT
 
     if (!validateDeliveryInputs()) return;
 
-    if (blankGiftCount > 0) {
-      setGiftModalOpen(true);
+    if (auth.status !== 'authenticated') {
+      bmcError('Log in before creating an order and starting checkout.', 'Authentication required');
       return;
     }
 
-    showCheckoutPlaceholder();
+    const selectedOffer = selectDeliveryOffer(pricingOffers, cardsNeeded);
+    if (!selectedOffer) {
+      bmcError('No active server-owned CAD offer matches this quantity.', 'Price unavailable');
+      return;
+    }
+    if (fulfillmentVariant === 'blank_handoff' && (cardsNeeded !== 1 || selectedOffer.type !== 'try_risk_free')) {
+      bmcError('Blank-card handoff requires a one-card Try Risk-Free checkout.', 'Blank handoff unavailable');
+      return;
+    }
+
+    setCheckoutBusy(true);
+    setCheckoutError(null);
+    const orderInput = {
+      cardDraftId: cardDraftId!,
+      selectedAssetId: selectedImageAssetId!,
+      offerId: selectedOffer.offerId,
+      quantity: cardsNeeded,
+      recipientAddress: toCanadianPostalAddress(draft),
+      senderAddress: toCanadianPostalAddress(sender),
+    };
+    const orderSignature = JSON.stringify(orderInput);
+    const orderKey = checkoutKeys.current.keyFor(orderSignature, 'physical-order');
+    try {
+      const order = await createPhysicalOrder(orderInput, orderKey);
+      const session = await startPhysicalCheckout(order.id);
+      checkoutKeys.current.complete(orderSignature, orderKey);
+      const checkoutUrl = session.checkoutUrl || `/checkout/test/${session.id}`;
+      router.push(fulfillmentVariant === 'blank_handoff' ? `${checkoutUrl}?variant=blank_handoff` : checkoutUrl);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Checkout could not be started.';
+      setCheckoutError(message);
+      bmcError(message, 'Checkout unavailable');
+      setCheckoutBusy(false);
+    }
   }
 
   function keepGiftForLaterAndSend() {
     setGiftModalOpen(false);
     setGiftReminderDismissed(true);
-    showCheckoutPlaceholder();
+    void handleSend();
   }
 
   function saveGiftRecipientAndSend() {
     setGiftModalOpen(false);
     setGiftReminderDismissed(true);
-    showCheckoutPlaceholder();
+    void handleSend();
   }
 
   function reserveCardsForDelivery(quantity: number) {
@@ -469,12 +456,13 @@ function DeliveryApp({ user, initialCards = 0, initialCredits = DELIVERY_DEFAULT
   }
 
   const primaryActionLabel = (() => {
-    if (backendAction === 'loading_assets') return 'Loading assets...';
-    if (backendAction !== 'idle') return 'Checking card...';
-    return 'Checkout coming soon';
+    if (backend.loading) return 'Loading assets...';
+    if (checkoutBusy) return 'Starting checkout...';
+    return 'Continue to test checkout';
   })();
 
-  const backendStatus = 'Checkout coming soon';
+  const matchingOffer = selectDeliveryOffer(pricingOffers, cardsNeeded);
+  const backendStatus = deliveryOfferStatus(matchingOffer, cardsNeeded);
 
   return (
     <>
@@ -496,8 +484,8 @@ function DeliveryApp({ user, initialCards = 0, initialCredits = DELIVERY_DEFAULT
             A card <span className="souv-hero-italic text-metallic-rose-gold">worth sending</span>
           </h1>
           <p className="bmc-lede" style={{ margin: '0 auto' }}>
-            Preview the approved card and enter synthetic delivery details for testing. Nothing has been printed,
-            mailed, ordered, or charged; checkout and fulfillment are disabled in this beta.
+            Preview the approved card and enter synthetic Canadian delivery details. Section 5 records deterministic
+            local checkout and fulfillment state; it makes no external payment, print, mail, or email call.
           </p>
         </div>
 
@@ -549,6 +537,11 @@ function DeliveryApp({ user, initialCards = 0, initialCredits = DELIVERY_DEFAULT
             <DlvReturnSection on={returnOn} setOn={setReturnOn} sender={sender} setSender={setSender} />
             <DlvScheduleSection when={when} setWhen={setWhen} date={date} setDate={setDate} />
             <DlvShippingSection shipping={shipping} setShipping={setShipping} country={draft.country} />
+            <DeliveryCheckoutSection
+              cardsNeeded={cardsNeeded}
+              variant={fulfillmentVariant}
+              onVariantChange={setFulfillmentVariant}
+            />
           </div>
         </div>
 
@@ -581,7 +574,12 @@ function DeliveryApp({ user, initialCards = 0, initialCredits = DELIVERY_DEFAULT
             >
               <BmcIcon name="back" w={14} /> Back to review
             </Link>
-            <button type="button" className="bmc-cta bmc-cta-lg" onClick={handlePrimaryAction} disabled={backendBusy}>
+            <button
+              type="button"
+              className="bmc-cta bmc-cta-lg"
+              onClick={() => void handleSend()}
+              disabled={backendBusy}
+            >
               {primaryActionLabel} <BmcIcon name="arrow" w={16} />
             </button>
           </div>

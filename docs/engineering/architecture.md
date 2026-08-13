@@ -96,9 +96,10 @@ Primary resource groups are `me`, `pricing`, `credits`, `card-entitlements`, `ca
 The public CAD pricing response contains separate physical-card and standalone
 credit-pack collections. Authenticated credit-pack purchase mutations select only
 an offer code; the API snapshots the server-owned CAD amount and credit quantity.
-The deterministic mock purchase route is restricted to development/test mock
-payment mode and grants through the same idempotent ledger used by other credits.
-Section 5 replaces mock capture with verified Stripe-hosted payment state.
+The retired deterministic direct-purchase route cannot grant credits. Section 5
+creates an owner-scoped hosted-checkout session and grants only after its verified,
+idempotent capture reconciliation. Local/test uses the typed deterministic adapter;
+Stripe test traffic remains off until the separate provider-activation gate.
 
 Section 2 uses `/api/v1` for all product and health routes. The Next.js BFF exposes generated-client calls at `/api/bff/api/v1/*`, injects the server-held access token, enforces same-origin CSRF checks on mutations, and never returns access or refresh tokens to browser code.
 

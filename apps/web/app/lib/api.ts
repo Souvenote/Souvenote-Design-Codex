@@ -38,7 +38,9 @@ export type CreditPackOffer = {
   metadata: Record<string, unknown>;
 };
 
-export type CreditPackPurchaseStart = Schemas['CreditPackPurchaseStartResponseDto'];
+export type CheckoutSession = Schemas['CheckoutSessionViewDto'];
+export type Order = Schemas['OrderViewDto'];
+export type FulfillmentJob = Schemas['FulfillmentJobViewDto'];
 
 export type CreditBalance = Schemas['CreditBalanceResponseDto'];
 export type EnvironmentCapabilities = Schemas['EnvironmentCapabilitiesDto'];
@@ -167,16 +169,91 @@ export async function fetchEnvironmentCapabilities(): Promise<EnvironmentCapabil
   return result.data;
 }
 
-export async function purchaseMockCreditPack(offerCode: CreditPackCode): Promise<CreditPackPurchaseStart> {
-  const idempotencyKey = createLocalIdempotencyKey('credit-pack-purchase');
-  const result = await api.POST('/api/v1/credits/purchases/mock', {
+export async function startCreditPackCheckout(
+  offerCode: CreditPackCode,
+  idempotencyKey: string,
+): Promise<CheckoutSession> {
+  const result = await api.POST('/api/v1/checkout/credit-packs', {
     params: { header: { 'Idempotency-Key': idempotencyKey } },
     body: { offerCode },
     headers: await mutationHeaders(idempotencyKey),
   });
-  if (result.error) throw errorFrom(result, `Credit-pack purchase failed with status ${result.response.status}.`);
-  if (!result.data) throw new Error('Credit-pack purchase returned no result.');
-  return result.data;
+  if (result.error) throw errorFrom(result, `Credit-pack checkout failed with status ${result.response.status}.`);
+  const session = result.data?.checkoutSession;
+  if (!session) throw new Error('Credit-pack checkout returned no session.');
+  return session;
+}
+
+export async function createPhysicalOrder(input: Schemas['CreateOrderDto'], idempotencyKey?: string): Promise<Order> {
+  const safeIdempotencyKey =
+    idempotencyKey ?? (await createDeterministicIdempotencyKey('physical-order', JSON.stringify(input)));
+  const result = await api.POST('/api/v1/orders', {
+    params: { header: { 'Idempotency-Key': safeIdempotencyKey } },
+    body: input,
+    headers: await mutationHeaders(safeIdempotencyKey),
+  });
+  if (result.error) throw errorFrom(result, `Order creation failed with status ${result.response.status}.`);
+  const order = result.data?.order;
+  if (!order) throw new Error('Order creation returned no order.');
+  return order;
+}
+
+export async function startPhysicalCheckout(orderId: string, idempotencyKey?: string): Promise<CheckoutSession> {
+  const safeIdempotencyKey = idempotencyKey ?? (await createDeterministicIdempotencyKey('physical-checkout', orderId));
+  const result = await api.POST('/api/v1/checkout', {
+    params: { header: { 'Idempotency-Key': safeIdempotencyKey } },
+    body: { orderId },
+    headers: await mutationHeaders(safeIdempotencyKey),
+  });
+  if (result.error) throw errorFrom(result, `Checkout failed with status ${result.response.status}.`);
+  const session = result.data?.checkoutSession;
+  if (!session) throw new Error('Checkout returned no session.');
+  return session;
+}
+
+export async function fetchCheckoutSession(sessionId: string): Promise<CheckoutSession> {
+  const result = await api.GET('/api/v1/checkout/{sessionId}', { params: { path: { sessionId } } });
+  if (result.error) throw errorFrom(result, `Checkout request failed with status ${result.response.status}.`);
+  const session = result.data?.checkoutSession;
+  if (!session) throw new Error('Checkout response returned no session.');
+  return session;
+}
+
+export async function completeMockCheckout(sessionId: string): Promise<CheckoutSession> {
+  const idempotencyKey = await createDeterministicIdempotencyKey('mock-checkout-complete', sessionId);
+  const result = await api.POST('/api/v1/checkout/{sessionId}/mock-complete', {
+    params: { path: { sessionId }, header: { 'Idempotency-Key': idempotencyKey } },
+    body: { outcome: 'succeeded' },
+    headers: await mutationHeaders(idempotencyKey),
+  });
+  if (result.error) throw errorFrom(result, `Checkout completion failed with status ${result.response.status}.`);
+  const session = result.data?.checkoutSession;
+  if (!session) throw new Error('Checkout completion returned no session.');
+  return session;
+}
+
+export async function submitMockFulfillment(
+  orderId: string,
+  variant: 'personalized' | 'blank_handoff' = 'personalized',
+): Promise<FulfillmentJob> {
+  const idempotencyKey = await createDeterministicIdempotencyKey('mock-fulfillment', `${orderId}:${variant}`);
+  const result = await api.POST('/api/v1/fulfillment-jobs', {
+    params: { header: { 'Idempotency-Key': idempotencyKey } },
+    body: { orderId, variant },
+    headers: await mutationHeaders(idempotencyKey),
+  });
+  if (result.error) throw errorFrom(result, `Fulfillment failed with status ${result.response.status}.`);
+  const job = result.data?.fulfillmentJob;
+  if (!job) throw new Error('Fulfillment returned no job.');
+  return job;
+}
+
+export async function fetchFulfillmentJob(jobId: string): Promise<FulfillmentJob> {
+  const result = await api.GET('/api/v1/fulfillment-jobs/{jobId}', { params: { path: { jobId } } });
+  if (result.error) throw errorFrom(result, `Fulfillment request failed with status ${result.response.status}.`);
+  const job = result.data?.fulfillmentJob;
+  if (!job) throw new Error('Fulfillment response returned no job.');
+  return job;
 }
 
 export async function createCardDraft(input: CreateCardDraftRequest): Promise<CardDraft> {

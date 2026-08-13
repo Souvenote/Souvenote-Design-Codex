@@ -40,6 +40,10 @@ export interface paths {
     post: operations['releaseCardReservation'];
   };
   '/api/v1/card-entitlements/try-risk-free/authorizations': {
+    /**
+     * @deprecated
+     * @description Retired in Section 5; Try Risk-Free authorization is created only by completed hosted checkout.
+     */
     post: operations['startMockTryRiskFreeAuthorization'];
   };
   '/api/v1/card-entitlements/try-risk-free/authorizations/{authorizationId}': {
@@ -48,6 +52,16 @@ export interface paths {
   '/api/v1/checkout': {
     post: operations['startCheckout'];
   };
+  '/api/v1/checkout/{sessionId}': {
+    get: operations['getCheckoutSession'];
+  };
+  '/api/v1/checkout/{sessionId}/mock-complete': {
+    /** @description Local/test provider simulator. Accepts no payment-card fields. */
+    post: operations['completeMockCheckout'];
+  };
+  '/api/v1/checkout/credit-packs': {
+    post: operations['startCreditPackCheckout'];
+  };
   '/api/v1/credits': {
     get: operations['getCreditBalance'];
   };
@@ -55,6 +69,10 @@ export interface paths {
     get: operations['getCreditPackPurchase'];
   };
   '/api/v1/credits/purchases/mock': {
+    /**
+     * @deprecated
+     * @description Retired in Section 5; start hosted collection through /checkout/credit-packs.
+     */
     post: operations['purchaseMockCreditPack'];
   };
   '/api/v1/fulfillment-jobs': {
@@ -62,6 +80,9 @@ export interface paths {
   };
   '/api/v1/fulfillment-jobs/{jobId}': {
     get: operations['getFulfillmentJob'];
+  };
+  '/api/v1/fulfillment-jobs/{jobId}/retry': {
+    post: operations['retryFulfillmentJob'];
   };
   '/api/v1/generation-jobs': {
     get: operations['listGenerationJobs'];
@@ -257,6 +278,43 @@ export interface components {
       /** Format: date-time */
       updatedAt: string;
     };
+    CheckoutSessionResponseDto: {
+      checkoutSession: components['schemas']['CheckoutSessionViewDto'];
+    };
+    CheckoutSessionViewDto: {
+      amountMinor: number;
+      checkoutUrl?: string | null;
+      /** @enum {string} */
+      collectionMode: 'automatic' | 'manual';
+      /** Format: date-time */
+      completedAt?: string | null;
+      /** Format: date-time */
+      createdAt: string;
+      /** Format: uuid */
+      creditPackPurchaseId?: string | null;
+      /** @enum {string} */
+      currency: 'CAD';
+      /** Format: date-time */
+      expiresAt: string;
+      /** Format: uuid */
+      id: string;
+      /** Format: uuid */
+      orderId?: string | null;
+      /** Format: uuid */
+      paymentId?: string | null;
+      /** @enum {string} */
+      provider: 'mock' | 'stripe';
+      /** @enum {string} */
+      purpose: 'physical_order' | 'credit_pack';
+      /** @enum {string} */
+      status: 'creating' | 'open' | 'completed' | 'expired' | 'canceled' | 'failed';
+      /** Format: date-time */
+      updatedAt: string;
+    };
+    CompleteMockCheckoutDto: {
+      /** @enum {string} */
+      outcome: 'succeeded' | 'failed';
+    };
     CompleteUploadDto: {
       attestationAccepted: boolean;
     };
@@ -292,7 +350,7 @@ export interface components {
       balance: number;
     };
     CreditPackOfferViewDto: {
-      /** @description False until Section 5 activates Stripe-hosted checkout. */
+      /** @description Catalog readiness; runtime provider mode still gates hosted checkout execution. */
       checkoutEnabled: boolean;
       /** @enum {integer} */
       creditQuantity: 10 | 80 | 250;
@@ -321,25 +379,26 @@ export interface components {
       /** @enum {integer} */
       amountMinor: 200 | 1000 | 2500;
       /** Format: date-time */
-      capturedAt: string;
+      capturedAt?: string | null;
       /** Format: date-time */
       createdAt: string;
+      /** @enum {integer} */
+      creditQuantity: 10 | 80 | 250;
       /** @enum {integer} */
       creditsGranted: 10 | 80 | 250;
       /** @enum {string} */
       currency: 'CAD';
       /** Format: uuid */
       id: string;
-      /** @enum {boolean} */
-      mockMode: true;
+      mockMode: boolean;
       /** @enum {string} */
       offerCode: 'credit_pack_10' | 'credit_pack_80' | 'credit_pack_250';
       /** @enum {boolean} */
       productionEnabled: false;
       /** @enum {string} */
-      provider: 'mock';
+      provider: 'mock' | 'stripe';
       /** @enum {string} */
-      status: 'captured';
+      status: 'pending' | 'captured' | 'failed' | 'canceled';
       /** Format: date-time */
       updatedAt: string;
     };
@@ -365,6 +424,7 @@ export interface components {
       createdAt: string;
       /** Format: uuid */
       id: string;
+      lastErrorCategory?: string | null;
       /** Format: uuid */
       orderId: string;
       provider: string;
@@ -373,6 +433,8 @@ export interface components {
       submittedAt?: string | null;
       /** Format: date-time */
       updatedAt: string;
+      /** @enum {string} */
+      variant: 'personalized' | 'blank_handoff';
     };
     GenerationJobViewDto: {
       /** @enum {string} */
@@ -529,6 +591,10 @@ export interface components {
       /** Format: uuid */
       orderId: string;
     };
+    StartCreditPackCheckoutDto: {
+      /** @enum {string} */
+      offerCode: 'credit_pack_10' | 'credit_pack_80' | 'credit_pack_250';
+    };
     StartGenerationDto: {
       /** @enum {string} */
       actionType: 'initial_image' | 'initial_image_song' | 'regenerate_image' | 'regenerate_song' | 'inside_message';
@@ -540,6 +606,11 @@ export interface components {
     SubmitFulfillmentDto: {
       /** Format: uuid */
       orderId: string;
+      /**
+       * @default personalized
+       * @enum {string}
+       */
+      variant?: 'personalized' | 'blank_handoff';
     };
     TryRiskFreeAuthorizationResponseDto: {
       authorization: components['schemas']['TryRiskFreeAuthorizationViewDto'];
@@ -1353,6 +1424,10 @@ export interface operations {
       };
     };
   };
+  /**
+   * @deprecated
+   * @description Retired in Section 5; Try Risk-Free authorization is created only by completed hosted checkout.
+   */
   startMockTryRiskFreeAuthorization: {
     parameters: {
       header: {
@@ -1468,7 +1543,175 @@ export interface operations {
     };
     responses: {
       201: {
-        content: never;
+        content: {
+          'application/json': components['schemas']['CheckoutSessionResponseDto'];
+        };
+      };
+      /** @description Invalid request */
+      400: {
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Resource not found */
+      404: {
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Request conflict */
+      409: {
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Rate limit exceeded */
+      429: {
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Internal server error */
+      500: {
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+    };
+  };
+  getCheckoutSession: {
+    parameters: {
+      path: {
+        sessionId: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          'application/json': components['schemas']['CheckoutSessionResponseDto'];
+        };
+      };
+      /** @description Invalid request */
+      400: {
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Resource not found */
+      404: {
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Request conflict */
+      409: {
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Rate limit exceeded */
+      429: {
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Internal server error */
+      500: {
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+    };
+  };
+  /** @description Local/test provider simulator. Accepts no payment-card fields. */
+  completeMockCheckout: {
+    parameters: {
+      header: {
+        /** @description Unique 16-128 character retry key scoped to the authenticated operation. */
+        'Idempotency-Key': string;
+      };
+      path: {
+        sessionId: string;
+      };
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CompleteMockCheckoutDto'];
+      };
+    };
+    responses: {
+      201: {
+        content: {
+          'application/json': components['schemas']['CheckoutSessionResponseDto'];
+        };
+      };
+      /** @description Invalid request */
+      400: {
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Resource not found */
+      404: {
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Request conflict */
+      409: {
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Rate limit exceeded */
+      429: {
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Internal server error */
+      500: {
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+    };
+  };
+  startCreditPackCheckout: {
+    parameters: {
+      header: {
+        /** @description Unique 16-128 character retry key scoped to the authenticated operation. */
+        'Idempotency-Key': string;
+      };
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['StartCreditPackCheckoutDto'];
+      };
+    };
+    responses: {
+      201: {
+        content: {
+          'application/json': components['schemas']['CheckoutSessionResponseDto'];
+        };
       };
       /** @description Invalid request */
       400: {
@@ -1603,6 +1846,10 @@ export interface operations {
       };
     };
   };
+  /**
+   * @deprecated
+   * @description Retired in Section 5; start hosted collection through /checkout/credit-packs.
+   */
   purchaseMockCreditPack: {
     parameters: {
       header: {
@@ -1673,7 +1920,9 @@ export interface operations {
     };
     responses: {
       201: {
-        content: never;
+        content: {
+          'application/json': components['schemas']['FulfillmentJobResponseDto'];
+        };
       };
       /** @description Invalid request */
       400: {
@@ -1721,6 +1970,60 @@ export interface operations {
     };
     responses: {
       200: {
+        content: {
+          'application/json': components['schemas']['FulfillmentJobResponseDto'];
+        };
+      };
+      /** @description Invalid request */
+      400: {
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Resource not found */
+      404: {
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Request conflict */
+      409: {
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Rate limit exceeded */
+      429: {
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Internal server error */
+      500: {
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+    };
+  };
+  retryFulfillmentJob: {
+    parameters: {
+      header: {
+        /** @description Unique 16-128 character retry key scoped to the authenticated operation. */
+        'Idempotency-Key': string;
+      };
+      path: {
+        jobId: string;
+      };
+    };
+    responses: {
+      201: {
         content: {
           'application/json': components['schemas']['FulfillmentJobResponseDto'];
         };

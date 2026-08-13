@@ -17,6 +17,22 @@ type GenerationPayload = {
   balance: number;
 };
 type OrderPayload = { order: { id: string; totalMinor: number; currency: string } };
+type CheckoutPayload = {
+  checkoutSession: {
+    id: string;
+    purpose: string;
+    orderId: string | null;
+    creditPackPurchaseId: string | null;
+    status: string;
+    collectionMode: string;
+    amountMinor: number;
+    currency: string;
+    checkoutUrl: string | null;
+  };
+};
+type FulfillmentPayload = {
+  fulfillmentJob: { id: string; orderId: string; status: string; variant: string; attemptCount: number };
+};
 type CreditPackPurchasePayload = {
   purchase: {
     id: string;
@@ -107,6 +123,47 @@ describe('Section 2 API security boundary (integration)', () => {
     await app?.close();
   });
 
+  async function createApprovedOrder(
+    client: ReturnType<typeof authenticated>,
+    offerId: string,
+    quantity: number,
+  ): Promise<OrderPayload['order']> {
+    const draft = responseBody<DraftPayload>(
+      await client.post('/api/v1/card-drafts').send({ creationRoute: 'build_my_card' }).expect(201),
+    ).cardDraft;
+    await client
+      .post('/api/v1/generation-jobs')
+      .set('Idempotency-Key', `physical-flow-generation-${randomUUID()}`)
+      .send({ cardDraftId: draft.id, actionType: 'initial_image_song' })
+      .expect(201);
+    const assets = responseBody<AssetListPayload>(
+      await client.get(`/api/v1/assets?cardDraftId=${draft.id}&limit=100`).expect(200),
+    ).data;
+    const image = assets.find((asset) => asset.assetType === 'image');
+    const song = assets.find((asset) => asset.assetType === 'song');
+    const message = assets.find((asset) => asset.assetType === 'message');
+    if (!image || !song || !message) throw new Error('Deterministic approved assets are required.');
+    await client
+      .post(`/api/v1/card-drafts/${draft.id}/approve`)
+      .set('Idempotency-Key', `physical-flow-approval-${randomUUID()}`)
+      .send({ imageAssetId: image.id, songAssetId: song.id, messageAssetId: message.id })
+      .expect(200);
+    return responseBody<OrderPayload>(
+      await client
+        .post('/api/v1/orders')
+        .set('Idempotency-Key', `physical-flow-order-${randomUUID()}`)
+        .send({
+          cardDraftId: draft.id,
+          selectedAssetId: image.id,
+          offerId,
+          quantity,
+          recipientAddress: address,
+          senderAddress: address,
+        })
+        .expect(201),
+    ).order;
+  }
+
   it('keeps public routes explicit and defaults product routes to authenticated access', async () => {
     await request(server).get('/api/v1/health/live').expect(200);
     await request(server).get('/api/v1/pricing').expect(200);
@@ -168,8 +225,8 @@ describe('Section 2 API security boundary (integration)', () => {
       }>(await one.get('/api/v1/capabilities').expect(200)),
     ).toMatchObject({
       creative: { image: 'deterministic_mock', music: 'deterministic_mock', text: 'deterministic_mock' },
-      checkout: 'disabled',
-      fulfillment: 'disabled',
+      checkout: 'deterministic_mock',
+      fulfillment: 'deterministic_mock',
       externalProviderCallsEnabled: false,
     });
     expect(responseBody<{ balance: number }>(await one.get('/api/v1/credits').expect(200)).balance).toBe(2);
@@ -390,8 +447,9 @@ describe('Section 2 API security boundary (integration)', () => {
     );
     const offer = await pool.query<{ id: string }>(
       `INSERT INTO price_offers
-         (price_book_id, offer_code, offer_type, unit_amount_minor, minimum_quantity, maximum_quantity, checkout_enabled)
-       VALUES ($1, $2, 'try_risk_free', 999, 1, 1, TRUE) RETURNING id;`,
+         (price_book_id, offer_code, offer_type, unit_amount_minor, minimum_quantity, maximum_quantity,
+          authorization_amount_minor, no_send_fee_minor, authorization_days, credits_per_card, checkout_enabled)
+       VALUES ($1, $2, 'try_risk_free', 999, 1, 1, 999, 200, 5, 10, TRUE) RETURNING id;`,
       [priceBook.rows[0]?.id, `integration-${randomUUID()}`],
     );
     const orderInput = {
@@ -422,36 +480,93 @@ describe('Section 2 API security boundary (integration)', () => {
       .set('Idempotency-Key', `checkout-${randomUUID()}`)
       .send({ orderId: orderOne.id })
       .expect(404);
+    const checkoutKey = `checkout-${randomUUID()}`;
+    const checkout = responseBody<CheckoutPayload>(
+      await one.post('/api/v1/checkout').set('Idempotency-Key', checkoutKey).send({ orderId: orderOne.id }).expect(201),
+    ).checkoutSession;
+    expect(checkout).toMatchObject({
+      purpose: 'physical_order',
+      orderId: orderOne.id,
+      status: 'open',
+      collectionMode: 'manual',
+      amountMinor: 999,
+      currency: 'CAD',
+      checkoutUrl: `/checkout/test/${checkout.id}`,
+    });
+    expect(
+      responseBody<CheckoutPayload>(
+        await one
+          .post('/api/v1/checkout')
+          .set('Idempotency-Key', checkoutKey)
+          .send({ orderId: orderOne.id })
+          .expect(201),
+      ).checkoutSession.id,
+    ).toBe(checkout.id);
+    await two.get(`/api/v1/checkout/${checkout.id}`).expect(404);
     await one
-      .post('/api/v1/checkout')
-      .set('Idempotency-Key', `checkout-${randomUUID()}`)
-      .send({ orderId: orderOne.id })
-      .expect(409);
+      .post(`/api/v1/checkout/${checkout.id}/mock-complete`)
+      .set('Idempotency-Key', `raw-card-rejected-${randomUUID()}`)
+      .send({ outcome: 'succeeded', cardNumber: '4242424242424242' })
+      .expect(400);
+    expect(
+      responseBody<CheckoutPayload>(
+        await one
+          .post(`/api/v1/checkout/${checkout.id}/mock-complete`)
+          .set('Idempotency-Key', `checkout-complete-${randomUUID()}`)
+          .send({ outcome: 'succeeded' })
+          .expect(201),
+      ).checkoutSession.status,
+    ).toBe('completed');
 
-    await pool.query("UPDATE orders SET status = 'paid' WHERE id = $1;", [orderOne.id]);
-    const fulfillment = await pool.query<{ id: string }>(
-      `INSERT INTO fulfillment_jobs
-         (user_id, order_id, provider, request_payload_sha256, idempotency_key)
-       VALUES ($1, $2, 'mock', $3, $4) RETURNING id;`,
-      [userOne.id, orderOne.id, 'd'.repeat(64), `fixture-${randomUUID()}`],
-    );
-    await two.get(`/api/v1/fulfillment-jobs/${fulfillment.rows[0]?.id}`).expect(404);
     await two
       .post('/api/v1/fulfillment-jobs')
       .set('Idempotency-Key', `fulfillment-${randomUUID()}`)
       .send({ orderId: orderOne.id })
       .expect(404);
-    await one
-      .post('/api/v1/fulfillment-jobs')
-      .set('Idempotency-Key', `fulfillment-${randomUUID()}`)
-      .send({ orderId: orderOne.id })
-      .expect(409);
+    const fulfillmentKey = `fulfillment-${randomUUID()}`;
+    const fulfillment = responseBody<FulfillmentPayload>(
+      await one
+        .post('/api/v1/fulfillment-jobs')
+        .set('Idempotency-Key', fulfillmentKey)
+        .send({ orderId: orderOne.id, variant: 'personalized' })
+        .expect(201),
+    ).fulfillmentJob;
+    expect(fulfillment).toMatchObject({
+      orderId: orderOne.id,
+      status: 'accepted',
+      variant: 'personalized',
+      attemptCount: 1,
+    });
+    await two.get(`/api/v1/fulfillment-jobs/${fulfillment.id}`).expect(404);
+    expect(
+      responseBody<FulfillmentPayload>(
+        await one
+          .post('/api/v1/fulfillment-jobs')
+          .set('Idempotency-Key', fulfillmentKey)
+          .send({ orderId: orderOne.id, variant: 'personalized' })
+          .expect(201),
+      ).fulfillmentJob.id,
+    ).toBe(fulfillment.id);
+    expect(
+      (
+        await pool.query<{ order_status: string; payment_status: string; authorization_status: string }>(
+          `SELECT order_record.status AS order_status, payment.status AS payment_status,
+                  auth_record.status AS authorization_status
+           FROM orders order_record
+           JOIN payments payment ON payment.order_id = order_record.id
+           JOIN try_risk_free_authorizations auth_record ON auth_record.order_id = order_record.id
+           WHERE order_record.id = $1;`,
+          [orderOne.id],
+        )
+      ).rows[0],
+    ).toEqual({ order_status: 'in_fulfillment', payment_status: 'captured', authorization_status: 'captured_full' });
   });
 
-  it('enforces the Section 3 catalog, credit, reservation, and mock authorization contracts concurrently', async () => {
+  it('preserves the catalog, credit, reservation, and hosted authorization contracts concurrently', async () => {
     const pricingCatalog = responseBody<{
       data: Array<{
         id: string;
+        offerId: string;
         unitAmountMinor: number;
         minimumQuantity: number;
         maximumQuantity: number;
@@ -477,10 +592,10 @@ describe('Section 2 API security boundary (integration)', () => {
         price: offer.unitAmountMinor,
       })),
     ).toEqual([
-      { code: 'try_risk_free_one_card', currency: 'CAD', enabled: false, max: 1, min: 1, price: 999 },
-      { code: 'big_sender_2_10', currency: 'CAD', enabled: false, max: 10, min: 2, price: 899 },
-      { code: 'big_sender_11_20', currency: 'CAD', enabled: false, max: 20, min: 11, price: 799 },
-      { code: 'big_sender_21_30', currency: 'CAD', enabled: false, max: 30, min: 21, price: 699 },
+      { code: 'try_risk_free_one_card', currency: 'CAD', enabled: true, max: 1, min: 1, price: 999 },
+      { code: 'big_sender_2_10', currency: 'CAD', enabled: true, max: 10, min: 2, price: 899 },
+      { code: 'big_sender_11_20', currency: 'CAD', enabled: true, max: 20, min: 11, price: 799 },
+      { code: 'big_sender_21_30', currency: 'CAD', enabled: true, max: 30, min: 21, price: 699 },
     ]);
     expect(
       pricingCatalog.creditPacks.map((offer) => ({
@@ -496,21 +611,21 @@ describe('Section 2 API security boundary (integration)', () => {
         creditQuantity: 10,
         unitAmountMinor: 200,
         currency: 'CAD',
-        checkoutEnabled: false,
+        checkoutEnabled: true,
       },
       {
         id: 'credit_pack_80',
         creditQuantity: 80,
         unitAmountMinor: 1000,
         currency: 'CAD',
-        checkoutEnabled: false,
+        checkoutEnabled: true,
       },
       {
         id: 'credit_pack_250',
         creditQuantity: 250,
         unitAmountMinor: 2500,
         currency: 'CAD',
-        checkoutEnabled: false,
+        checkoutEnabled: true,
       },
     ]);
 
@@ -519,54 +634,87 @@ describe('Section 2 API security boundary (integration)', () => {
     const purchaserUser = responseBody<UserPayload>(await purchaser.get('/api/v1/me').expect(200)).user;
     expect(responseBody<{ balance: number }>(await purchaser.get('/api/v1/credits').expect(200)).balance).toBe(2);
 
-    const purchaseKey = `credit-pack-purchase-${randomUUID()}`;
-    const purchaseResponses = await Promise.all(
+    const purchaseKey = `credit-pack-checkout-${randomUUID()}`;
+    const checkoutResponses = await Promise.all(
       Array.from({ length: 8 }, () =>
         purchaser
-          .post('/api/v1/credits/purchases/mock')
+          .post('/api/v1/checkout/credit-packs')
           .set('Idempotency-Key', purchaseKey)
           .send({ offerCode: 'credit_pack_10' })
           .expect(201),
       ),
     );
-    const purchases = purchaseResponses.map((response) => responseBody<CreditPackPurchasePayload>(response));
-    expect(new Set(purchases.map((response) => response.purchase.id)).size).toBe(1);
-    expect(purchases.every((response) => response.balance === 12)).toBe(true);
-    expect(purchases[0]).toMatchObject({
-      purchase: {
-        offerCode: 'credit_pack_10',
-        status: 'captured',
-        provider: 'mock',
-        amountMinor: 200,
-        creditsGranted: 10,
-        currency: 'CAD',
-        mockMode: true,
-        productionEnabled: false,
-      },
-      balance: 12,
+    const packCheckouts = checkoutResponses.map((response) => responseBody<CheckoutPayload>(response).checkoutSession);
+    expect(new Set(packCheckouts.map((session) => session.id)).size).toBe(1);
+    expect(packCheckouts[0]).toMatchObject({
+      purpose: 'credit_pack',
+      status: 'open',
+      amountMinor: 200,
+      currency: 'CAD',
+      collectionMode: 'automatic',
     });
+    expect(responseBody<{ balance: number }>(await purchaser.get('/api/v1/credits').expect(200)).balance).toBe(2);
+    const packSession = packCheckouts[0];
+    expect(packSession).toBeDefined();
+    const completionResponses = await Promise.all(
+      Array.from({ length: 8 }, () =>
+        purchaser
+          .post(`/api/v1/checkout/${packSession?.id}/mock-complete`)
+          .set('Idempotency-Key', `credit-pack-complete-${randomUUID()}`)
+          .send({ outcome: 'succeeded' })
+          .expect(201),
+      ),
+    );
+    expect(
+      completionResponses.every(
+        (response) => responseBody<CheckoutPayload>(response).checkoutSession.status === 'completed',
+      ),
+    ).toBe(true);
+    const firstPurchaseId = packSession?.creditPackPurchaseId;
+    expect(firstPurchaseId).toBeDefined();
+    const firstPurchase = responseBody<CreditPackPurchasePayload>(
+      await purchaser.get(`/api/v1/credits/purchases/${firstPurchaseId}`).expect(200),
+    );
+    expect(firstPurchase.purchase).toMatchObject({
+      offerCode: 'credit_pack_10',
+      status: 'captured',
+      provider: 'mock',
+      amountMinor: 200,
+      creditsGranted: 10,
+      currency: 'CAD',
+      mockMode: true,
+      productionEnabled: false,
+    });
+    expect(responseBody<{ balance: number }>(await purchaser.get('/api/v1/credits').expect(200)).balance).toBe(12);
     await purchaser
-      .post('/api/v1/credits/purchases/mock')
+      .post('/api/v1/checkout/credit-packs')
       .set('Idempotency-Key', purchaseKey)
       .send({ offerCode: 'credit_pack_80' })
       .expect(409);
 
-    const secondPurchase = responseBody<CreditPackPurchasePayload>(
+    const secondCheckout = responseBody<CheckoutPayload>(
       await purchaser
-        .post('/api/v1/credits/purchases/mock')
-        .set('Idempotency-Key', `credit-pack-purchase-${randomUUID()}`)
+        .post('/api/v1/checkout/credit-packs')
+        .set('Idempotency-Key', `credit-pack-checkout-${randomUUID()}`)
         .send({ offerCode: 'credit_pack_80' })
         .expect(201),
-    );
-    expect(secondPurchase).toMatchObject({
-      purchase: { offerCode: 'credit_pack_80', amountMinor: 1000, creditsGranted: 80 },
-      balance: 92,
-    });
+    ).checkoutSession;
     await purchaser
-      .post('/api/v1/credits/purchases/mock')
+      .post(`/api/v1/checkout/${secondCheckout.id}/mock-complete`)
+      .set('Idempotency-Key', `credit-pack-complete-${randomUUID()}`)
+      .send({ outcome: 'succeeded' })
+      .expect(201);
+    expect(responseBody<{ balance: number }>(await purchaser.get('/api/v1/credits').expect(200)).balance).toBe(92);
+    await purchaser
+      .post('/api/v1/checkout/credit-packs')
       .set('Idempotency-Key', `credit-pack-invalid-${randomUUID()}`)
       .send({ offerCode: 'credit_pack_999' })
       .expect(400);
+    await purchaser
+      .post('/api/v1/credits/purchases/mock')
+      .set('Idempotency-Key', `retired-immediate-capture-${randomUUID()}`)
+      .send({ offerCode: 'credit_pack_10' })
+      .expect(409);
     const purchaseLedger = await pool.query<{ count: string; amount: string }>(
       `SELECT count(*)::text AS count, COALESCE(sum(amount), 0)::text AS amount
        FROM credit_ledger
@@ -589,8 +737,8 @@ describe('Section 2 API security boundary (integration)', () => {
 
     const otherPurchaser = authenticated(server, token(randomUUID(), `credit-pack-other-${randomUUID()}@example.test`));
     await otherPurchaser.get('/api/v1/me').expect(200);
-    await otherPurchaser.get(`/api/v1/credits/purchases/${purchases[0]?.purchase.id}`).expect(404);
-    await purchaser.get(`/api/v1/credits/purchases/${purchases[0]?.purchase.id}`).expect(200);
+    await otherPurchaser.get(`/api/v1/credits/purchases/${firstPurchaseId}`).expect(404);
+    await purchaser.get(`/api/v1/credits/purchases/${firstPurchaseId}`).expect(200);
 
     const primaryToken = token(randomUUID(), `section-three-primary-${randomUUID()}@example.test`);
     const primary = authenticated(server, primaryToken);
@@ -728,40 +876,71 @@ describe('Section 2 API security boundary (integration)', () => {
     const authorizationToken = token(randomUUID(), `section-three-auth-${randomUUID()}@example.test`);
     const authorizationClient = authenticated(server, authorizationToken);
     const authorizationUser = responseBody<UserPayload>(await authorizationClient.get('/api/v1/me').expect(200)).user;
-    const authorizationKey = `section-three-authorization-${randomUUID()}`;
-    const authorizationResponses = await Promise.all(
+    const authorizationDraft = responseBody<DraftPayload>(
+      await authorizationClient.post('/api/v1/card-drafts').send({ creationRoute: 'build_my_card' }).expect(201),
+    ).cardDraft;
+    await authorizationClient
+      .post('/api/v1/generation-jobs')
+      .set('Idempotency-Key', `authorization-generation-${randomUUID()}`)
+      .send({ cardDraftId: authorizationDraft.id, actionType: 'initial_image_song' })
+      .expect(201);
+    const authorizationAssets = responseBody<AssetListPayload>(
+      await authorizationClient.get(`/api/v1/assets?cardDraftId=${authorizationDraft.id}&limit=100`).expect(200),
+    ).data;
+    const authorizationImage = authorizationAssets.find((asset) => asset.assetType === 'image');
+    const authorizationSong = authorizationAssets.find((asset) => asset.assetType === 'song');
+    const authorizationMessage = authorizationAssets.find((asset) => asset.assetType === 'message');
+    expect(authorizationImage && authorizationSong && authorizationMessage).toBeTruthy();
+    await authorizationClient
+      .post(`/api/v1/card-drafts/${authorizationDraft.id}/approve`)
+      .set('Idempotency-Key', `authorization-approval-${randomUUID()}`)
+      .send({
+        imageAssetId: authorizationImage?.id,
+        songAssetId: authorizationSong?.id,
+        messageAssetId: authorizationMessage?.id,
+      })
+      .expect(200);
+    const tryRiskFreeOfferId = pricingCatalog.data.find((offer) => offer.id === 'try_risk_free_one_card')?.offerId;
+    expect(tryRiskFreeOfferId).toBeDefined();
+    const authorizationOrder = responseBody<OrderPayload>(
+      await authorizationClient
+        .post('/api/v1/orders')
+        .set('Idempotency-Key', `authorization-order-${randomUUID()}`)
+        .send({
+          cardDraftId: authorizationDraft.id,
+          selectedAssetId: authorizationImage?.id,
+          offerId: tryRiskFreeOfferId,
+          quantity: 1,
+          recipientAddress: address,
+          senderAddress: address,
+        })
+        .expect(201),
+    ).order;
+    const authorizationCheckout = responseBody<CheckoutPayload>(
+      await authorizationClient
+        .post('/api/v1/checkout')
+        .set('Idempotency-Key', `authorization-checkout-${randomUUID()}`)
+        .send({ orderId: authorizationOrder.id })
+        .expect(201),
+    ).checkoutSession;
+    await Promise.all(
       Array.from({ length: 8 }, () =>
         authorizationClient
-          .post('/api/v1/card-entitlements/try-risk-free/authorizations')
-          .set('Idempotency-Key', authorizationKey)
-          .send({})
+          .post(`/api/v1/checkout/${authorizationCheckout.id}/mock-complete`)
+          .set('Idempotency-Key', `authorization-complete-${randomUUID()}`)
+          .send({ outcome: 'succeeded' })
           .expect(201),
       ),
     );
-    const authorizations = authorizationResponses.map((response) =>
-      responseBody<{
-        authorization: {
-          id: string;
-          status: string;
-          authorizedAmountMinor: number;
-          creditsGranted: number;
-          mockMode: boolean;
-          productionEnabled: boolean;
-        };
-        balance: number;
-      }>(response),
+    const authorizationRecord = await pool.query<{ id: string }>(
+      `SELECT id FROM try_risk_free_authorizations WHERE order_id = $1 AND user_id = $2;`,
+      [authorizationOrder.id, authorizationUser.id],
     );
-    expect(new Set(authorizations.map((response) => response.authorization.id)).size).toBe(1);
-    expect(authorizations[0]).toMatchObject({
-      authorization: {
-        authorizedAmountMinor: 999,
-        creditsGranted: 10,
-        mockMode: true,
-        productionEnabled: false,
-        status: 'authorized',
-      },
-      balance: 12,
-    });
+    const authorizationId = authorizationRecord.rows[0]?.id;
+    expect(authorizationId).toBeDefined();
+    expect(
+      responseBody<{ balance: number }>(await authorizationClient.get('/api/v1/credits').expect(200)).balance,
+    ).toBe(10);
     await authorizationClient
       .post('/api/v1/card-entitlements/try-risk-free/authorizations')
       .set('Idempotency-Key', `section-three-second-authorization-${randomUUID()}`)
@@ -776,7 +955,6 @@ describe('Section 2 API security boundary (integration)', () => {
         )
       ).rows[0]?.count,
     ).toBe('1');
-    const authorizationId = authorizations[0]?.authorization.id;
     await pool.query(
       `UPDATE try_risk_free_authorizations
        SET authorized_at = authorized_at - INTERVAL '6 days',
@@ -792,35 +970,221 @@ describe('Section 2 API security boundary (integration)', () => {
     expect(resolverRuns.reduce((total, run) => total + (run.rowCount ?? 0), 0)).toBe(1);
     expect(
       (
-        await pool.query<{ status: string; captured_amount_minor: number; released_amount_minor: number }>(
-          `SELECT status, captured_amount_minor, released_amount_minor
-           FROM try_risk_free_authorizations WHERE id = $1;`,
+        await pool.query<{
+          status: string;
+          captured_amount_minor: number;
+          released_amount_minor: number;
+          payment_status: string;
+          order_status: string;
+        }>(
+          `SELECT auth_record.status, auth_record.captured_amount_minor,
+                  auth_record.released_amount_minor, payment.status AS payment_status,
+                  order_record.status AS order_status
+           FROM try_risk_free_authorizations auth_record
+           JOIN payments payment ON payment.id = auth_record.payment_id
+           JOIN orders order_record ON order_record.id = auth_record.order_id
+           WHERE auth_record.id = $1;`,
           [authorizationId],
         )
       ).rows[0],
-    ).toEqual({ status: 'captured_no_send', captured_amount_minor: 200, released_amount_minor: 799 });
+    ).toEqual({
+      status: 'captured_no_send',
+      captured_amount_minor: 200,
+      released_amount_minor: 799,
+      payment_status: 'captured',
+      order_status: 'canceled',
+    });
+  });
+
+  it('captures Big Sender exactly once and feature-gates the one-card blank handoff payload', async () => {
+    const pricing = responseBody<{
+      data: Array<{ id: string; offerId: string }>;
+    }>(await request(server).get('/api/v1/pricing').expect(200));
+    const tryRiskFreeOfferId = pricing.data.find((offer) => offer.id === 'try_risk_free_one_card')?.offerId;
+    const bigSenderOfferId = pricing.data.find((offer) => offer.id === 'big_sender_2_10')?.offerId;
+    if (!tryRiskFreeOfferId || !bigSenderOfferId) throw new Error('Physical offers are required.');
+
+    const blankClient = authenticated(server, token(randomUUID(), `blank-handoff-${randomUUID()}@example.test`));
+    const blankUser = responseBody<UserPayload>(await blankClient.get('/api/v1/me').expect(200)).user;
+    const blankOrder = await createApprovedOrder(blankClient, tryRiskFreeOfferId, 1);
+    const blankCheckout = responseBody<CheckoutPayload>(
+      await blankClient
+        .post('/api/v1/checkout')
+        .set('Idempotency-Key', `blank-checkout-${randomUUID()}`)
+        .send({ orderId: blankOrder.id })
+        .expect(201),
+    ).checkoutSession;
+    await blankClient
+      .post(`/api/v1/checkout/${blankCheckout.id}/mock-complete`)
+      .set('Idempotency-Key', `blank-complete-${randomUUID()}`)
+      .send({ outcome: 'succeeded' })
+      .expect(201);
+    const blankFulfillment = responseBody<FulfillmentPayload>(
+      await blankClient
+        .post('/api/v1/fulfillment-jobs')
+        .set('Idempotency-Key', `blank-fulfillment-${randomUUID()}`)
+        .send({ orderId: blankOrder.id, variant: 'blank_handoff' })
+        .expect(201),
+    ).fulfillmentJob;
+    expect(blankFulfillment).toMatchObject({ status: 'accepted', variant: 'blank_handoff' });
+    expect(
+      (
+        await pool.query<{ handoff_status: string; entitlement_status: string }>(
+          `SELECT handoff.status AS handoff_status, entitlement.status AS entitlement_status
+           FROM blank_card_handoffs handoff
+           JOIN card_entitlements entitlement ON entitlement.id = handoff.entitlement_id
+           WHERE handoff.user_id = $1 AND handoff.order_id = $2;`,
+          [blankUser.id, blankOrder.id],
+        )
+      ).rows[0],
+    ).toEqual({ handoff_status: 'submitted', entitlement_status: 'consumed' });
+
+    const bigSenderClient = authenticated(server, token(randomUUID(), `big-sender-${randomUUID()}@example.test`));
+    const bigSenderUser = responseBody<UserPayload>(await bigSenderClient.get('/api/v1/me').expect(200)).user;
+    const bigSenderOrder = await createApprovedOrder(bigSenderClient, bigSenderOfferId, 2);
+    const bigSenderCheckout = responseBody<CheckoutPayload>(
+      await bigSenderClient
+        .post('/api/v1/checkout')
+        .set('Idempotency-Key', `big-sender-checkout-${randomUUID()}`)
+        .send({ orderId: bigSenderOrder.id })
+        .expect(201),
+    ).checkoutSession;
+    expect(bigSenderCheckout).toMatchObject({ collectionMode: 'automatic', amountMinor: 1798, currency: 'CAD' });
+    await Promise.all(
+      Array.from({ length: 8 }, () =>
+        bigSenderClient
+          .post(`/api/v1/checkout/${bigSenderCheckout.id}/mock-complete`)
+          .set('Idempotency-Key', `big-sender-complete-${randomUUID()}`)
+          .send({ outcome: 'succeeded' })
+          .expect(201),
+      ),
+    );
+    expect(responseBody<{ balance: number }>(await bigSenderClient.get('/api/v1/credits').expect(200)).balance).toBe(
+      20,
+    );
+    const beforeFulfillment = await pool.query<{
+      quantity_total: number;
+      quantity_consumed: number;
+      status: string;
+    }>(
+      `SELECT quantity_total, quantity_consumed, status FROM card_entitlements
+       WHERE user_id = $1 AND source_type = 'big_sender' AND source_id = $2;`,
+      [bigSenderUser.id, bigSenderOrder.id],
+    );
+    expect(beforeFulfillment.rows[0]).toEqual({ quantity_total: 2, quantity_consumed: 0, status: 'available' });
+    await bigSenderClient
+      .post('/api/v1/fulfillment-jobs')
+      .set('Idempotency-Key', `big-sender-fulfillment-${randomUUID()}`)
+      .send({ orderId: bigSenderOrder.id })
+      .expect(201);
+    expect(
+      (
+        await pool.query<{ quantity_consumed: number; status: string; payment_status: string }>(
+          `SELECT entitlement.quantity_consumed, entitlement.status, payment.status AS payment_status
+           FROM card_entitlements entitlement
+           JOIN payments payment ON payment.order_id = entitlement.source_id
+           WHERE entitlement.user_id = $1 AND entitlement.source_id = $2;`,
+          [bigSenderUser.id, bigSenderOrder.id],
+        )
+      ).rows[0],
+    ).toEqual({ quantity_consumed: 2, status: 'consumed', payment_status: 'captured' });
+
+    const jobColumns = await pool.query<{ column_name: string }>(
+      `SELECT column_name FROM information_schema.columns
+       WHERE table_schema = 'public' AND table_name = 'fulfillment_jobs';`,
+    );
+    expect(jobColumns.rows.map((row) => row.column_name)).not.toContain('request_payload');
+    expect(jobColumns.rows.map((row) => row.column_name)).not.toContain('response_payload');
   });
 
   it('accepts only verified, idempotent webhook events and stores hashes instead of payloads', async () => {
     const body = { id: `evt_${randomUUID()}`, type: 'payment_intent.succeeded', data: { object: { id: 'pi_test' } } };
     const raw = JSON.stringify(body);
     const timestamp = Math.floor(Date.now() / 1000).toString();
-    const signature = createHmac('sha256', process.env.STRIPE_WEBHOOK_SECRET ?? '')
-      .update(timestamp)
-      .update('.')
-      .update(raw)
-      .digest('hex');
-    const header = `t=${timestamp},v1=${signature}`;
+    const signedHeader = (payload: string) =>
+      `t=${timestamp},v1=${createHmac('sha256', process.env.STRIPE_WEBHOOK_SECRET ?? '')
+        .update(timestamp)
+        .update('.')
+        .update(payload)
+        .digest('hex')}`;
+    const header = signedHeader(raw);
 
     await request(server).post('/api/v1/webhooks/stripe').set('stripe-signature', header).send(body).expect(201);
     await request(server).post('/api/v1/webhooks/stripe').set('stripe-signature', header).send(body).expect(201);
     await request(server).post('/api/v1/webhooks/stripe').set('stripe-signature', 'invalid').send(body).expect(401);
 
-    const stored = await pool.query<{ payload_sha256: string }>(
-      'SELECT payload_sha256 FROM webhook_events WHERE provider = $1 AND provider_event_id = $2;',
+    const webhookClient = authenticated(server, token(randomUUID(), `webhook-recovery-${randomUUID()}@example.test`));
+    const webhookUser = responseBody<UserPayload>(await webhookClient.get('/api/v1/me').expect(200)).user;
+    const checkout = responseBody<CheckoutPayload>(
+      await webhookClient
+        .post('/api/v1/checkout/credit-packs')
+        .set('Idempotency-Key', `webhook-checkout-${randomUUID()}`)
+        .send({ offerCode: 'credit_pack_10' })
+        .expect(201),
+    ).checkoutSession;
+    const providerSessionId = `cs_test_${randomUUID().replaceAll('-', '')}`;
+    await pool.query(
+      `UPDATE checkout_sessions
+       SET provider = 'stripe', provider_session_id = $2,
+           expires_at = clock_timestamp() - INTERVAL '1 minute'
+       WHERE id = $1;`,
+      [checkout.id, providerSessionId],
+    );
+    await pool.query(`UPDATE credit_pack_purchases SET provider = 'stripe' WHERE id = $1;`, [
+      checkout.creditPackPurchaseId,
+    ]);
+    const recoveryBody = {
+      id: `evt_${randomUUID()}`,
+      type: 'checkout.session.completed',
+      data: { object: { id: providerSessionId, payment_intent: `pi_${randomUUID().replaceAll('-', '')}` } },
+    };
+    const recoveryRaw = JSON.stringify(recoveryBody);
+    const recoveryHeader = signedHeader(recoveryRaw);
+    await request(server)
+      .post('/api/v1/webhooks/stripe')
+      .set('stripe-signature', recoveryHeader)
+      .send(recoveryBody)
+      .expect(500);
+    await pool.query(
+      `UPDATE checkout_sessions SET expires_at = clock_timestamp() + INTERVAL '30 minutes' WHERE id = $1;`,
+      [checkout.id],
+    );
+    await request(server)
+      .post('/api/v1/webhooks/stripe')
+      .set('stripe-signature', recoveryHeader)
+      .send(recoveryBody)
+      .expect(201);
+    await request(server)
+      .post('/api/v1/webhooks/stripe')
+      .set('stripe-signature', recoveryHeader)
+      .send(recoveryBody)
+      .expect(201);
+    expect(responseBody<{ balance: number }>(await webhookClient.get('/api/v1/credits').expect(200)).balance).toBe(12);
+    expect(
+      (
+        await pool.query<{ status: string; attempt_count: number; ledger_count: string }>(
+          `SELECT event.status, event.attempt_count,
+                  (SELECT count(*)::text FROM credit_ledger ledger
+                   WHERE ledger.user_id = $2 AND ledger.source_type = 'credit_pack_purchase') AS ledger_count
+           FROM webhook_events event
+           WHERE event.provider = 'stripe' AND event.provider_event_id = $1;`,
+          [recoveryBody.id, webhookUser.id],
+        )
+      ).rows[0],
+    ).toEqual({ status: 'processed', attempt_count: 2, ledger_count: '1' });
+    const conflictingBody = { ...recoveryBody, type: 'checkout.session.async_payment_failed' };
+    await request(server)
+      .post('/api/v1/webhooks/stripe')
+      .set('stripe-signature', signedHeader(JSON.stringify(conflictingBody)))
+      .send(conflictingBody)
+      .expect(409);
+
+    const stored = await pool.query<{ payload_sha256: string; status: string; attempt_count: number }>(
+      'SELECT payload_sha256, status, attempt_count FROM webhook_events WHERE provider = $1 AND provider_event_id = $2;',
       ['stripe', body.id],
     );
     expect(stored.rows[0]?.payload_sha256).toMatch(/^[0-9a-f]{64}$/);
+    expect(stored.rows[0]).toMatchObject({ status: 'ignored', attempt_count: 1 });
     const schema = await pool.query<{ column_name: string }>(
       `SELECT column_name FROM information_schema.columns
        WHERE table_schema = 'public' AND table_name = 'webhook_events';`,

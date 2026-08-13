@@ -384,11 +384,11 @@ function DlvRecipientSection({
             <input
               type="number"
               min="1"
-              max="99"
+              max="30"
               className="dlv-input dlv-qty-input"
               aria-label="Number of cards"
               value={quantity}
-              onChange={(event) => setQuantity(Math.max(1, Math.min(99, Number(event.target.value) || 1)))}
+              onChange={(event) => setQuantity(Math.max(1, Math.min(30, Number(event.target.value) || 1)))}
             />
             <span className="dlv-qty-unit">{quantity === 1 ? 'card' : 'cards'}</span>
           </div>

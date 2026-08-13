@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { CardArt } from './CardArt';
 import { AuthGatePrompt } from './AuthGatePrompt';
 import { useAuth } from './AuthProvider';
@@ -327,6 +328,7 @@ function CartEmpty() {
 
 function CartPage() {
   const auth = useAuth();
+  const router = useRouter();
   const [items, setItems] = React.useState<CartItem[]>(CART_SEED);
   const [hydrated, setHydrated] = React.useState(false);
   const [authPromptOpen, setAuthPromptOpen] = React.useState(false);
@@ -360,7 +362,7 @@ function CartPage() {
       return;
     }
 
-    window.alert('Checkout is coming soon. No payment or order has been created.');
+    router.push('/create/build-my-card');
   }
 
   const count = items.reduce((sum, item) => sum + item.qty, 0);
@@ -381,7 +383,8 @@ function CartPage() {
           </h1>
           {items.length > 0 && (
             <p className="bmc-lede" style={{ margin: '10px 0 0' }}>
-              {count} {count === 1 ? 'item' : 'items'} ready to check out - cards, packs, and credits all in one go.
+              {count} {count === 1 ? 'item' : 'items'} selected. Approve a card, add delivery details, then continue to
+              the Section 5 hosted test checkout.
             </p>
           )}
         </div>
@@ -433,10 +436,10 @@ function CartPage() {
                 </div>
 
                 <button type="button" className="bmc-cta cart-checkout" onClick={handleCheckoutClick}>
-                  Checkout coming soon <CartIco name="arrow" w={15} />
+                  Create a card to continue <CartIco name="arrow" w={15} />
                 </button>
                 <div className="cart-secure">
-                  <CartIco name="lock" w={13} /> No payment or order is created in this preview.
+                  <CartIco name="lock" w={13} /> Payment details stay on the hosted provider boundary.
                 </div>
               </div>
 

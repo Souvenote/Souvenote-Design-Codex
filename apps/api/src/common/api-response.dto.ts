@@ -59,7 +59,7 @@ export class CreditPackOfferViewDto {
   @ApiProperty({ type: 'integer', enum: [200, 1000, 2500] }) unitAmountMinor!: number;
   @ApiProperty({ enum: ['CAD'] }) currency!: string;
   @ApiProperty({ enum: ['CA'] }) marketCountry!: string;
-  @ApiProperty({ description: 'False until Section 5 activates Stripe-hosted checkout.' })
+  @ApiProperty({ description: 'Catalog readiness; runtime provider mode still gates hosted checkout execution.' })
   checkoutEnabled!: boolean;
   @ApiProperty({ type: 'object', additionalProperties: true }) metadata!: Record<string, unknown>;
 }
@@ -67,15 +67,16 @@ export class CreditPackOfferViewDto {
 export class CreditPackPurchaseViewDto {
   @ApiProperty({ format: 'uuid' }) id!: string;
   @ApiProperty({ enum: ['credit_pack_10', 'credit_pack_80', 'credit_pack_250'] }) offerCode!: string;
-  @ApiProperty({ enum: ['captured'] }) status!: string;
-  @ApiProperty({ enum: ['mock'] }) provider!: string;
+  @ApiProperty({ enum: ['pending', 'captured', 'failed', 'canceled'] }) status!: string;
+  @ApiProperty({ enum: ['mock', 'stripe'] }) provider!: string;
   @ApiProperty({ enum: ['CAD'] }) currency!: string;
   @ApiProperty({ type: 'integer', enum: [200, 1000, 2500] }) amountMinor!: number;
+  @ApiProperty({ type: 'integer', enum: [10, 80, 250] }) creditQuantity!: number;
   @ApiProperty({ type: 'integer', enum: [10, 80, 250] }) creditsGranted!: number;
-  @ApiProperty(dateTime) capturedAt!: string;
+  @ApiPropertyOptional(nullableDateTime) capturedAt!: string | null;
   @ApiProperty(dateTime) createdAt!: string;
   @ApiProperty(dateTime) updatedAt!: string;
-  @ApiProperty({ enum: [true] }) mockMode!: true;
+  @ApiProperty() mockMode!: boolean;
   @ApiProperty({ enum: [false] }) productionEnabled!: false;
 }
 
@@ -301,12 +302,36 @@ export class OrderListResponseDto {
   @ApiPropertyOptional({ type: String, format: 'uuid', nullable: true }) nextCursor!: string | null;
 }
 
+export class CheckoutSessionViewDto {
+  @ApiProperty({ format: 'uuid' }) id!: string;
+  @ApiProperty({ enum: ['physical_order', 'credit_pack'] }) purpose!: string;
+  @ApiPropertyOptional({ type: String, format: 'uuid', nullable: true }) orderId!: string | null;
+  @ApiPropertyOptional({ type: String, format: 'uuid', nullable: true }) creditPackPurchaseId!: string | null;
+  @ApiPropertyOptional({ type: String, format: 'uuid', nullable: true }) paymentId!: string | null;
+  @ApiProperty({ enum: ['mock', 'stripe'] }) provider!: string;
+  @ApiProperty({ enum: ['creating', 'open', 'completed', 'expired', 'canceled', 'failed'] }) status!: string;
+  @ApiProperty({ enum: ['automatic', 'manual'] }) collectionMode!: string;
+  @ApiProperty({ enum: ['CAD'] }) currency!: string;
+  @ApiProperty({ type: 'integer', minimum: 1 }) amountMinor!: number;
+  @ApiPropertyOptional({ type: String, nullable: true }) checkoutUrl!: string | null;
+  @ApiProperty(dateTime) expiresAt!: string;
+  @ApiPropertyOptional(nullableDateTime) completedAt!: string | null;
+  @ApiProperty(dateTime) createdAt!: string;
+  @ApiProperty(dateTime) updatedAt!: string;
+}
+
+export class CheckoutSessionResponseDto {
+  @ApiProperty({ type: CheckoutSessionViewDto }) checkoutSession!: CheckoutSessionViewDto;
+}
+
 export class FulfillmentJobViewDto {
   @ApiProperty({ format: 'uuid' }) id!: string;
   @ApiProperty({ format: 'uuid' }) orderId!: string;
   @ApiProperty() provider!: string;
   @ApiProperty() status!: string;
+  @ApiProperty({ enum: ['personalized', 'blank_handoff'] }) variant!: string;
   @ApiProperty({ type: 'integer', minimum: 0 }) attemptCount!: number;
+  @ApiPropertyOptional({ type: String, nullable: true }) lastErrorCategory!: string | null;
   @ApiPropertyOptional(nullableDateTime) submittedAt!: string | null;
   @ApiProperty(dateTime) createdAt!: string;
   @ApiProperty(dateTime) updatedAt!: string;

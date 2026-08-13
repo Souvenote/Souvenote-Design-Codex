@@ -26,12 +26,12 @@ SELECT pg_temp.assert_true(
            AND bool_and(offer.shipping_included)
            AND bool_and(offer.credits_per_card = 10)
            AND bool_and(offer.catalog_visible)
-           AND bool_and(NOT offer.checkout_enabled)
+           AND bool_and(offer.checkout_enabled)
         FROM price_offers offer
         JOIN price_books book ON book.id = offer.price_book_id
         WHERE book.code = 'CA-CAD-MVP-2026'
     ),
-    'the approved catalog is visible in CAD while production checkout remains disabled'
+    'the approved catalog is visible in CAD with the Section 5 checkout contract active'
 );
 
 SELECT pg_temp.assert_true(

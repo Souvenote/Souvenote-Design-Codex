@@ -24,12 +24,12 @@ SELECT pg_temp.assert_true(
            AND bool_and(book.currency = 'CAD')
            AND bool_and(book.market_country = 'CA')
            AND bool_and(offer.catalog_visible)
-           AND bool_and(NOT offer.checkout_enabled)
+           AND bool_and(offer.checkout_enabled)
         FROM credit_pack_offers offer
         JOIN price_books book ON book.id = offer.price_book_id
         WHERE book.code = 'CA-CAD-MVP-2026'
     ),
-    'all three standalone packs are public CAD offers with production checkout disabled'
+    'all three standalone packs are public CAD offers with the Section 5 checkout contract active'
 );
 
 SELECT pg_temp.assert_true(

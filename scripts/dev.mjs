@@ -2,8 +2,10 @@ import { spawn } from 'node:child_process';
 import net from 'node:net';
 import process from 'node:process';
 import {
-  composeArguments,
+  composeArgumentsFor,
   createSafeLocalEnvironment,
+  defaultComposeProject,
+  isolatedComposeProject,
   localPorts,
   readinessTargets,
   repositoryRoot,
@@ -15,9 +17,12 @@ import { assertCanonicalToolchain } from './lib/toolchain.mjs';
 assertCanonicalToolchain();
 
 const smokeMode = process.argv.slice(2).includes('--smoke');
+const isolatedMode = process.argv.slice(2).includes('--isolated');
 const migrateMode = smokeMode || process.argv.slice(2).includes('--migrate');
 const ownedChildren = [];
-const environment = createSafeLocalEnvironment();
+const environment = createSafeLocalEnvironment(process.env, { isolated: isolatedMode });
+const composeProject = isolatedMode ? isolatedComposeProject : defaultComposeProject;
+const composeArgs = (...argumentsAfterCompose) => composeArgumentsFor(composeProject, ...argumentsAfterCompose);
 let cleanupStarted = false;
 let composeStarted = false;
 let earlyExitReason;
@@ -77,8 +82,8 @@ const preflight = async () => {
     throw new Error('Docker is unavailable. Start Docker Desktop (or the Docker daemon) and retry.');
   }
 
-  await runCommand('docker', composeArguments('version'));
-  await runCommand('docker', composeArguments('config', '--quiet'));
+  await runCommand('docker', composeArgs('version'));
+  await runCommand('docker', composeArgs('config', '--quiet'));
 };
 
 const startWorkspace = (name, workspace) => {
@@ -177,7 +182,9 @@ const cleanup = async () => {
   if (composeStarted) {
     try {
       // `down` removes the owned containers/network but deliberately omits `--volumes`.
-      await runCommand('docker', composeArguments('down', '--remove-orphans'), { stdio: 'inherit' });
+      await runCommand('docker', composeArgs('down', '--remove-orphans', ...(isolatedMode ? ['--volumes'] : [])), {
+        stdio: 'inherit',
+      });
     } catch (error) {
       console.error(`Could not stop the local Compose project: ${error.message}`);
     }
@@ -214,7 +221,7 @@ const main = async () => {
     // Compose may create a container before `--wait` reports a failure, so cleanup
     // owns this project from the moment the mutating command begins.
     composeStarted = true;
-    await runCommand('docker', composeArguments('up', '--detach', '--wait', 'postgres'), { stdio: 'inherit' });
+    await runCommand('docker', composeArgs('up', '--detach', '--wait', 'postgres'), { stdio: 'inherit' });
 
     if (stopSignal) {
       return;

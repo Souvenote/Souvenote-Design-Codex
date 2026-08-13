@@ -181,9 +181,6 @@ export class CreditsRepository {
   }
 
   static purchaseToApi(row: CreditPackPurchaseRow) {
-    if (row.status !== 'captured' || !row.captured_at) {
-      throw new Error('Mock credit-pack purchase is not captured.');
-    }
     return {
       id: row.id,
       offerCode: row.offer_code,
@@ -191,11 +188,12 @@ export class CreditsRepository {
       provider: row.provider,
       currency: row.currency,
       amountMinor: row.amount_minor,
-      creditsGranted: row.credit_quantity,
+      creditQuantity: row.credit_quantity,
+      creditsGranted: row.status === 'captured' ? row.credit_quantity : 0,
       capturedAt: row.captured_at,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
-      mockMode: true,
+      mockMode: row.provider === 'mock',
       productionEnabled: false,
     };
   }

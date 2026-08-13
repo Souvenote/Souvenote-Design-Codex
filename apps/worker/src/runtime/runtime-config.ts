@@ -74,12 +74,12 @@ const parseBoolean = (name: string, rawValue: string | undefined): boolean => {
 export const readWorkerRuntimeConfig = (environment: NodeJS.ProcessEnv = process.env): WorkerRuntimeConfig => {
   const nodeEnvironment = (environment.NODE_ENV ?? 'development').toLowerCase();
   if (nodeEnvironment !== 'development' && nodeEnvironment !== 'test') {
-    throw new Error('The Section 3 worker is permitted only in development or test.');
+    throw new Error('The Section 5 worker is permitted only in development or test.');
   }
 
   const authMode = environment.AUTH_MODE ?? 'disabled';
   if (authMode !== 'disabled') {
-    throw new Error('AUTH_MODE must be disabled in the Section 3 worker.');
+    throw new Error('AUTH_MODE must be disabled in the Section 5 worker.');
   }
 
   const workerMode = environment.WORKER_MODE ?? 'idle';

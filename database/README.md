@@ -105,13 +105,20 @@ mock offer is limited to one authorization per account and resolves to either a
 999-minor-unit fulfillment capture or a fixed 200-minor-unit five-day capture.
 The approved correction adds three standalone CAD credit-pack offers and
 owner-scoped purchase snapshots. Local/test mock capture grants the selected
-quantity through the idempotent ledger; production checkout remains disabled until
-Section 5 activates Stripe-hosted collection.
+quantity through the idempotent ledger; Section 5 retires that direct route in
+favor of an owner-scoped hosted-checkout session and verified reconciliation.
 
 Section 4 keeps every external creative provider disabled. It records actual
 validated upload dimensions, adds a one-credit image-only initial action, and
 persists owner-scoped image/song/message approval selections. Generated local/test
 assets are deterministic, private mock artifacts with zero external provider cost.
+
+Section 5 adds hosted-checkout session snapshots, exact-once physical and credit-pack
+payment reconciliation, payment-linked Try Risk-Free authorizations, fulfillment
+variants, and blank-card handoff records. Local/test uses deterministic typed
+payment and Scribeless adapters. Only request/response hashes and provider IDs are
+stored; raw payment-card or provider payload data is not persisted. Production
+provider flags remain false pending their later activation gates.
 
 ## Database invariants
 

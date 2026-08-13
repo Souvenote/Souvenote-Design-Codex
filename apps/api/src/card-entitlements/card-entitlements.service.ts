@@ -1,15 +1,10 @@
-import { ConflictException, Inject, Injectable } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { ConflictException, Injectable } from '@nestjs/common';
 import { createHash } from 'node:crypto';
-import { runtimeEnvironment, readString, type ConfigurationReader } from '../config/runtime-config';
 import { CardEntitlementsRepository } from './card-entitlements.repository';
 
 @Injectable()
 export class CardEntitlementsService {
-  constructor(
-    private readonly repository: CardEntitlementsRepository,
-    @Inject(ConfigService) private readonly configuration: ConfigurationReader,
-  ) {}
+  constructor(private readonly repository: CardEntitlementsRepository) {}
 
   async list(userId: string, limit: number, cursor?: string) {
     const rows = await this.repository.list(userId, limit, cursor);
@@ -38,14 +33,15 @@ export class CardEntitlementsService {
     return { reservation: CardEntitlementsRepository.reservationToApi(reservation) };
   }
 
-  async authorizeTryRiskFree(userId: string, idempotencyKey: string) {
-    this.requireMockPaymentMode();
-    const requestHash = this.hash({ offer: 'try_risk_free_one_card', provider: 'mock' });
-    const result = await this.repository.authorizeTryRiskFree(userId, idempotencyKey, requestHash);
-    return {
-      authorization: CardEntitlementsRepository.tryRiskFreeToApi(result.authorization),
-      balance: result.balance,
-    };
+  authorizeTryRiskFree(userId: string, idempotencyKey: string): Promise<never> {
+    void userId;
+    void idempotencyKey;
+    return Promise.reject(
+      new ConflictException({
+        code: 'TRY_RISK_FREE_HOSTED_CHECKOUT_REQUIRED',
+        message: 'Create a one-card order and start hosted checkout to authorize Try Risk-Free.',
+      }),
+    );
   }
 
   async getTryRiskFree(userId: string, authorizationId: string) {
@@ -54,17 +50,6 @@ export class CardEntitlementsService {
         await this.repository.getTryRiskFree(userId, authorizationId),
       ),
     };
-  }
-
-  private requireMockPaymentMode(): void {
-    const environment = runtimeEnvironment(this.configuration);
-    const paymentMode = readString(this.configuration, 'PAYMENT_PROVIDER_MODE')?.toLowerCase();
-    if (!['development', 'test'].includes(environment) || paymentMode !== 'mock') {
-      throw new ConflictException({
-        code: 'MOCK_PAYMENT_MODE_REQUIRED',
-        message: 'Try Risk-Free authorization is disabled outside deterministic local mock mode.',
-      });
-    }
   }
 
   private hash(input: Record<string, unknown>): string {

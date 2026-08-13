@@ -5,7 +5,8 @@ const moduleDirectory = path.dirname(fileURLToPath(import.meta.url));
 
 export const repositoryRoot = path.resolve(moduleDirectory, '..', '..');
 export const composeFile = path.join(repositoryRoot, 'compose.yaml');
-export const composeProject = 'souvenote-local';
+export const defaultComposeProject = 'souvenote-local';
+export const isolatedComposeProject = 'souvenote-audit';
 
 const readPort = (name, fallback, sourceEnvironment = process.env) => {
   const rawValue = sourceEnvironment[name];
@@ -82,7 +83,7 @@ const neutralizedCredentials = Object.freeze({
   STRIPE_WEBHOOK_SECRET: '',
 });
 
-export const createSafeLocalEnvironment = (sourceEnvironment = process.env) => {
+export const createSafeLocalEnvironment = (sourceEnvironment = process.env, options = {}) => {
   const environment = {};
 
   for (const [name, value] of Object.entries(sourceEnvironment)) {
@@ -93,6 +94,7 @@ export const createSafeLocalEnvironment = (sourceEnvironment = process.env) => {
     environment[name] = externalCredentialPattern.test(name) ? '' : value;
   }
 
+  const isolated = options.isolated === true;
   return {
     ...environment,
     ...neutralizedCredentials,
@@ -119,12 +121,14 @@ export const createSafeLocalEnvironment = (sourceEnvironment = process.env) => {
     PAYMENT_PROVIDER_MODE: 'mock',
     TRY_RISK_FREE_RESOLVER_ENABLED: 'false',
     TRY_RISK_FREE_RESOLVER_INTERVAL_MS: '60000',
-    FULFILLMENT_PROVIDER_MODE: 'disabled',
+    FULFILLMENT_PROVIDER_MODE: 'mock',
+    BLANK_CARD_HANDOFF_ENABLED: 'true',
     NOTIFICATION_PROVIDER_MODE: 'disabled',
     EMAIL_PROVIDER_MODE: 'disabled',
     ANALYTICS_MODE: 'disabled',
     ERROR_REPORTING_MODE: 'disabled',
     POSTGRES_HOST_PORT: String(localPorts.postgres),
+    ...(isolated ? { SOUVENOTE_POSTGRES_VOLUME_NAME: 'souvenote-audit-postgres-data' } : {}),
   };
 };
 
@@ -149,7 +153,16 @@ export const workspaceEnvironment = (workspace, baseEnvironment) => {
 export const composeArguments = (...argumentsAfterCompose) => [
   'compose',
   '--project-name',
-  composeProject,
+  defaultComposeProject,
+  '--file',
+  composeFile,
+  ...argumentsAfterCompose,
+];
+
+export const composeArgumentsFor = (projectName, ...argumentsAfterCompose) => [
+  'compose',
+  '--project-name',
+  projectName,
   '--file',
   composeFile,
   ...argumentsAfterCompose,
