@@ -1,0 +1,9 @@
+{
+  "app": "node bin/souvenote-staging.mjs",
+  "output": "cdk.out",
+  "context": {
+    "@aws-cdk/aws-lambda:recognizeLayerVersion": true,
+    "@aws-cdk/core:checkSecretUsage": true,
+    "@aws-cdk/core:stackRelativeExports": true
+  }
+}

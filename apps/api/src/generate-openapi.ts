@@ -19,7 +19,7 @@ async function main(): Promise<void> {
   process.env.AUTH_MODE = 'local';
   process.env.LOCAL_AUTH_SECRET ??= 'openapi-local-auth-secret-32-characters-minimum';
   process.env.LOCAL_AUTH_CLIENT_ID ??= 'souvenote-local-web';
-  process.env.COGNITO_REQUIRED_SCOPES ??= 'souvenote:customer';
+  process.env.COGNITO_REQUIRED_SCOPES ??= 'souvenote/customer';
   process.env.DATABASE_URL ??= 'postgresql://openapi:openapi@127.0.0.1:1/openapi';
   const output = path.resolve(process.env.OPENAPI_OUTPUT ?? '../../packages/contracts/openapi.json');
   const app = await NestFactory.create(AppModule, { logger: false, bodyParser: false });

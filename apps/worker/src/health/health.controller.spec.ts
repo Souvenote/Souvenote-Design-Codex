@@ -5,7 +5,7 @@ import { HealthController } from './health.controller';
 
 const runtimeConfig: WorkerRuntimeConfig = {
   authMode: 'disabled',
-  databaseUrl: 'postgresql://souvenote:souvenote_local@127.0.0.1:55432/souvenote',
+  database: { connectionString: 'postgresql://souvenote:souvenote_local@127.0.0.1:55432/souvenote' },
   emailProviderMode: 'disabled',
   fulfillmentProviderMode: 'disabled',
   host: '127.0.0.1',

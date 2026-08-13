@@ -8,7 +8,7 @@ export const PRODUCTION_AUTH_REFRESH_COOKIE = '__Host-souvenote_refresh';
 export const PRODUCTION_AUTH_TRANSACTION_COOKIE = '__Host-souvenote_auth_tx';
 
 export const LOCAL_TOKEN_PREFIX = 'souvenote-local';
-export const DEFAULT_AUTH_SCOPES = ['openid', 'email', 'profile', 'souvenote:customer'];
+export const DEFAULT_AUTH_SCOPES = ['openid', 'email', 'profile', 'souvenote/customer'];
 
 export const ACCESS_COOKIE_MAX_AGE_SECONDS = 60 * 60;
 export const REFRESH_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 30;

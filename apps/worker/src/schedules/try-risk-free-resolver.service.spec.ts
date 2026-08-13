@@ -4,7 +4,7 @@ import type { TryRiskFreeResolverRepository } from './try-risk-free-resolver.rep
 
 const config: WorkerRuntimeConfig = {
   authMode: 'disabled',
-  databaseUrl: 'postgresql://test:test@127.0.0.1:5432/test',
+  database: { connectionString: 'postgresql://test:test@127.0.0.1:5432/test' },
   emailProviderMode: 'disabled',
   fulfillmentProviderMode: 'disabled',
   host: '127.0.0.1',

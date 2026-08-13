@@ -118,16 +118,16 @@ export function getBffConfig(): BffConfig {
   const authMode = resolveAuthMode();
   const allowLoopbackHttp = isDevelopmentOrTest();
   const apiBaseUrl = validateHttpUrl(
-    process.env.API_INTERNAL_BASE_URL?.trim() || (allowLoopbackHttp ? 'http://127.0.0.1:4000/api/v1' : ''),
+    process.env.API_INTERNAL_BASE_URL?.trim() || 'http://127.0.0.1:4000/api/v1',
     'API_INTERNAL_BASE_URL',
-    allowLoopbackHttp,
+    true,
   );
   const sessionSecret = requiredSecret('BFF_SESSION_SECRET');
+  if (!isLoopbackHostname(new URL(apiBaseUrl).hostname)) {
+    throw new Error('The Souvenote BFF requires a loopback API_INTERNAL_BASE_URL.');
+  }
 
   if (authMode === 'local') {
-    if (!isLoopbackHostname(new URL(apiBaseUrl).hostname)) {
-      throw new Error('AUTH_MODE=local requires a loopback API_INTERNAL_BASE_URL.');
-    }
     return {
       authMode,
       apiBaseUrl,
@@ -137,7 +137,7 @@ export function getBffConfig(): BffConfig {
         clientId: process.env.LOCAL_AUTH_CLIENT_ID?.trim() || 'souvenote-local-web',
         subject: process.env.LOCAL_AUTH_SUBJECT?.trim() || '00000000-0000-4000-8000-000000000001',
         email: process.env.LOCAL_AUTH_EMAIL?.trim() || 'local@souvenote.invalid',
-        scope: process.env.LOCAL_AUTH_SCOPE?.trim() || 'souvenote:customer',
+        scope: process.env.LOCAL_AUTH_SCOPE?.trim() || 'souvenote/customer',
       },
     };
   }
@@ -147,8 +147,8 @@ export function getBffConfig(): BffConfig {
     .map((scope) => scope.trim())
     .filter(Boolean);
   if (!scopes.includes('openid')) throw new Error('COGNITO_OAUTH_SCOPES must include openid.');
-  if (!scopes.includes('souvenote:customer')) {
-    throw new Error('COGNITO_OAUTH_SCOPES must include souvenote:customer.');
+  if (!scopes.includes('souvenote/customer')) {
+    throw new Error('COGNITO_OAUTH_SCOPES must include souvenote/customer.');
   }
 
   return {

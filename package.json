@@ -9,7 +9,8 @@
   },
   "workspaces": [
     "apps/*",
-    "packages/*"
+    "packages/*",
+    "infra/*"
   ],
   "scripts": {
     "prepare": "npm run build --workspace=@souvenote/contracts",
@@ -29,6 +30,8 @@
     "health": "node scripts/healthcheck.mjs",
     "contracts:generate": "node scripts/contracts.mjs",
     "contracts:check": "node scripts/contracts.mjs --check",
+    "infra:synth": "npm run synth --workspace=@souvenote/aws-infrastructure",
+    "infra:approval:check": "npm run approval:check --workspace=@souvenote/aws-infrastructure",
     "smoke:stack": "node scripts/dev.mjs --smoke",
     "smoke:stack:isolated": "node scripts/dev.mjs --smoke --isolated",
     "toolchain": "node scripts/check-toolchain.mjs",

@@ -1,0 +1,19 @@
+{
+  "name": "@souvenote/aws-infrastructure",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "approval:check": "node scripts/approval-check.mjs",
+    "build": "npm run synth",
+    "lint": "eslint . --max-warnings=0",
+    "synth": "cdk synth --quiet",
+    "test": "node --test test/staging-stack.test.mjs",
+    "typecheck": "node --check bin/souvenote-staging.mjs && node --check lib/staging-stack.mjs"
+  },
+  "devDependencies": {
+    "aws-cdk-lib": "2.264.0",
+    "constructs": "10.8.1",
+    "aws-cdk": "2.1136.0"
+  }
+}

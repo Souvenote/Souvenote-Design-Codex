@@ -73,12 +73,26 @@ describe('readWorkerRuntimeConfig', () => {
     ).toThrow('The Try Risk-Free resolver requires WORKER_MODE=schedules and PAYMENT_PROVIDER_MODE=mock.');
   });
 
-  it('rejects the local-only scaffold outside development and test', () => {
+  it('allows only an idle, fully disabled production staging worker', () => {
+    const ca = Buffer.from('-----BEGIN CERTIFICATE-----\ntrusted\n-----END CERTIFICATE-----').toString('base64');
+    expect(
+      readWorkerRuntimeConfig({
+        ...validEnvironment(),
+        DATABASE_SSL_CA_BASE64: ca,
+        DATABASE_SSL_MODE: 'verify-full',
+        IMAGE_PROVIDER_MODE: 'disabled',
+        NODE_ENV: 'production',
+        TEXT_PROVIDER_MODE: 'disabled',
+      }),
+    ).toMatchObject({ workerMode: 'idle', imageProviderMode: 'disabled', textProviderMode: 'disabled' });
+
     expect(() =>
       readWorkerRuntimeConfig({
         ...validEnvironment(),
+        DATABASE_SSL_CA_BASE64: ca,
+        DATABASE_SSL_MODE: 'verify-full',
         NODE_ENV: 'production',
       }),
-    ).toThrow('The Section 5 worker is permitted only in development or test.');
+    ).toThrow('Production staging permits only the idle worker with every provider disabled.');
   });
 });

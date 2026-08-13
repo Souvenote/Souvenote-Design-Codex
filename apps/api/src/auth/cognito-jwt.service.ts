@@ -51,7 +51,7 @@ export class CognitoJwtService {
     this.authMode = resolveAuthMode(this.configService);
     this.clockSkewSeconds = readPositiveInteger(this.configService, 'AUTH_CLOCK_SKEW_SECONDS', 60, 300);
     this.requiredScopes = new Set(
-      (readString(this.configService, 'COGNITO_REQUIRED_SCOPES') ?? 'souvenote:customer')
+      (readString(this.configService, 'COGNITO_REQUIRED_SCOPES') ?? 'souvenote/customer')
         .split(/[\s,]+/)
         .filter(Boolean),
     );

@@ -1,7 +1,7 @@
 import { Controller, Get, Inject, ServiceUnavailableException } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
 import { Public } from '../common/public.decorator';
-import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiExcludeController, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { HealthResponseDto } from '../common/api-response.dto';
 
 @ApiTags('health')
@@ -49,6 +49,42 @@ export class HealthController {
         ...this.healthyResponse(),
         database: 'connected',
       };
+    } catch {
+      throw new ServiceUnavailableException({
+        status: 'unavailable',
+        service: 'souvenote-backend',
+        database: 'unavailable',
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }
+}
+
+/**
+ * Preserves the pre-Section-2 load-balancer health paths while the governed
+ * staging release reuses the existing target groups. Product APIs remain under
+ * /api/v1 and this compatibility surface exposes health only.
+ */
+@ApiTags('health')
+@ApiExcludeController()
+@Public()
+@Controller('api/health')
+export class StagingLoadBalancerHealthController {
+  constructor(
+    @Inject(DatabaseService)
+    private readonly databaseService: Pick<DatabaseService, 'ping'>,
+  ) {}
+
+  @Get('live')
+  getLiveness() {
+    return { status: 'ok', service: 'souvenote-backend', timestamp: new Date().toISOString() };
+  }
+
+  @Get('ready')
+  async getReadiness() {
+    try {
+      await this.databaseService.ping();
+      return { ...this.getLiveness(), database: 'connected' };
     } catch {
       throw new ServiceUnavailableException({
         status: 'unavailable',

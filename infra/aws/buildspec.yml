@@ -1,0 +1,24 @@
+version: 0.2
+
+env:
+  shell: bash
+
+phases:
+  pre_build:
+    commands:
+      - set -euo pipefail
+      - test -n "${AWS_ACCOUNT_ID:-}"
+      - test -n "${AWS_DEFAULT_REGION:-}"
+      - test -n "${BACKEND_REPOSITORY_URI:-}"
+      - test -n "${FRONTEND_REPOSITORY_URI:-}"
+      - test -n "${RELEASE_TAG:-}"
+      - aws ecr get-login-password --region "$AWS_DEFAULT_REGION" | docker login --username AWS --password-stdin "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com"
+  build:
+    commands:
+      - docker build --file infra/docker/Dockerfile.backend --tag "$BACKEND_REPOSITORY_URI:$RELEASE_TAG" .
+      - docker build --file infra/docker/Dockerfile.frontend --tag "$FRONTEND_REPOSITORY_URI:$RELEASE_TAG" .
+  post_build:
+    commands:
+      - docker push "$BACKEND_REPOSITORY_URI:$RELEASE_TAG"
+      - docker push "$FRONTEND_REPOSITORY_URI:$RELEASE_TAG"
+      - printf '{"releaseTag":"%s","sourceVersion":"%s"}\n' "$RELEASE_TAG" "${CODEBUILD_RESOLVED_SOURCE_VERSION:-unknown}"
