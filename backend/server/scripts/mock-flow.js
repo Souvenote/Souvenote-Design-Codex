@@ -211,7 +211,7 @@ main().catch((error) => {
   console.error('\nMock backend flow failed.');
   console.error(error.message);
   console.error(
-    `Make sure the server is running at ${apiBaseUrl}, Cognito is configured, AI_MOCK_MODE=true, and migrations 001-012 are applied.`,
+    'Make sure the configured API server is running, Cognito is configured, AI_MOCK_MODE=true, and migrations 001-016 are applied.',
   );
   process.exit(1);
 });
