@@ -7,6 +7,20 @@ const serverRoot = path.resolve(__dirname, '..');
 const migrationRoot = path.resolve(serverRoot, '..', 'database', 'migrations');
 const seedRoot = path.resolve(serverRoot, '..', 'database', 'seeds');
 
+// Migration 001 received a previously deployed comment-only clarification and
+// final newline. These audited hashes cover the original LF/CRLF byte forms so
+// the ledger can move once to the canonical checksum without accepting an
+// executable SQL change.
+const legacyEquivalentChecksums = new Map([
+  [
+    'migration:001_initial_schema.sql',
+    new Set([
+      'd30f3b8d35a69e85296d093fc0ffb7e59cfd253d80a995dc75dde96ef19f2af4',
+      'ee2208764f763b5577f029c2ce211f0ae04e266831ef45a3be88868794bfd2dd',
+    ]),
+  ],
+]);
+
 function readEnvFile(filePath) {
   if (!fs.existsSync(filePath)) return {};
   return fs
@@ -83,20 +97,46 @@ function checksum(contents) {
   return crypto.createHash('sha256').update(contents).digest('hex');
 }
 
+function canonicalSql(contents) {
+  return contents.replace(/\r\n?/g, '\n');
+}
+
+function equivalentSqlChecksums(contents) {
+  const canonical = canonicalSql(contents);
+  return new Set([
+    checksum(canonical),
+    checksum(contents),
+    checksum(canonical.replace(/\n/g, '\r\n')),
+  ]);
+}
+
 async function applyVersionedSql(client, kind, directory, fileName) {
   const id = `${kind}:${fileName}`;
   const source = fs.readFileSync(path.join(directory, fileName), 'utf8');
-  const digest = checksum(source);
+  const digest = checksum(canonicalSql(source));
   const applied = await client.query(
     'SELECT checksum FROM schema_migrations WHERE id = $1;',
     [id],
   );
 
   if (applied.rowCount) {
-    if (applied.rows[0].checksum !== digest) {
+    const appliedChecksum = applied.rows[0].checksum;
+    const equivalentChecksums = equivalentSqlChecksums(source);
+    const auditedLegacyChecksums = legacyEquivalentChecksums.get(id);
+    if (
+      !equivalentChecksums.has(appliedChecksum) &&
+      !auditedLegacyChecksums?.has(appliedChecksum)
+    ) {
       throw new Error(
         `${id} changed after it was applied. Add a new numbered SQL file instead.`,
       );
+    }
+    if (appliedChecksum !== digest) {
+      await client.query(
+        'UPDATE schema_migrations SET checksum = $2 WHERE id = $1;',
+        [id, digest],
+      );
+      console.log(`Canonicalized checksum for ${id}`);
     }
     console.log(`Already applied ${id}`);
     return;
