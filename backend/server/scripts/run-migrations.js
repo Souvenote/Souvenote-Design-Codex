@@ -8,15 +8,17 @@ const migrationRoot = path.resolve(serverRoot, '..', 'database', 'migrations');
 const seedRoot = path.resolve(serverRoot, '..', 'database', 'seeds');
 
 // Migration 001 received a previously deployed comment-only clarification and
-// final newline. These audited hashes cover the original LF/CRLF byte forms so
-// the ledger can move once to the canonical checksum without accepting an
-// executable SQL change.
+// final newline. These audited hashes cover the original LF/CRLF byte forms and
+// the exact source archived for the July 27 staging release. The executable SQL
+// for that archive matches the current migration, so the ledger can move once
+// to the canonical checksum without accepting an executable SQL change.
 const legacyEquivalentChecksums = new Map([
   [
     'migration:001_initial_schema.sql',
     new Set([
       'd30f3b8d35a69e85296d093fc0ffb7e59cfd253d80a995dc75dde96ef19f2af4',
       'ee2208764f763b5577f029c2ce211f0ae04e266831ef45a3be88868794bfd2dd',
+      '1f59216cf0af6bc195096cf892acb61a6f33e20d9758a758404a0d71cedbd394',
     ]),
   ],
 ]);
