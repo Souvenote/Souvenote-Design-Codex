@@ -18,6 +18,14 @@ import type {
   GenerationProviderResult,
   ProviderGeneratedAsset,
 } from './generation.provider';
+import {
+  buildMyCardImagePrompt,
+  isBuildMyCardCreativeBrief,
+} from './build-my-card-image-prompt';
+import {
+  buildPersonalizeTemplateImagePrompt,
+  isPersonalizeTemplateCreativeBrief,
+} from './personalize-template-image-prompt';
 
 export const FAL_CLIENT = Symbol('FAL_CLIENT');
 
@@ -59,9 +67,10 @@ export class FalGenerationProvider implements GenerationProvider {
               ...(request.referenceImageUrls.length
                 ? { image_urls: request.referenceImageUrls }
                 : {}),
-              image_size: request.referenceImageUrls.length
-                ? 'auto'
-                : 'portrait_4_3',
+              image_size: this.imageSize(
+                request.creativeBrief,
+                request.referenceImageUrls.length > 0,
+              ),
               quality: 'high',
               num_images: 1,
               output_format: 'png',
@@ -316,10 +325,34 @@ export class FalGenerationProvider implements GenerationProvider {
   }
 
   private imagePrompt(creativeBrief: Record<string, unknown>) {
+    if (isBuildMyCardCreativeBrief(creativeBrief)) {
+      return buildMyCardImagePrompt(creativeBrief);
+    }
+    if (isPersonalizeTemplateCreativeBrief(creativeBrief)) {
+      return buildPersonalizeTemplateImagePrompt(creativeBrief);
+    }
+
     return [
       'Create a premium portrait 5x7 greeting-card front. Preserve recognizable people from reference images when supplied. No watermark or brand logos.',
       `Souvenote creative brief: ${this.briefText(creativeBrief)}`,
     ].join('\n');
+  }
+
+  private imageSize(
+    creativeBrief: Record<string, unknown>,
+    hasReferenceImages: boolean,
+  ) {
+    if (isBuildMyCardCreativeBrief(creativeBrief)) {
+      const basics = this.asRecord(creativeBrief.basics);
+      return basics.orientation === 'landscape'
+        ? { width: 2240, height: 1600 }
+        : { width: 1600, height: 2240 };
+    }
+    if (isPersonalizeTemplateCreativeBrief(creativeBrief)) {
+      return { width: 1600, height: 2240 };
+    }
+
+    return hasReferenceImages ? 'auto' : 'portrait_4_3';
   }
 
   private songPrompt(creativeBrief: Record<string, unknown>) {

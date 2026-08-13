@@ -557,6 +557,7 @@ function BmcImageStep({ onContinue, onBack, hasPhoto, initialDraft, onDraftPatch
   const [accents, setAccents] = React.useState<string[]>(stringArrayValue(initialImage.accents, ['No accents']));
   const [border, setBorder] = React.useState(textValue(initialImage.border) || 'Watercolor floral');
   const [vision, setVision] = React.useState(textValue(initialImage.vision));
+  const [styleNotes, setStyleNotes] = React.useState(textValue(initialImage.styleNotes));
 
   // Free-text "Custom…" values, revealed when the Custom… option is picked.
   const [styleCustom, setStyleCustom] = React.useState(textValue(initialImage.customVisualStyle));
@@ -588,17 +589,24 @@ function BmcImageStep({ onContinue, onBack, hasPhoto, initialDraft, onDraftPatch
           vibes,
           customVibe: vibes.includes("Custom\u2026") ? vibeCustom.trim() || undefined : undefined,
           vision: vision.trim() || undefined,
+          styleNotes: blueprint === "enhance"
+            ? styleNotes.trim() || undefined
+            : undefined,
           coverMode,
           coverText: coverMode === "with" ? coverText.trim() || undefined : undefined,
-          accents,
-          customAccent: accents.includes("Custom\u2026") ? accentCustom.trim() || undefined : undefined,
-          border,
-          customBorder: border === "Custom\u2026" ? borderCustom.trim() || undefined : undefined,
+          accents: blueprint === "decorate" ? accents : undefined,
+          customAccent: blueprint === "decorate" && accents.includes("Custom\u2026")
+            ? accentCustom.trim() || undefined
+            : undefined,
+          border: blueprint === "decorate" ? border : undefined,
+          customBorder: blueprint === "decorate" && border === "Custom\u2026"
+            ? borderCustom.trim() || undefined
+            : undefined,
           hasPhoto,
         },
       },
     });
-  }, [accentCustom, accents, blueprint, border, borderCustom, coverMode, coverText, hasPhoto, onDraftPatch, style, styleCustom, vibeCustom, vibes, vision]);
+  }, [accentCustom, accents, blueprint, border, borderCustom, coverMode, coverText, hasPhoto, onDraftPatch, style, styleCustom, styleNotes, vibeCustom, vibes, vision]);
 
   const SUGGESTED_CAPTIONS = [
     'To the moon and back',
@@ -707,7 +715,21 @@ function BmcImageStep({ onContinue, onBack, hasPhoto, initialDraft, onDraftPatch
           </div>
         )}
 
-        {(blueprint === 'enhance' || blueprint === 'decorate') && (
+        {blueprint === 'enhance' && (
+          <div className="bmc-fieldcard">
+            <label className="bmc-label">
+              Extra style notes <em className="bmc-opt">· optional</em>
+            </label>
+            <textarea
+              className="bmc-textarea"
+              placeholder="Add any details about how you want the artistic restyle to feel. We’ll keep the photo’s subjects and composition intact."
+              value={styleNotes}
+              onChange={(event) => setStyleNotes(event.target.value)}
+            />
+          </div>
+        )}
+
+        {blueprint === 'decorate' && (
           <div className="bmc-fieldcard">
             <label className="bmc-label">Decorative accents <span className="bmc-chip-count">{accents.length} of 3</span></label>
             <p className="bmc-help" style={{ margin: '-4px 0 12px' }}>Select up to three.</p>

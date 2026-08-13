@@ -4,8 +4,10 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { CardEntitlementsService } from '../card-entitlements/card-entitlements.service';
 import {
   DatabaseService,
   type DatabaseTransaction,
@@ -13,6 +15,7 @@ import {
 import { type OrderRow, OrdersService } from '../orders/orders.service';
 import { PublicCardLinksService } from '../public-card-links/public-card-links.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { ReferralsService } from '../referrals/referrals.service';
 import { UploadStorageService } from '../uploads/upload-storage.service';
 import { FulfillmentProviderRegistry } from './fulfillment-provider.registry';
 import {
@@ -85,6 +88,9 @@ export class FulfillmentService {
     private readonly configService: ConfigService,
     private readonly publicCardLinksService: PublicCardLinksService,
     private readonly notificationsService: NotificationsService,
+    private readonly cardEntitlementsService: CardEntitlementsService,
+    @Optional()
+    private readonly referralsService?: ReferralsService,
   ) {}
 
   async submitFulfillment(userId: string, dto: SubmitFulfillmentDto) {
@@ -235,7 +241,12 @@ export class FulfillmentService {
       const allowedStatuses =
         provider.mode === 'scribeless'
           ? (['paid', 'fulfillment_failed'] as const)
-          : (['paid', 'paid_mock', 'failed_mock'] as const);
+          : ([
+              'paid',
+              'paid_mock',
+              'failed_mock',
+              'fulfillment_failed',
+            ] as const);
       this.ordersService.assertOrderStatus(
         order,
         [...allowedStatuses],
@@ -270,6 +281,24 @@ export class FulfillmentService {
         [order.id, order.user_id, provider.mode, attemptNumber, idempotencyKey],
       );
       const fulfillment = inserted.rows[0];
+      const prepaidReservationIsActive =
+        order.funding_source === 'card_bank' &&
+        !order.card_entitlements_released_at;
+      if (!prepaidReservationIsActive) {
+        await this.cardEntitlementsService.deductInTransaction(
+          transaction,
+          order.user_id,
+          order.quantity,
+          `order:${order.id}`,
+          `fulfillment:${fulfillment.id}:deduct`,
+        );
+        if (order.funding_source === 'card_bank') {
+          await this.ordersService.markCardEntitlementsReserved(
+            order.id,
+            transaction,
+          );
+        }
+      }
       const updatedOrder = await this.ordersService.markFulfillmentStarted(
         order.id,
         transaction,
@@ -519,6 +548,13 @@ export class FulfillmentService {
         ],
       );
       const updatedFulfillment = updated.rows[0];
+      if (updatedFulfillment.status === 'failed') {
+        await this.refundFulfillmentEntitlements(
+          transaction,
+          order,
+          updatedFulfillment,
+        );
+      }
       const updatedOrder = await this.applyOrderStatus(
         transaction,
         order,
@@ -541,6 +577,22 @@ export class FulfillmentService {
         updatedOrder,
         updatedFulfillment.status,
       );
+      if (
+        this.referralsService &&
+        [
+          'submitted',
+          'printing',
+          'shipped',
+          'delivered',
+          'fulfilled_mock',
+        ].includes(updatedFulfillment.status)
+      ) {
+        await this.referralsService.rewardReferrerForFirstSend(
+          transaction,
+          order.user_id,
+          order.id,
+        );
+      }
       return this.buildResponse(updatedFulfillment, updatedOrder, false);
     });
   }
@@ -572,6 +624,13 @@ export class FulfillmentService {
         [prepared.fulfillment.id, status, reason],
       );
       if (!updated.rows[0]) return;
+      if (!outcomeUnknown) {
+        await this.refundFulfillmentEntitlements(
+          transaction,
+          prepared.order,
+          updated.rows[0],
+        );
+      }
       await this.ordersService.markFulfillmentState(
         prepared.order.id,
         outcomeUnknown ? 'fulfillment_on_hold' : 'fulfillment_failed',
@@ -655,6 +714,13 @@ export class FulfillmentService {
         ],
       );
       const updatedFulfillment = updated.rows[0];
+      if (appliedStatus === 'failed') {
+        await this.refundFulfillmentEntitlements(
+          transaction,
+          currentOrder,
+          updatedFulfillment,
+        );
+      }
       const updatedOrder = await this.applyOrderStatus(
         transaction,
         currentOrder,
@@ -681,6 +747,27 @@ export class FulfillmentService {
       }
       return this.buildResponse(updatedFulfillment, updatedOrder, true);
     });
+  }
+
+  private async refundFulfillmentEntitlements(
+    transaction: DatabaseTransaction,
+    order: Pick<OrderRow, 'id' | 'user_id' | 'quantity' | 'funding_source'>,
+    fulfillment: Pick<FulfillmentRow, 'id'>,
+  ) {
+    const refund = await this.cardEntitlementsService.refundOnceInTransaction(
+      transaction,
+      order.user_id,
+      order.quantity,
+      `order:${order.id}`,
+      `fulfillment:${fulfillment.id}:refund`,
+    );
+    if (order.funding_source === 'card_bank') {
+      await this.ordersService.markCardEntitlementsReleased(
+        order.id,
+        transaction,
+      );
+    }
+    return refund;
   }
 
   private async applyOrderStatus(

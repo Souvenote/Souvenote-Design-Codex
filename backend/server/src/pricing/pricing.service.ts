@@ -153,6 +153,70 @@ export class PricingService {
     return { ...offer, creditAmount };
   }
 
+  async resolveCardPackOffer(offerCode: string, quantity: number) {
+    const normalizedOfferCode = offerCode.trim();
+    if (!normalizedOfferCode) {
+      throw new BadRequestException('A card-pack offer code is required.');
+    }
+    if (!Number.isInteger(quantity) || quantity < 1 || quantity > 30) {
+      throw new BadRequestException(
+        'Card-pack quantity must be between 1 and 30 cards.',
+      );
+    }
+
+    const result = await this.databaseService.query<PricingOfferRow>(
+      `
+        SELECT
+          id,
+          offer_code,
+          name,
+          offer_type,
+          price_cents,
+          currency,
+          card_count_min,
+          card_count_max,
+          credits_per_card,
+          shipping_included,
+          metadata
+        FROM pricing_catalog
+        WHERE is_active = TRUE
+          AND offer_type IN ('big_sender', 'gift')
+          AND offer_code = $1
+          AND $2 BETWEEN card_count_min AND card_count_max
+        LIMIT 1;
+      `,
+      [normalizedOfferCode, quantity],
+    );
+
+    const offer = result.rows[0];
+    if (
+      !offer ||
+      !Number.isInteger(offer.price_cents) ||
+      offer.price_cents <= 0 ||
+      offer.currency.trim().toLowerCase() !== 'cad' ||
+      !Number.isInteger(offer.credits_per_card) ||
+      offer.credits_per_card <= 0 ||
+      (offer.offer_type === 'gift' && quantity !== 1) ||
+      (offer.offer_type === 'big_sender' && quantity < 2)
+    ) {
+      throw new BadRequestException(
+        'The selected card pack is unavailable for this quantity.',
+      );
+    }
+
+    const amountCents = offer.price_cents * quantity;
+    const creditAmount = offer.credits_per_card * quantity;
+    if (
+      !Number.isSafeInteger(amountCents) ||
+      !Number.isSafeInteger(creditAmount)
+    ) {
+      throw new BadRequestException(
+        'The selected card pack is not configured correctly.',
+      );
+    }
+    return { ...offer, amountCents, cardAmount: quantity, creditAmount };
+  }
+
   private creditAmount(offer: PricingOfferRow) {
     if (offer.offer_type !== 'credit_pack') return null;
     const configured = Number(

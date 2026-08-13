@@ -713,6 +713,24 @@
   letter-spacing: .22em; text-transform: uppercase;
   color: var(--gold);
 }
+.pt-fixed-format {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  margin: -4px 0 18px;
+  padding: 11px 14px;
+  border: 1px solid rgba(232,234,238,0.10);
+  border-radius: var(--r-sm);
+  background: rgba(232,234,238,0.035);
+  font-family: var(--font-sans);
+}
+.pt-fixed-format span {
+  font-size: 10px; font-weight: 700; letter-spacing: .16em;
+  text-transform: uppercase; color: var(--text-muted);
+}
+.pt-fixed-format strong { font-size: 13px; color: var(--platinum-hi); }
+.pt-fixed-format em {
+  margin-left: auto; font-size: 11px; font-style: normal;
+  color: var(--gold);
+}
 .pt-modal-close {
   width: 32px; height: 32px;
   display: inline-flex; align-items: center; justify-content: center;

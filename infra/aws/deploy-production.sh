@@ -286,6 +286,8 @@ if ! curl --fail --silent --show-error "$HEALTH_URL" >/dev/null; then
   exit 1
 fi
 
+bash infra/aws/smoke-deployment.sh "$FRONTEND_URL"
+
 aws cloudformation describe-stacks \
   --region "$REGION" \
   --stack-name "$STACK_NAME" \

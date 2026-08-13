@@ -7,6 +7,7 @@ import { BackButton, OptionsHeader, TileGrid } from "./Options";
 import { PageChrome } from "./PageChrome";
 import { useAuth } from "./AuthProvider";
 import { useCreditBalance } from "../lib/creditBalance";
+import { useCardEntitlementBalance } from "../lib/cardEntitlementBalance";
 import {
   getCreateFlowGate,
 } from "./createFlowRules";
@@ -25,10 +26,11 @@ export function CreateOptionsClient() {
   const auth = useAuth();
   const isAuthenticated = auth.status === "authenticated";
   const creditBalance = useCreditBalance({ enabled: isAuthenticated, fallbackBalance: 0, userId: auth.user?.id });
+  const cardBalance = useCardEntitlementBalance({ enabled: isAuthenticated, fallbackBalance: 0, userId: auth.user?.id });
   const user = auth.displayUser || fallbackUser;
   const accountBalance = {
     credits: { images: creditBalance.balance, songs: 0 },
-    cardBank: 0,
+    cardBank: cardBalance.balance,
   };
   const totalCredits = creditBalance.balance;
 
@@ -58,14 +60,14 @@ export function CreateOptionsClient() {
           loggedIn={isAuthenticated}
           user={user}
           credits={accountBalance.credits}
-          cardBank={0}
+          cardBank={accountBalance.cardBank}
           cartCount={0}
         />
         <main>
           <OptionsHeader />
           <TileGrid
             credits={totalCredits}
-            cardBank={0}
+            cardBank={accountBalance.cardBank}
             onSelect={handleTileSelect}
           />
           <BackButton href="/home" label="Back to home" />

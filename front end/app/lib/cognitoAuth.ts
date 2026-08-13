@@ -13,6 +13,20 @@ export type CognitoCodeDelivery = {
   Destination?: string;
 };
 
+export function formatCognitoCodeDelivery(
+  delivery?: CognitoCodeDelivery,
+  options: { resent?: boolean } = {},
+) {
+  const action = options.resent ? "sent a new" : "sent a";
+  const destination = delivery?.Destination?.trim();
+
+  if (destination) {
+    return `We ${action} confirmation code to ${destination}. Check your inbox and spam or junk folder.`;
+  }
+
+  return `We ${action} confirmation code to your email address. Check your inbox and spam or junk folder.`;
+}
+
 export type CognitoSignUpResult = {
   confirmed: boolean;
   codeDelivery?: CognitoCodeDelivery;
@@ -703,6 +717,23 @@ export async function confirmCognitoSignUp(email: string, confirmationCode: stri
       }
 
       resolve();
+    });
+  });
+}
+
+export async function resendCognitoSignUpCode(
+  email: string,
+): Promise<CognitoCodeDelivery | undefined> {
+  const user = getCognitoUser(email);
+
+  return new Promise((resolve, reject) => {
+    user.resendConfirmationCode((error, delivery) => {
+      if (error) {
+        reject(toCognitoClientError(error));
+        return;
+      }
+
+      resolve(delivery);
     });
   });
 }

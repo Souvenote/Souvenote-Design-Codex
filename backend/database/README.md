@@ -19,6 +19,14 @@ Souvenote backend.
 - `migrations/012_canadian_pricing_and_credit_packs.sql` aligns Canada-first
   CAD pricing, adds durable standalone credit-pack purchases, and records the
   deadline/lease fields used to finalize expired five-day authorizations.
+- `migrations/013_card_entitlement_ledger.sql` adds the append-only physical-card
+  balance used by paid checkout and fulfillment.
+- `migrations/014_card_pack_purchases.sql` adds durable standalone Big Sender
+  purchases and links their payment attempts to atomic card-and-credit grants.
+- `migrations/015_prepaid_card_delivery.sql` makes each card-bank entitlement a
+  fully paid printed-and-delivered card and adds retry-safe reservation state.
+- `migrations/016_gifts_and_referrals.sql` adds delivery-included one-card gift
+  escrow/redemption and first-send-qualified referral attribution.
 - `seeds/001_pricing_catalog.sql` inserts the Canada-first card and credit-pack catalog.
 
 ## Local setup
@@ -39,12 +47,16 @@ psql -U postgres -d souvenote_dev -f migrations/009_scribeless_fulfillment_lifec
 psql -U postgres -d souvenote_dev -f migrations/010_public_card_links.sql
 psql -U postgres -d souvenote_dev -f migrations/011_transactional_notifications.sql
 psql -U postgres -d souvenote_dev -f migrations/012_canadian_pricing_and_credit_packs.sql
+psql -U postgres -d souvenote_dev -f migrations/013_card_entitlement_ledger.sql
+psql -U postgres -d souvenote_dev -f migrations/014_card_pack_purchases.sql
+psql -U postgres -d souvenote_dev -f migrations/015_prepaid_card_delivery.sql
+psql -U postgres -d souvenote_dev -f migrations/016_gifts_and_referrals.sql
 psql -U postgres -d souvenote_dev -f seeds/001_pricing_catalog.sql
 ```
 
 Run those commands from `backend/database`. For an existing database with
 migration `001` already installed, the backend helper applies migrations
-`002` through `012`:
+`002` through `016`:
 
 ```powershell
 cd ../server
@@ -85,7 +97,9 @@ FROM pricing_catalog;
 Expected pricing offer codes include `try_risk_free_one_card`,
 `big_sender_2_10`, `big_sender_11_20`, `big_sender_21_30`,
 `credit_pack_starter_10`, `credit_pack_creator_80`, and
-`credit_pack_power_250`. All launch prices are denominated in CAD.
+`credit_pack_power_250`, plus `gift_souvenote_one_card`. All launch prices are
+denominated in CAD, and the gift/card offers include printing and standard
+delivery.
 
 Do not commit database passwords, real connection strings, secret keys, or
 local `.env` files. Apply migrations in filename order in every environment.

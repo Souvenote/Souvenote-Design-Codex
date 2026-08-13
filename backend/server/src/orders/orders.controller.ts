@@ -4,6 +4,7 @@ import {
   ArrayMinSize,
   IsArray,
   IsInt,
+  IsIn,
   IsNotEmpty,
   IsObject,
   IsOptional,
@@ -62,6 +63,10 @@ export class CreateOrderDto {
   @IsString()
   @IsNotEmpty()
   selectedAssetId: string;
+
+  @IsOptional()
+  @IsIn(['checkout', 'card_bank'])
+  fundingSource?: 'checkout' | 'card_bank';
 
   @IsOptional()
   @IsString()

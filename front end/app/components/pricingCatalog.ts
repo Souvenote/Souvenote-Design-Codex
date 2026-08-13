@@ -2,6 +2,7 @@ export const MIN_BIG_SENDER_CARDS = 2;
 export const MAX_BIG_SENDER_CARDS = 30;
 
 export type BigSenderTier = {
+  offerCode: string;
   min: number;
   max: number;
   pricePerCard: number;
@@ -21,6 +22,7 @@ export type PricingCartItem = {
   lockedQuantity: boolean;
   replaceGroup: string;
   unitNote: string;
+  offerCode: string;
 };
 
 export type TryRiskFreeCartItemOptions = {
@@ -40,9 +42,9 @@ export type BigSenderPricing = {
 };
 
 export const BIG_SENDER_TIERS: BigSenderTier[] = [
-  { min: 2, max: 10, pricePerCard: 8.99, label: "2-10 cards" },
-  { min: 11, max: 20, pricePerCard: 7.99, label: "11-20 cards" },
-  { min: 21, max: 30, pricePerCard: 6.99, label: "21-30 cards" },
+  { offerCode: "big_sender_2_10", min: 2, max: 10, pricePerCard: 8.99, label: "2-10 cards" },
+  { offerCode: "big_sender_11_20", min: 11, max: 20, pricePerCard: 7.99, label: "11-20 cards" },
+  { offerCode: "big_sender_21_30", min: 21, max: 30, pricePerCard: 6.99, label: "21-30 cards" },
 ];
 
 export function clampBigSenderQuantity(
@@ -90,8 +92,8 @@ export function makeBigSenderCartItem(
     id: "pack-bigsender",
     type: "pack",
     name: "Big Sender",
-    meta: `${pricing.qty} cards · shipping included`,
-    sub: "Send multiple different cards, 10 AI credits per card.",
+    meta: `${pricing.qty} cards · printing & delivery included`,
+    sub: "Send multiple different cards with no later delivery charge, plus 10 AI credits per card.",
     price: pricing.total,
     qty: 1,
     cardCount: pricing.qty,
@@ -99,6 +101,7 @@ export function makeBigSenderCartItem(
     lockedQuantity: true,
     replaceGroup: "pack-bigsender",
     unitNote: `$${pricing.tier.pricePerCard.toFixed(2)} / card`,
+    offerCode: pricing.tier.offerCode,
   };
 }
 
@@ -124,6 +127,7 @@ export function makeTryRiskFreeCartItem(
     lockedQuantity: true,
     replaceGroup: "pack-try-risk-free",
     unitNote: `$${price.toFixed(2)} hold`,
+    offerCode: "try_risk_free_one_card",
   };
 }
 

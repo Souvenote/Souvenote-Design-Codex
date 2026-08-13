@@ -446,7 +446,7 @@ Seed data should include:
 
 ## Current Implementation Status
 
-The backend MVP foundation is implemented through migration `011` and includes:
+The backend MVP foundation is implemented through migration `016` and includes:
 
 - Cognito JWT verification, owner-scoped APIs, and first-request local user
   provisioning with an idempotent starter-credit grant.
@@ -457,6 +457,14 @@ The backend MVP foundation is implemented through migration `011` and includes:
   and inside-message assets.
 - Server-authoritative pricing, durable mock/Stripe Checkout attempts, signed
   webhook reconciliation, and Try Risk-Free finalization.
+- Canada-first standalone credit and Big Sender card-pack settlement, with
+  append-only credit/card ledgers and zero-charge prepaid delivery orders;
+  every card-pack card includes printing and standard delivery.
+- Delivery-included one-card gift checkout with escrowed card/credit
+  entitlements, signed claim links, and atomic recipient redemption.
+- Signed referral links and email-invite records that bring a new account to
+  ten starter credits and grant the referrer ten credits only after the
+  referred account's first accepted physical send.
 - Exact-quantity address validation and provider-neutral mock/Scribeless
   fulfillment with durable attempts and monotonic polling reconciliation.
 - Hashed, unguessable printed QR tokens and a non-indexed public keepsake API
@@ -507,9 +515,10 @@ existing ownership, idempotency, moderation, or server-authoritative rules.
 Order confirmation and shipped/delivered transactional delivery is implemented
 with PII-minimized persistence and idempotent signed provider callbacks.
 Cognito remains the owner of account verification and password recovery.
-Define explicit authenticated support/referral workflows and approved templates
-before adding those message types; keep recipient/card content out of logs,
-analytics, outbox payloads, and callback storage.
+Gift/referral product workflows are defined and use mock delivery state. Add
+reviewed provider templates before enabling real invitation delivery; keep
+recipient/card content out of logs, analytics, callbacks, and generic order
+notification payloads.
 
 ### Analytics and Observability
 
@@ -531,7 +540,7 @@ controls; no generic mutation or arbitrary-query surface should be added.
 ### Backend Definition of Done
 
 The local MVP backend foundation is complete when migrations `001` through
-`012`, the pricing seed, mock flow, unit/e2e tests, and production builds pass.
+`016`, the pricing seed, mock flow, unit/e2e tests, and production builds pass.
 Production launch readiness additionally requires the credentialed staging
 checks and operational controls above; passing mock-mode tests alone does not
 prove external-provider readiness.

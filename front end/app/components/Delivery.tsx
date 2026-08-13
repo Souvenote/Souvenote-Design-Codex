@@ -52,9 +52,9 @@ import type {
   DeliveryRecipient,
   DeliveryWhen,
 } from "./DeliveryForm";
-import { readDemoBalance, useDemoBalance } from "./DemoBalance";
-import type { DemoBalance } from "./DemoBalance";
 import type { DemoCredits, DemoUser } from "./DemoUser";
+import { useCardEntitlementBalance } from "../lib/cardEntitlementBalance";
+import { useCreditBalance } from "../lib/creditBalance";
 import { rememberPricingReturn } from "./PricingReturn";
 import {
   addPricingCartItemToCart,
@@ -114,6 +114,7 @@ type DlvCardTopUpModalProps = {
   open: boolean;
   onClose: () => void;
   onReserve: (quantity: number) => void;
+  onPayDirect: () => void;
 };
 
 type DeliveryAppProps = {
@@ -124,7 +125,6 @@ type DeliveryAppProps = {
 
 declare global {
   interface Window {
-    __dlvSetCards?: React.Dispatch<React.SetStateAction<number>>;
     __dlvOpenCheckout?: () => void;
   }
 }
@@ -358,6 +358,7 @@ function DlvCardTopUpModal({
   open,
   onClose,
   onReserve,
+  onPayDirect,
 }: DlvCardTopUpModalProps) {
   const [qty, setQty] = React.useState(MIN_BIG_SENDER_CARDS);
 
@@ -405,7 +406,10 @@ function DlvCardTopUpModal({
             Choose between Bulk, multi or single sends at delivery
           </li>
           <li className="dlv-card-topup-subline">
-            Each card comes with 10 creation credits
+            Printing and standard delivery are already included with every card
+          </li>
+          <li className="dlv-card-topup-subline">
+            Each card also comes with 10 creation credits
           </li>
         </ul>
 
@@ -477,10 +481,17 @@ function DlvCardTopUpModal({
             Reserve {qty} {qty === 1 ? "card" : "cards"} - ${pricing.totalText}{" "}
             <BmcIcon name="arrow" w={15} />
           </button>
+          <button
+            type="button"
+            className="bmc-cta-secondary"
+            onClick={onPayDirect}
+          >
+            Pay for this send instead
+          </button>
         </div>
         <p className="dlv-card-topup-fineprint">
-          Your creations will be saved in "Saved Cards &amp; Songs" upon
-          generation.
+          Using a card from your balance creates no additional printing,
+          shipping, or delivery charge.
         </p>
       </div>
     </div>
@@ -501,8 +512,6 @@ function dlvArrival(_shipping: string, when: DeliveryWhen, date: string) {
     return base.toLocaleDateString("en-CA", opts);
   return "~" + base.toLocaleDateString("en-CA", opts);
 }
-
-const DELIVERY_DEFAULT_CREDITS: DemoCredits = { images: 0, songs: 0 };
 
 function dlvRecipientName(recipient: DeliveryRecipient) {
   return [recipient.firstName, recipient.lastName]
@@ -581,14 +590,12 @@ function backendStatusLabel(status: string | null | undefined) {
 function DeliveryApp({
   user,
   initialCards = 0,
-  initialCredits = DELIVERY_DEFAULT_CREDITS,
 }: DeliveryAppProps) {
   const router = useRouter();
-  const defaultBalance: DemoBalance = React.useMemo(
-    () => ({ credits: initialCredits, cardBank: initialCards }),
-    [initialCards, initialCredits],
-  );
-  const demoBalance = useDemoBalance(defaultBalance);
+  const cardEntitlements = useCardEntitlementBalance({
+    fallbackBalance: initialCards,
+  });
+  const creditBalance = useCreditBalance();
 
   const [mode, setMode] = React.useState<DeliveryMode>("single");
   const [quantity, setQuantity] = React.useState(1);
@@ -605,7 +612,7 @@ function DeliveryApp({
   const [when, setWhen] = React.useState<DeliveryWhen>("now");
   const [date, setDate] = React.useState("");
   const [shipping, setShipping] = React.useState("standard");
-  const [cardBank, setCardBank] = React.useState(demoBalance.cardBank);
+  const cardBank = cardEntitlements.balance;
   const [song, setSong] = React.useState(false);
   const [flowState, setFlowState] = React.useState(() =>
     readMockMvpFlowState(),
@@ -632,10 +639,6 @@ function DeliveryApp({
   const [giftRecipientName, setGiftRecipientName] = React.useState("");
   const [giftRecipientContact, setGiftRecipientContact] = React.useState("");
 
-  React.useEffect(() => {
-    setCardBank(demoBalance.cardBank);
-  }, [demoBalance.cardBank]);
-
   const selectedImageAssetId =
     flowState.selectedAssetId ||
     findGeneratedImageAsset(flowState.generatedAssets)?.id ||
@@ -647,7 +650,9 @@ function DeliveryApp({
     flowState.cardDraftId && selectedImageAssetId,
   );
   const enough = hasBackendOrderInputs && cardsNeeded > 0;
-  const needsCardTopUp = false;
+  const needsCardTopUp =
+    cardEntitlements.status === "ready" &&
+    cardsNeeded > cardBank;
   const backendBusy = backendAction !== "idle";
   const carrier = dlvCountry(draft.country).carrier;
   const goToPricing = React.useCallback(() => {
@@ -655,16 +660,13 @@ function DeliveryApp({
   }, [router]);
 
   React.useEffect(() => {
-    const liveCardBank = readDemoBalance(defaultBalance).cardBank;
-
-    if (liveCardBank >= cardsNeeded && cardsNeeded > 0) {
-      setCardBank(liveCardBank);
+    if (cardBank >= cardsNeeded && cardsNeeded > 0) {
       setCardTopUpOpen(false);
       return;
     }
 
     if (needsCardTopUp && !sent) setCardTopUpOpen(true);
-  }, [cardsNeeded, defaultBalance, needsCardTopUp, sent]);
+  }, [cardBank, cardsNeeded, needsCardTopUp, sent]);
 
   React.useEffect(() => {
     const syncFlowState = () => setFlowState(readMockMvpFlowState());
@@ -772,15 +774,16 @@ function DeliveryApp({
 
   React.useEffect(() => {
     if (process.env.NODE_ENV !== "development") return;
-    window.__dlvSetCards = setCardBank;
     window.__dlvOpenCheckout = goToPricing;
     return () => {
-      delete window.__dlvSetCards;
       delete window.__dlvOpenCheckout;
     };
   }, [goToPricing]);
 
-  function buildSentOrder(order: Order): DeliveryOrder {
+  function buildSentOrder(
+    order: Order,
+    authoritativeCardsLeft = cardBank,
+  ): DeliveryOrder {
     const primary = mode === "single" ? draft : recipients[0];
     const toName =
       mode === "single"
@@ -796,7 +799,7 @@ function DeliveryApp({
       scheduled: when === "schedule",
       arrival: dlvArrival(shipping, when, date),
       cards: cardsNeeded,
-      cardsLeft: cardBank,
+      cardsLeft: authoritativeCardsLeft,
     };
   }
 
@@ -855,7 +858,10 @@ function DeliveryApp({
     return true;
   }
 
-  async function createOrderAndStartMockCheckout() {
+  async function createOrderAndStartMockCheckout(
+    fundingSource: "checkout" | "card_bank" =
+      cardBank >= cardsNeeded ? "card_bank" : "checkout",
+  ) {
     if (
       backendBusy ||
       !validateDeliveryInputs() ||
@@ -880,6 +886,7 @@ function DeliveryApp({
       const order = await createOrder({
         cardDraftId: flowState.cardDraftId,
         selectedAssetId: selectedImageAssetId,
+        fundingSource,
         quantity: cardsNeeded,
         recipientAddress: dlvPostalAddress(primaryRecipient),
         recipientAddresses: deliveryRecipients,
@@ -894,6 +901,11 @@ function DeliveryApp({
         orderStatus: order.status,
       });
 
+      if (fundingSource === "card_bank") {
+        await cardEntitlements.refresh();
+        return;
+      }
+
       setBackendAction("starting_checkout");
       const checkout = await startCheckout(order.id);
       setBackendOrder(checkout.order);
@@ -904,9 +916,21 @@ function DeliveryApp({
       const message =
         error instanceof Error
           ? error.message
-          : "The secure checkout flow could not start.";
+          : fundingSource === "card_bank"
+            ? "The prepaid delivery order could not be created."
+            : "The secure checkout flow could not start.";
       setBackendError(message);
-      bmcError(message, "Checkout failed");
+      bmcError(
+        message,
+        fundingSource === "card_bank" ? "Prepaid send failed" : "Checkout failed",
+      );
+      if (
+        fundingSource === "card_bank" &&
+        message.toLowerCase().includes("insufficient card entitlements")
+      ) {
+        await cardEntitlements.refresh();
+        setCardTopUpOpen(true);
+      }
     } finally {
       setBackendAction("idle");
     }
@@ -946,6 +970,12 @@ function DeliveryApp({
       const order = await fetchOrder(orderId);
       setBackendOrder(order);
       writeMockMvpFlowState({ orderId: order.id, orderStatus: order.status });
+      if (order.status === "paid" || order.status === "paid_mock") {
+        await Promise.all([
+          cardEntitlements.refresh(),
+          creditBalance.refresh(),
+        ]);
+      }
     } catch (error) {
       const message =
         error instanceof Error
@@ -983,6 +1013,10 @@ function DeliveryApp({
       setBackendOrder(checkout.order);
       setCheckoutSession(checkout.checkoutSession);
       rememberCheckoutResult(checkout.order, checkout.checkoutSession);
+      await Promise.all([
+        cardEntitlements.refresh(),
+        creditBalance.refresh(),
+      ]);
     } catch (error) {
       const message =
         error instanceof Error
@@ -1009,6 +1043,12 @@ function DeliveryApp({
         orderStatus: result.order.status,
         paymentId: result.payment.id,
       });
+      if (result.order.status === "paid") {
+        await Promise.all([
+          cardEntitlements.refresh(),
+          creditBalance.refresh(),
+        ]);
+      }
     } catch (error) {
       const message =
         error instanceof Error
@@ -1027,7 +1067,11 @@ function DeliveryApp({
     const currentStatus = order?.status || flowState.orderStatus;
     if (backendBusy || !orderId) return;
 
-    if (currentStatus !== "paid_mock" && currentStatus !== "paid") {
+    if (
+      currentStatus !== "paid_mock" &&
+      currentStatus !== "paid" &&
+      currentStatus !== "fulfillment_failed"
+    ) {
       const message = "Complete checkout before submitting fulfillment.";
       setBackendError(message);
       bmcError(message, "Checkout required");
@@ -1042,7 +1086,16 @@ function DeliveryApp({
       setBackendOrder(result.order);
       setFulfillment(result.fulfillment);
       rememberFulfillmentResult(result.order, result.fulfillment);
-      setSent(buildSentOrder(result.order));
+      const updatedBalance = await cardEntitlements.refresh();
+      setSent(
+        buildSentOrder(
+          result.order,
+          updatedBalance?.balance ??
+            (result.order.fundingSource === "card_bank"
+              ? cardBank
+              : Math.max(0, cardBank - cardsNeeded)),
+        ),
+      );
       router.push(deliveryConfirmationPath(result.order.id));
     } catch (error) {
       const message =
@@ -1067,6 +1120,7 @@ function DeliveryApp({
       setBackendOrder(result.order);
       setFulfillment(result.fulfillment);
       rememberFulfillmentResult(result.order, result.fulfillment);
+      await cardEntitlements.refresh();
     } catch (error) {
       const message =
         error instanceof Error
@@ -1091,7 +1145,11 @@ function DeliveryApp({
       return;
     }
 
-    if (orderStatus === "paid_mock" || orderStatus === "paid") {
+    if (
+      orderStatus === "paid_mock" ||
+      orderStatus === "paid" ||
+      orderStatus === "fulfillment_failed"
+    ) {
       void submitMockFulfillment();
       return;
     }
@@ -1139,6 +1197,23 @@ function DeliveryApp({
   }
 
   function handleSend() {
+    if (
+      cardEntitlements.status === "loading" ||
+      cardEntitlements.status === "idle"
+    ) {
+      bmcError(
+        "Your card balance is still loading. Try again in a moment.",
+        "Card balance loading",
+      );
+      return;
+    }
+    if (cardEntitlements.status === "error") {
+      bmcError(
+        cardEntitlements.error || "Your card balance could not be loaded.",
+        "Card balance unavailable",
+      );
+      return;
+    }
     if (needsCardTopUp) {
       setCardTopUpOpen(true);
       return;
@@ -1151,20 +1226,24 @@ function DeliveryApp({
       return;
     }
 
-    void createOrderAndStartMockCheckout();
+    void createOrderAndStartMockCheckout("card_bank");
   }
 
   function keepGiftForLaterAndSend() {
     setGiftModalOpen(false);
     setGiftReminderDismissed(true);
-    void createOrderAndStartMockCheckout();
+    void createOrderAndStartMockCheckout(
+      cardBank >= cardsNeeded ? "card_bank" : "checkout",
+    );
   }
 
   function saveGiftRecipientAndSend() {
     consumeBlankSouvenoteGift();
     setGiftModalOpen(false);
     setGiftReminderDismissed(true);
-    void createOrderAndStartMockCheckout();
+    void createOrderAndStartMockCheckout(
+      cardBank >= cardsNeeded ? "card_bank" : "checkout",
+    );
   }
 
   function reserveCardsForDelivery(quantity: number) {
@@ -1196,6 +1275,8 @@ function DeliveryApp({
       return "Confirm send & capture payment";
     if (orderStatus === "paid_mock" || orderStatus === "paid")
       return "Submit fulfillment";
+    if (orderStatus === "fulfillment_failed")
+      return "Retry fulfillment";
     if (
       [
         "fulfillment_started",
@@ -1400,6 +1481,15 @@ function DeliveryApp({
         open={cardTopUpOpen}
         onClose={() => setCardTopUpOpen(false)}
         onReserve={reserveCardsForDelivery}
+        onPayDirect={() => {
+          setCardTopUpOpen(false);
+          if (!validateDeliveryInputs()) return;
+          if (blankGiftCount > 0) {
+            setGiftModalOpen(true);
+            return;
+          }
+          void createOrderAndStartMockCheckout("checkout");
+        }}
       />
       <BmcErrorModal />
     </>

@@ -8,7 +8,8 @@ import {
   type DatabaseTransaction,
 } from '../database/database.service';
 import { PricingService } from '../pricing/pricing.service';
-import { CreateOrderDto } from './orders.controller';
+import { CardEntitlementsService } from '../card-entitlements/card-entitlements.service';
+import { CreateOrderDto, PostalAddressDto } from './orders.controller';
 
 export type OrderStatus =
   | 'pending'
@@ -51,6 +52,9 @@ export type OrderRow = {
   payment_id: string | null;
   fulfillment_job_id: string | null;
   fulfillment_status_updated_at: Date | string | null;
+  funding_source?: 'checkout' | 'card_bank';
+  card_entitlements_reserved_at?: Date | string | null;
+  card_entitlements_released_at?: Date | string | null;
   created_at: Date | string;
   updated_at: Date | string;
 };
@@ -60,6 +64,7 @@ export class OrdersService {
   constructor(
     private readonly databaseService: DatabaseService,
     private readonly pricingService: PricingService,
+    private readonly cardEntitlementsService: CardEntitlementsService,
   ) {}
 
   async createOrder(userId: string, dto: CreateOrderDto) {
@@ -76,6 +81,14 @@ export class OrdersService {
     if (recipientAddresses.length !== quantity) {
       throw new BadRequestException(
         'The number of recipient addresses must match the priced order quantity.',
+      );
+    }
+    if (dto.fundingSource === 'card_bank') {
+      return this.createCardBankOrder(
+        userId,
+        dto,
+        quantity,
+        recipientAddresses,
       );
     }
     const offer = await this.pricingService.resolveOrderOffer(
@@ -366,6 +379,13 @@ export class OrdersService {
       createdAt: this.toIso(row.created_at),
       updatedAt: this.toIso(row.updated_at),
       fulfillmentStatusUpdatedAt: this.toIso(row.fulfillment_status_updated_at),
+      fundingSource: row.funding_source ?? 'checkout',
+      cardEntitlementsReservedAt: this.toIso(
+        row.card_entitlements_reserved_at ?? null,
+      ),
+      cardEntitlementsReleasedAt: this.toIso(
+        row.card_entitlements_released_at ?? null,
+      ),
     };
   }
 
@@ -391,6 +411,9 @@ export class OrdersService {
       payment_id,
       fulfillment_job_id,
       fulfillment_status_updated_at,
+      funding_source,
+      card_entitlements_reserved_at,
+      card_entitlements_released_at,
       created_at,
       updated_at
     `;
@@ -452,6 +475,156 @@ export class OrdersService {
     }
 
     return result.rows[0];
+  }
+
+  async markCardEntitlementsReserved(
+    orderId: string,
+    transaction: DatabaseTransaction,
+  ) {
+    const result = await transaction.query<OrderRow>(
+      `
+        UPDATE orders
+        SET
+          card_entitlements_reserved_at = NOW(),
+          card_entitlements_released_at = NULL,
+          updated_at = NOW()
+        WHERE id = $1
+          AND funding_source = 'card_bank'
+        RETURNING ${this.orderColumns};
+      `,
+      [orderId],
+    );
+    if (!result.rows[0]) {
+      throw new NotFoundException('Prepaid order not found.');
+    }
+    return result.rows[0];
+  }
+
+  async markCardEntitlementsReleased(
+    orderId: string,
+    transaction: DatabaseTransaction,
+  ) {
+    const result = await transaction.query<OrderRow>(
+      `
+        UPDATE orders
+        SET
+          card_entitlements_released_at = COALESCE(
+            card_entitlements_released_at,
+            NOW()
+          ),
+          updated_at = NOW()
+        WHERE id = $1
+          AND funding_source = 'card_bank'
+        RETURNING ${this.orderColumns};
+      `,
+      [orderId],
+    );
+    return result.rows[0];
+  }
+
+  private async createCardBankOrder(
+    userId: string,
+    dto: CreateOrderDto,
+    quantity: number,
+    recipientAddresses: PostalAddressDto[],
+  ) {
+    const pricingSnapshot = {
+      offerCode: 'prepaid_card_delivery',
+      name: 'Prepaid card delivery',
+      type: 'prepaid_card_delivery',
+      unitAmountCents: 0,
+      quantity,
+      totalAmountCents: 0,
+      currency: 'cad',
+      creditsPerCard: 0,
+      shippingIncluded: true,
+      printingIncluded: true,
+      fundingSource: 'card_bank',
+      source: 'card_entitlement_ledger',
+    };
+
+    const row = await this.databaseService.withTransaction(
+      async (transaction) => {
+        const result = await transaction.query<OrderRow>(
+          `
+            INSERT INTO orders (
+              user_id,
+              card_draft_id,
+              selected_asset_id,
+              status,
+              recipient_address,
+              recipient_addresses,
+              sender_address,
+              qr_code_url,
+              offer_code,
+              amount_cents,
+              currency,
+              quantity,
+              pricing_snapshot,
+              funding_source,
+              card_entitlements_reserved_at
+            )
+            VALUES (
+              $1,
+              $2,
+              $3,
+              'paid',
+              $4::jsonb,
+              $5::jsonb,
+              $6::jsonb,
+              $7,
+              'prepaid_card_delivery',
+              0,
+              'cad',
+              $8,
+              $9::jsonb,
+              'card_bank',
+              NOW()
+            )
+            RETURNING ${this.orderColumns};
+          `,
+          [
+            userId,
+            dto.cardDraftId,
+            dto.selectedAssetId,
+            JSON.stringify(recipientAddresses[0] ?? {}),
+            JSON.stringify(recipientAddresses),
+            JSON.stringify(dto.senderAddress),
+            `mock://souvenote/qr/${dto.selectedAssetId}`,
+            quantity,
+            JSON.stringify(pricingSnapshot),
+          ],
+        );
+        const order = result.rows[0];
+        await this.cardEntitlementsService.deductInTransaction(
+          transaction,
+          userId,
+          quantity,
+          `order:${order.id}`,
+          `order:${order.id}:card-bank-reservation`,
+        );
+        await transaction.query(
+          `
+            INSERT INTO audit_logs (
+              user_id, action, entity_type, entity_id, metadata
+            )
+            VALUES ($1, 'card_bank_order_funded', 'order', $2, $3::jsonb);
+          `,
+          [
+            userId,
+            order.id,
+            JSON.stringify({
+              quantity,
+              amountChargedCents: 0,
+              printingIncluded: true,
+              shippingIncluded: true,
+            }),
+          ],
+        );
+        return order;
+      },
+    );
+    return { order: this.toOrderResponse(row) };
   }
 
   private async ensureCardDraftExists(userId: string, cardDraftId: string) {

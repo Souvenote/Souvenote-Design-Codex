@@ -11,6 +11,7 @@ const request: CheckoutSessionRequest = {
   localPaymentId: 'payment-a',
   orderId: 'order-a',
   creditPackPurchaseId: null,
+  cardPackPurchaseId: null,
   userId: 'user-a',
   customerId: null,
   customerEmail: 'user@example.com',
@@ -124,6 +125,48 @@ describe('StripeCheckoutProvider', () => {
     await expect(provider.createSession(request)).rejects.toBeInstanceOf(
       InternalServerErrorException,
     );
+  });
+
+  it('reconciles a card-pack session with dedicated Stripe metadata', async () => {
+    createSession.mockResolvedValue(
+      asSessionResponse({
+        id: 'cs_card_a',
+        url: 'https://checkout.stripe.com/c/pay/cs_card_a',
+        payment_intent: null,
+        expires_at: 1_800_000_000,
+        status: 'open',
+        payment_status: 'unpaid',
+        amount_subtotal: 4495,
+        amount_total: 4495,
+        currency: 'cad',
+      }),
+    );
+    await provider.createSession({
+      ...request,
+      orderId: null,
+      cardPackPurchaseId: 'card-purchase-a',
+      offerCode: 'big_sender_2_10',
+      productName: 'Big Sender 2-10 Cards',
+      unitAmountCents: 899,
+      totalAmountCents: 4495,
+      quantity: 5,
+      currency: 'cad',
+      captureMethod: 'automatic_async',
+    });
+
+    expect(createSession.mock.calls[0]?.[0]).toMatchObject({
+      client_reference_id: 'card-purchase-a',
+      metadata: {
+        souvenotePaymentId: 'payment-a',
+        souvenoteCardPackPurchaseId: 'card-purchase-a',
+      },
+      line_items: [
+        {
+          quantity: 5,
+          price_data: { currency: 'cad', unit_amount: 899 },
+        },
+      ],
+    });
   });
 
   it('verifies webhook signatures against the raw request body', () => {

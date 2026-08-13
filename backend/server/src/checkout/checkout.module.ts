@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { CreditsModule } from '../credits/credits.module';
+import { CardEntitlementsModule } from '../card-entitlements/card-entitlements.module';
 import { OrdersModule } from '../orders/orders.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { PricingModule } from '../pricing/pricing.module';
@@ -14,9 +15,17 @@ import {
   StripeCheckoutProvider,
 } from './stripe-checkout.provider';
 import { AuthorizationFinalizationWorker } from './authorization-finalization.worker';
+import { GiftsModule } from '../gifts/gifts.module';
 
 @Module({
-  imports: [OrdersModule, NotificationsModule, CreditsModule, PricingModule],
+  imports: [
+    OrdersModule,
+    NotificationsModule,
+    CreditsModule,
+    CardEntitlementsModule,
+    PricingModule,
+    GiftsModule,
+  ],
   controllers: [CheckoutController],
   providers: [
     CheckoutService,

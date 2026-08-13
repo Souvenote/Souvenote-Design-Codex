@@ -28,6 +28,11 @@ export type CreditBalance = {
   balance: number;
 };
 
+export type CardEntitlementBalance = {
+  userId: string;
+  balance: number;
+};
+
 export type CardDraft = {
   id: string;
   user_id: string;
@@ -172,6 +177,7 @@ export type PostalAddress = {
 export type CreateOrderRequest = {
   cardDraftId: string;
   selectedAssetId: string;
+  fundingSource?: "checkout" | "card_bank";
   offerCode?: string;
   quantity?: number;
   recipientAddress: PostalAddress;
@@ -202,6 +208,9 @@ export type Order = {
   createdAt?: string | null;
   updatedAt?: string | null;
   fulfillmentStatusUpdatedAt?: string | null;
+  fundingSource?: "checkout" | "card_bank";
+  cardEntitlementsReservedAt?: string | null;
+  cardEntitlementsReleasedAt?: string | null;
 };
 
 type OrderResponse = {
@@ -266,6 +275,96 @@ export type CreditPackCheckoutResponse = {
 export type CreditPackPurchaseResponse = {
   purchase: CreditPackPurchase;
   balance: CreditBalance;
+};
+
+export type CardPackPurchase = {
+  id: string;
+  offerCode: string;
+  status: string;
+  amountCents: number;
+  currency: string;
+  cardAmount: number;
+  creditAmount: number;
+  checkoutSessionId?: string | null;
+  paymentId?: string | null;
+  giftPurchaseId?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+};
+
+export type GiftClaim = {
+  id: string;
+  claimToken: string;
+  redemptionPath: string;
+  cardAmount: number;
+  creditAmount: number;
+  printingIncluded: boolean;
+  standardDeliveryIncluded: boolean;
+};
+
+export type GiftRecord = {
+  id: string;
+  status: string;
+  recipientName: string;
+  recipientContact?: string;
+  personalMessage?: string | null;
+  cardAmount: number;
+  creditAmount: number;
+  printingIncluded: boolean;
+  standardDeliveryIncluded: boolean;
+  deliveryMethod?: "email" | "text";
+  deliveryStatus?: string;
+  claimToken?: string;
+  redemptionPath?: string;
+  senderName?: string;
+  redeemedAt?: string | null;
+  createdAt?: string | null;
+};
+
+export type CardPackCheckoutSession = Omit<CheckoutSession, "orderId"> & {
+  cardPackPurchaseId: string;
+};
+
+export type CardPackCheckoutResponse = {
+  checkoutSession: CardPackCheckoutSession;
+  purchase: CardPackPurchase;
+  cardBalance?: CardEntitlementBalance;
+  creditBalance?: CreditBalance;
+  gift?: GiftClaim | null;
+  idempotentReplay?: boolean;
+};
+
+export type ReferralProgram = {
+  inviteeStarterCreditsTotal: number;
+  inviteeReferralBonusCredits: number;
+  referrerRewardCredits: number;
+  referrerQualification: "first_physical_send";
+};
+
+export type ReferralInvite = {
+  id: string;
+  invitedEmail: string | null;
+  status: "invited" | "claimed" | "rewarded" | "canceled";
+  deliveryStatus: string;
+  inviteeStarterCreditsTotal: number;
+  referrerRewardCredits: number;
+  token: string;
+  path: string;
+  claimedAt?: string | null;
+  rewardedAt?: string | null;
+  createdAt?: string | null;
+};
+
+export type ReferralDashboard = {
+  program: ReferralProgram;
+  referral: { token: string; path: string };
+  invites: ReferralInvite[];
+  earnedCredits: number;
+};
+
+export type CardPackPurchaseResponse = {
+  purchase: CardPackPurchase;
+  balance: CardEntitlementBalance;
 };
 
 export type AuthorizationFinalizationResponse = {
@@ -626,6 +725,36 @@ export async function fetchCreditBalance(): Promise<CreditBalance> {
   return {
     userId: payload.userId,
     balance: payload.balance,
+  };
+}
+
+export async function fetchCardEntitlementBalance(): Promise<CardEntitlementBalance> {
+  const response = await fetch(`${API_BASE_URL}/card-entitlements/balance`, {
+    cache: "no-store",
+    headers: await buildApiHeaders(),
+  });
+
+  if (!response.ok) {
+    const message = await readErrorMessage(
+      response,
+      `Card balance request failed with status ${response.status}.`,
+    );
+    throw new Error(message);
+  }
+
+  const payload = (await response.json()) as Partial<CardEntitlementBalance>;
+  if (
+    typeof payload.userId !== "string" ||
+    typeof payload.balance !== "number" ||
+    !Number.isFinite(payload.balance) ||
+    payload.balance < 0
+  ) {
+    throw new Error("Card balance response did not include a valid balance.");
+  }
+
+  return {
+    userId: payload.userId,
+    balance: Math.floor(payload.balance),
   };
 }
 
@@ -1003,6 +1132,7 @@ function assertGenerationSucceeded(payload: GenerationStartResponse) {
 export async function createOrder({
   cardDraftId,
   selectedAssetId,
+  fundingSource,
   offerCode,
   quantity,
   recipientAddress,
@@ -1015,6 +1145,7 @@ export async function createOrder({
     body: JSON.stringify({
       cardDraftId,
       selectedAssetId,
+      ...(fundingSource ? { fundingSource } : {}),
       ...(offerCode ? { offerCode } : {}),
       ...(quantity ? { quantity } : {}),
       recipientAddress,
@@ -1235,6 +1366,233 @@ export async function fetchCreditPackPurchase(
     throw new Error("Credit-pack purchase lookup response was incomplete.");
   }
   return payload as CreditPackPurchaseResponse;
+}
+
+export async function startCardPackCheckout(
+  offerCode: string,
+  quantity: number,
+  idempotencyKey: string,
+  gift?: {
+    recipientName: string;
+    recipientContact: string;
+    deliveryMethod: "email" | "text";
+    personalMessage?: string;
+  },
+): Promise<CardPackCheckoutResponse> {
+  const response = await fetch(`${API_BASE_URL}/checkout/card-packs/start`, {
+    method: "POST",
+    headers: await buildApiHeaders(undefined, true),
+    body: JSON.stringify({
+      offerCode,
+      quantity,
+      idempotencyKey,
+      ...(gift ?? {}),
+    }),
+  });
+  if (!response.ok) {
+    const message = await readErrorMessage(
+      response,
+      `Card-pack checkout failed with status ${response.status}.`,
+    );
+    throw new Error(message);
+  }
+  const payload = (await response.json()) as Partial<CardPackCheckoutResponse>;
+  if (
+    !payload.checkoutSession?.id ||
+    !payload.purchase?.id ||
+    payload.checkoutSession.cardPackPurchaseId !== payload.purchase.id
+  ) {
+    throw new Error(
+      "Card-pack checkout response did not include a matching purchase and session.",
+    );
+  }
+  return payload as CardPackCheckoutResponse;
+}
+
+export async function startGiftCheckout(
+  gift: {
+    recipientName: string;
+    recipientContact: string;
+    deliveryMethod: "email" | "text";
+    personalMessage?: string;
+  },
+  idempotencyKey: string,
+) {
+  const result = await startCardPackCheckout(
+    "gift_souvenote_one_card",
+    1,
+    idempotencyKey,
+    gift,
+  );
+  if (!result.gift?.claimToken) {
+    throw new Error("Gift checkout did not return a redemption link.");
+  }
+  return result;
+}
+
+export async function fetchOwnedGifts(): Promise<GiftRecord[]> {
+  const response = await fetch(`${API_BASE_URL}/gifts`, {
+    method: "GET",
+    headers: await buildApiHeaders(),
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response, "Could not load gifts."));
+  }
+  const payload = (await response.json()) as { gifts?: GiftRecord[] };
+  if (!Array.isArray(payload.gifts)) {
+    throw new Error("Gift list response was incomplete.");
+  }
+  return payload.gifts;
+}
+
+export async function previewGift(token: string): Promise<GiftRecord> {
+  const response = await fetch(
+    `${API_BASE_URL}/gifts/claim/${encodeURIComponent(token)}`,
+    { method: "GET", cache: "no-store", referrerPolicy: "no-referrer" },
+  );
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response, "This gift is unavailable."));
+  }
+  const payload = (await response.json()) as { gift?: GiftRecord };
+  if (!payload.gift?.id) throw new Error("Gift response was incomplete.");
+  return payload.gift;
+}
+
+export async function redeemGift(token: string) {
+  const response = await fetch(
+    `${API_BASE_URL}/gifts/claim/${encodeURIComponent(token)}/redeem`,
+    { method: "POST", headers: await buildApiHeaders(undefined, true) },
+  );
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response, "Could not redeem this gift."));
+  }
+  return response.json() as Promise<{
+    gift: GiftRecord;
+    cardBalance?: CardEntitlementBalance;
+    creditBalance?: CreditBalance;
+    idempotentReplay: boolean;
+  }>;
+}
+
+export async function fetchReferralDashboard(): Promise<ReferralDashboard> {
+  const response = await fetch(`${API_BASE_URL}/referrals/me`, {
+    method: "GET",
+    headers: await buildApiHeaders(),
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response, "Could not load referrals."));
+  }
+  const payload = (await response.json()) as Partial<ReferralDashboard>;
+  if (!payload.referral?.token || !payload.program || !Array.isArray(payload.invites)) {
+    throw new Error("Referral dashboard response was incomplete.");
+  }
+  return payload as ReferralDashboard;
+}
+
+export async function createReferralInvite(
+  email: string,
+  idempotencyKey: string,
+) {
+  const response = await fetch(`${API_BASE_URL}/referrals/invites`, {
+    method: "POST",
+    headers: await buildApiHeaders(undefined, true),
+    body: JSON.stringify({ email, idempotencyKey }),
+  });
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response, "Could not create the invite."));
+  }
+  const payload = (await response.json()) as {
+    invite?: ReferralInvite;
+    idempotentReplay?: boolean;
+  };
+  if (!payload.invite?.id) throw new Error("Referral invite response was incomplete.");
+  return payload as { invite: ReferralInvite; idempotentReplay: boolean };
+}
+
+export async function previewReferral(token: string) {
+  const response = await fetch(
+    `${API_BASE_URL}/referrals/claim/${encodeURIComponent(token)}`,
+    { method: "GET", cache: "no-store", referrerPolicy: "no-referrer" },
+  );
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response, "This referral is unavailable."));
+  }
+  return response.json() as Promise<{
+    referral: { senderName: string; program: ReferralProgram };
+  }>;
+}
+
+export async function claimReferral(token: string) {
+  const response = await fetch(
+    `${API_BASE_URL}/referrals/claim/${encodeURIComponent(token)}`,
+    { method: "POST", headers: await buildApiHeaders(undefined, true) },
+  );
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response, "Could not claim this referral."));
+  }
+  return response.json() as Promise<{
+    referral: ReferralInvite;
+    creditBalance: CreditBalance;
+    idempotentReplay: boolean;
+  }>;
+}
+
+export async function completeMockCardPackCheckout(
+  purchaseId: string,
+  checkoutSessionId?: string,
+): Promise<CardPackCheckoutResponse> {
+  const response = await fetch(
+    `${API_BASE_URL}/checkout/card-packs/mock-success`,
+    {
+      method: "POST",
+      headers: await buildApiHeaders(undefined, true),
+      body: JSON.stringify({
+        purchaseId,
+        ...(checkoutSessionId ? { checkoutSessionId } : {}),
+      }),
+    },
+  );
+  if (!response.ok) {
+    const message = await readErrorMessage(
+      response,
+      `Mock card-pack completion failed with status ${response.status}.`,
+    );
+    throw new Error(message);
+  }
+  const payload = (await response.json()) as Partial<CardPackCheckoutResponse>;
+  if (!payload.purchase?.id || payload.purchase.status !== "paid") {
+    throw new Error(
+      "Mock card-pack completion did not return a paid purchase.",
+    );
+  }
+  return payload as CardPackCheckoutResponse;
+}
+
+export async function fetchCardPackPurchase(
+  purchaseId: string,
+): Promise<CardPackPurchaseResponse> {
+  const response = await fetch(
+    `${API_BASE_URL}/card-entitlements/purchases/${encodeURIComponent(purchaseId)}`,
+    {
+      method: "GET",
+      headers: await buildApiHeaders(),
+      cache: "no-store",
+    },
+  );
+  if (!response.ok) {
+    const message = await readErrorMessage(
+      response,
+      `Card-pack purchase lookup failed with status ${response.status}.`,
+    );
+    throw new Error(message);
+  }
+  const payload = (await response.json()) as Partial<CardPackPurchaseResponse>;
+  if (!payload.purchase?.id || !payload.balance) {
+    throw new Error("Card-pack purchase lookup response was incomplete.");
+  }
+  return payload as CardPackPurchaseResponse;
 }
 
 export async function finalizeCheckoutAuthorization(

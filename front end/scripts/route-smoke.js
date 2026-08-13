@@ -42,6 +42,7 @@ const expectedOkRoutes = [
   "/gift",
   "/gift/redeem",
   "/refer",
+  `/r/u.${"0".repeat(8)}-${"0".repeat(4)}-4000-8000-${"0".repeat(12)}.${"a".repeat(64)}`,
   "/faq",
   "/contact",
   "/legal/privacy-policy",

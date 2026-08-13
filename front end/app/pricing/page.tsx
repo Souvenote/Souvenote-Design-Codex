@@ -1,7 +1,7 @@
 import { Footer } from "../components/Footer";
 import { DemoNavbar } from "../components/DemoNavbar";
 import { OrnamentDivider } from "../components/Ornaments";
-import { BackButton, CardPacks, CreditPacks } from "../components/Options";
+import { BackButton, CardPacks, CreditPacks, RiskFreeCallout } from "../components/Options";
 import { PageChrome } from "../components/PageChrome";
 
 export default function PricingPage() {
@@ -14,6 +14,8 @@ export default function PricingPage() {
           <CardPacks />
           <OrnamentDivider />
           <CreditPacks currency="CAD" />
+          <OrnamentDivider />
+          <RiskFreeCallout />
           <BackButton href="/create" label="Back to options" />
         </main>
         <Footer />

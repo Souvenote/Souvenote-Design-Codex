@@ -4,7 +4,7 @@ This runbook verifies the local Phase 1 flow through the protected API.
 
 ## Prerequisites
 
-- Apply database migrations `001` through `012` plus the pricing seed.
+- Apply database migrations `001` through `016` plus the pricing seed.
 - Configure PostgreSQL and Cognito in `backend/server/.env.local`.
 - Set `AI_MOCK_MODE=true`.
 - Set `UPLOAD_PROVIDER_MODE=mock` for this no-network runbook.

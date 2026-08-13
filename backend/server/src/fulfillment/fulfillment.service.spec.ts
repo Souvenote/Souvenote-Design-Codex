@@ -1,5 +1,6 @@
 import { BadGatewayException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { CardEntitlementsService } from '../card-entitlements/card-entitlements.service';
 import {
   DatabaseService,
   type DatabaseTransaction,
@@ -95,6 +96,8 @@ describe('FulfillmentService', () => {
   const markFulfillmentStarted = jest.fn();
   const markFulfilledMock = jest.fn();
   const markFulfillmentState = jest.fn();
+  const markCardEntitlementsReserved = jest.fn();
+  const markCardEntitlementsReleased = jest.fn();
   const toOrderResponse = jest.fn((order: OrderRow) => ({
     id: order.id,
     status: order.status,
@@ -106,6 +109,8 @@ describe('FulfillmentService', () => {
     markFulfillmentStarted,
     markFulfilledMock,
     markFulfillmentState,
+    markCardEntitlementsReserved,
+    markCardEntitlementsReleased,
     toOrderResponse,
   } as unknown as OrdersService;
 
@@ -124,6 +129,8 @@ describe('FulfillmentService', () => {
   } as unknown as FulfillmentProviderRegistry;
   const createReadUrl = jest.fn();
   const enqueueOrderNotification = jest.fn();
+  const deductInTransaction = jest.fn();
+  const refundOnceInTransaction = jest.fn();
   const service = new FulfillmentService(
     databaseService,
     ordersService,
@@ -132,6 +139,10 @@ describe('FulfillmentService', () => {
     { get: jest.fn() } as unknown as ConfigService,
     { getOrCreateToken: jest.fn() } as unknown as PublicCardLinksService,
     { enqueueOrderNotification } as unknown as NotificationsService,
+    {
+      deductInTransaction,
+      refundOnceInTransaction,
+    } as unknown as CardEntitlementsService,
   );
 
   beforeEach(() => {
@@ -144,6 +155,8 @@ describe('FulfillmentService', () => {
     markFulfillmentStarted.mockReset();
     markFulfilledMock.mockReset();
     markFulfillmentState.mockReset();
+    markCardEntitlementsReserved.mockReset();
+    markCardEntitlementsReleased.mockReset();
     toOrderResponse.mockClear();
     submit.mockReset();
     fetchStatus.mockReset();
@@ -151,6 +164,8 @@ describe('FulfillmentService', () => {
     getProvider.mockClear();
     createReadUrl.mockReset();
     enqueueOrderNotification.mockReset().mockResolvedValue(undefined);
+    deductInTransaction.mockReset().mockResolvedValue(undefined);
+    refundOnceInTransaction.mockReset().mockResolvedValue(undefined);
     findOrderRowForUpdate.mockResolvedValue(paidOrder);
     markFulfillmentStarted.mockResolvedValue({
       ...paidOrder,
@@ -247,6 +262,133 @@ describe('FulfillmentService', () => {
     expect(transactionQuery).toHaveBeenCalledWith(
       expect.stringContaining('WHEN $6::text IN'),
       expect.any(Array),
+    );
+    expect(deductInTransaction).toHaveBeenCalledWith(
+      transaction,
+      'user-a',
+      2,
+      'order:order-a',
+      'fulfillment:fulfillment-a:deduct',
+    );
+    expect(refundOnceInTransaction).not.toHaveBeenCalled();
+  });
+
+  it('does not charge delivery or deduct a second time for an active prepaid reservation', async () => {
+    const prepaidOrder = {
+      ...paidOrder,
+      status: 'paid' as const,
+      amount_cents: 0,
+      funding_source: 'card_bank' as const,
+      card_entitlements_reserved_at: '2026-08-12T12:00:00.000Z',
+      card_entitlements_released_at: null,
+    };
+    findOrderRowForUpdate.mockResolvedValueOnce(prepaidOrder);
+    transactionQuery
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [{ attempt_number: 1 }] })
+      .mockResolvedValueOnce({ rows: [creatingFulfillment] })
+      .mockResolvedValueOnce({ rows: [] });
+    markFulfillmentStarted.mockResolvedValueOnce({
+      ...prepaidOrder,
+      status: 'fulfillment_started',
+    });
+
+    await expect(
+      (
+        service as unknown as {
+          prepareSubmission: (
+            userId: string,
+            orderId: string,
+            provider: FulfillmentProvider,
+          ) => Promise<unknown>;
+        }
+      ).prepareSubmission('user-a', 'order-a', provider),
+    ).resolves.toMatchObject({ idempotentReplay: false });
+    expect(deductInTransaction).not.toHaveBeenCalled();
+    expect(markCardEntitlementsReserved).not.toHaveBeenCalled();
+  });
+
+  it('re-reserves a refunded prepaid card before a fulfillment retry', async () => {
+    const prepaidRetry = {
+      ...paidOrder,
+      status: 'fulfillment_failed' as const,
+      amount_cents: 0,
+      funding_source: 'card_bank' as const,
+      card_entitlements_reserved_at: '2026-08-12T12:00:00.000Z',
+      card_entitlements_released_at: '2026-08-12T12:05:00.000Z',
+    };
+    findOrderRowForUpdate.mockResolvedValueOnce(prepaidRetry);
+    transactionQuery
+      .mockResolvedValueOnce({
+        rows: [{ ...creatingFulfillment, status: 'failed' }],
+      })
+      .mockResolvedValueOnce({ rows: [{ attempt_number: 2 }] })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            ...creatingFulfillment,
+            id: 'fulfillment-b',
+            attempt_number: 2,
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ rows: [] });
+    markCardEntitlementsReserved.mockResolvedValueOnce({
+      ...prepaidRetry,
+      card_entitlements_released_at: null,
+    });
+
+    await (
+      service as unknown as {
+        prepareSubmission: (
+          userId: string,
+          orderId: string,
+          provider: FulfillmentProvider,
+        ) => Promise<unknown>;
+      }
+    ).prepareSubmission('user-a', 'order-a', provider);
+    expect(deductInTransaction).toHaveBeenCalledWith(
+      transaction,
+      'user-a',
+      2,
+      'order:order-a',
+      'fulfillment:fulfillment-b:deduct',
+    );
+    expect(markCardEntitlementsReserved).toHaveBeenCalledWith(
+      'order-a',
+      transaction,
+    );
+  });
+
+  it('returns a prepaid card after a definitive delivery failure', async () => {
+    const prepaidOrder = {
+      ...paidOrder,
+      funding_source: 'card_bank' as const,
+    };
+    await (
+      service as unknown as {
+        refundFulfillmentEntitlements: (
+          transaction: DatabaseTransaction,
+          order: OrderRow,
+          fulfillment: { id: string },
+        ) => Promise<unknown>;
+      }
+    ).refundFulfillmentEntitlements(
+      transaction,
+      prepaidOrder,
+      creatingFulfillment,
+    );
+
+    expect(refundOnceInTransaction).toHaveBeenCalledWith(
+      transaction,
+      'user-a',
+      2,
+      'order:order-a',
+      'fulfillment:fulfillment-a:refund',
+    );
+    expect(markCardEntitlementsReleased).toHaveBeenCalledWith(
+      'order-a',
+      transaction,
     );
   });
 
@@ -388,6 +530,68 @@ describe('FulfillmentService', () => {
     expect(transactionQuery).toHaveBeenCalledWith(
       expect.stringContaining('status = $2::text'),
       expect.any(Array),
+    );
+    expect(refundOnceInTransaction).not.toHaveBeenCalled();
+  });
+
+  it('refunds cards once after a definitive submission failure', async () => {
+    const failedFulfillment = {
+      ...creatingFulfillment,
+      status: 'failed',
+      failed_at: '2026-07-22T12:02:00.000Z',
+    } as const;
+    transactionQuery
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [{ attempt_number: 1 }] })
+      .mockResolvedValueOnce({ rows: [creatingFulfillment] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [failedFulfillment] })
+      .mockResolvedValueOnce({ rows: [] });
+    query
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            id: 'image-a',
+            asset_type: 'image',
+            s3_key: 'mock/image-a.png',
+            qr_metadata: {},
+            approved_at: '2026-07-22T11:00:00.000Z',
+            moderation_state: 'approved_mock',
+          },
+          {
+            id: 'message-a',
+            asset_type: 'message',
+            s3_key: 'mock/message-a.txt',
+            qr_metadata: { text: 'Happy birthday!' },
+            approved_at: '2026-07-22T11:00:00.000Z',
+            moderation_state: 'approved',
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ rows: [] });
+    submit.mockRejectedValue(new Error('Provider rejected the submission.'));
+    markFulfillmentState.mockResolvedValue({
+      ...paidOrder,
+      status: 'fulfillment_failed',
+    });
+
+    await expect(
+      service.submitFulfillment('user-a', { orderId: 'order-a' }),
+    ).rejects.toThrow('Provider rejected the submission.');
+
+    expect(deductInTransaction).toHaveBeenCalledWith(
+      transaction,
+      'user-a',
+      2,
+      'order:order-a',
+      'fulfillment:fulfillment-a:deduct',
+    );
+    expect(refundOnceInTransaction).toHaveBeenCalledWith(
+      transaction,
+      'user-a',
+      2,
+      'order:order-a',
+      'fulfillment:fulfillment-a:refund',
     );
   });
 

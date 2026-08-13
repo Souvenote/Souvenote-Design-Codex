@@ -48,11 +48,14 @@ type TemplateArt = {
 
 type Template = {
   id: string;
+  legacyIds?: string[];
   name: string;
   tag?: string;
   sub?: string;
   occasion: string;
   popular?: boolean;
+  releaseVersion?: 1 | 2;
+  photoMax?: number;
   art: TemplateArt;
   _pad?: boolean;
 };
@@ -148,17 +151,43 @@ type ReferenceImageUpload = {
 
 const CURRENT_CARD_DRAFT_ID_KEY = "souv_current_card_draft_id";
 
+function buildTemplateBrief(tmpl: Template): Record<string, unknown> {
+  return {
+    id: tmpl.id,
+    name: tmpl.name,
+    occasion: tmpl.occasion,
+    tag: tmpl.tag,
+    description: tmpl.sub,
+    orientation: "portrait",
+    releaseVersion: tmpl.releaseVersion ?? 1,
+    visualStylePolicy: "fixed",
+    referencePolicy: "Use uploaded photographs only to reproduce subject likeness inside the fixed template design.",
+    lockedElements: [
+      "portrait orientation",
+      "template visual style",
+      "template composition",
+      "template hierarchy",
+      "template decorative language",
+    ],
+    editableElements: [
+      "subject likeness or described subject",
+      "declared text slots",
+      "backend-verified factual data",
+    ],
+    photoPolicy: {
+      maxPhotos: tmpl.photoMax ?? 1,
+      descriptionFallback: true,
+    },
+  };
+}
+
 function buildTemplateDraftInput(tmpl: Template): PersonalizeDraftInput {
   return {
     occasion: tmpl.occasion,
     creativeBrief: {
       flow: "personalize_template",
-      template: {
-        id: tmpl.id,
-        name: tmpl.name,
-        occasion: tmpl.occasion,
-        tag: tmpl.tag,
-      },
+      orientation: "portrait",
+      template: buildTemplateBrief(tmpl),
     },
   };
 }
@@ -493,6 +522,8 @@ const TEMPLATES: Template[] = [
     tag: 'Anniversary · Just Because',
     sub: 'Your photos stitched into a short looping reel — motion, not a still.',
     occasion: 'Anniversary',
+    releaseVersion: 2,
+    photoMax: 6,
     art: {
       bg: 'radial-gradient(60% 70% at 50% 35%, #3a2c1c 0%, #1a130b 65%, #070504 100%)',
       eyebrow: 'REEL 01 · PLAY',
@@ -562,6 +593,7 @@ const TEMPLATES: Template[] = [
     tag: "Valentine's Day · Anniversary",
     sub: 'Two photos, one frame — a matched set made for the pair of you.',
     occasion: "Valentine's Day",
+    photoMax: 2,
     art: {
       bg: 'radial-gradient(55% 65% at 50% 40%, #c8506a 0%, #6a1024 60%, #240409 100%)',
       eyebrow: 'THE TWO OF US',
@@ -600,10 +632,11 @@ const TEMPLATES: Template[] = [
     },
   },
   {
-    id: 'wheres-waldo',
-    name: "Where's Waldo",
+    id: 'seek-and-find',
+    legacyIds: ['wheres-waldo'],
+    name: 'Seek-and-Find',
     tag: 'Birthday · Kids',
-    sub: 'A bustling seek-and-find scene with them hidden in the crowd.',
+    sub: 'An original bustling seek-and-find scene with them hidden in the crowd.',
     occasion: 'Birthday',
     art: {
       bg: 'radial-gradient(60% 70% at 50% 40%, #b53040 0%, #6a1018 60%, #2a060a 100%)',
@@ -620,6 +653,7 @@ const TEMPLATES: Template[] = [
     tag: 'Thank You',
     sub: 'A family recipe, hand-set on a kitchen card — passed along with love.',
     occasion: 'Thank You',
+    releaseVersion: 2,
     art: {
       bg: 'radial-gradient(60% 70% at 50% 45%, #f0e6d2 0%, #c8b496 55%, #6e5a40 100%)',
       eyebrow: 'FROM THE KITCHEN',
@@ -700,6 +734,7 @@ const TEMPLATES: Template[] = [
     tag: 'Just Because',
     sub: 'A gift made in their name to a cause they love — quietly anonymous.',
     occasion: 'Just Because',
+    releaseVersion: 2,
     art: {
       bg: 'radial-gradient(60% 70% at 50% 40%, #1f4035 0%, #0b1a16 65%, #040705 100%)',
       eyebrow: 'A GIFT, ANONYMOUS',
@@ -713,6 +748,7 @@ const TEMPLATES: Template[] = [
     tag: 'Just Because',
     sub: 'A short verse composed for them and set in elegant type.',
     occasion: 'Just Because',
+    releaseVersion: 2,
     art: {
       bg: 'radial-gradient(60% 70% at 50% 45%, #efe6d4 0%, #c4b290 55%, #6a5840 100%)',
       eyebrow: '— VERSE FOR YOU —',
@@ -761,24 +797,31 @@ const TEMPLATES: Template[] = [
   },
 ];
 
+const AVAILABLE_TEMPLATES = TEMPLATES.filter((template) => template.releaseVersion !== 2);
 const FEATURED_IDS = ['on-this-day','horoscope','comic-card','book-cover','mental-health','courtroom','couples-cards','fortune-cards','fairy-tale-kids','outline'];
 
+function findTemplateById(templateId: string): Template | undefined {
+  return TEMPLATES.find(
+    (template) => template.id === templateId || template.legacyIds?.includes(templateId),
+  );
+}
+
 const OCCASIONS: OccasionOption[] = [
-  { id: 'all',            label: 'All',             count: TEMPLATES.length },
-  { id: 'Birthday',       label: 'Birthday',        count: TEMPLATES.filter(t => t.occasion === 'Birthday').length },
-  { id: 'Christmas',      label: 'Christmas',       count: TEMPLATES.filter(t => t.occasion === 'Christmas').length },
-  { id: "Valentine's Day",label: "Valentine's Day", count: TEMPLATES.filter(t => t.occasion === "Valentine's Day").length },
-  { id: "Mother's Day",   label: "Mother's Day",    count: TEMPLATES.filter(t => t.occasion === "Mother's Day").length },
-  { id: 'Anniversary',    label: 'Anniversary',     count: TEMPLATES.filter(t => t.occasion === 'Anniversary').length },
-  { id: 'Wedding',        label: 'Wedding',         count: TEMPLATES.filter(t => t.occasion === 'Wedding').length },
-  { id: "Father's Day",   label: "Father's Day",    count: TEMPLATES.filter(t => t.occasion === "Father's Day").length },
-  { id: 'Thank You',      label: 'Thank You',       count: TEMPLATES.filter(t => t.occasion === 'Thank You').length },
-  { id: 'Graduation',     label: 'Graduation',      count: TEMPLATES.filter(t => t.occasion === 'Graduation').length },
-  { id: 'New Baby',       label: 'New Baby',        count: TEMPLATES.filter(t => t.occasion === 'New Baby').length },
-  { id: 'Congratulations',label: 'Congratulations', count: TEMPLATES.filter(t => t.occasion === 'Congratulations').length },
-  { id: 'Holiday',        label: 'Holiday',         count: TEMPLATES.filter(t => t.occasion === 'Holiday').length },
-  { id: 'Get Well',       label: 'Get Well',        count: TEMPLATES.filter(t => t.occasion === 'Get Well').length },
-  { id: 'Just Because',   label: 'Just Because',    count: TEMPLATES.filter(t => t.occasion === 'Just Because').length },
+  { id: 'all',            label: 'All',             count: AVAILABLE_TEMPLATES.length },
+  { id: 'Birthday',       label: 'Birthday',        count: AVAILABLE_TEMPLATES.filter(t => t.occasion === 'Birthday').length },
+  { id: 'Christmas',      label: 'Christmas',       count: AVAILABLE_TEMPLATES.filter(t => t.occasion === 'Christmas').length },
+  { id: "Valentine's Day",label: "Valentine's Day", count: AVAILABLE_TEMPLATES.filter(t => t.occasion === "Valentine's Day").length },
+  { id: "Mother's Day",   label: "Mother's Day",    count: AVAILABLE_TEMPLATES.filter(t => t.occasion === "Mother's Day").length },
+  { id: 'Anniversary',    label: 'Anniversary',     count: AVAILABLE_TEMPLATES.filter(t => t.occasion === 'Anniversary').length },
+  { id: 'Wedding',        label: 'Wedding',         count: AVAILABLE_TEMPLATES.filter(t => t.occasion === 'Wedding').length },
+  { id: "Father's Day",   label: "Father's Day",    count: AVAILABLE_TEMPLATES.filter(t => t.occasion === "Father's Day").length },
+  { id: 'Thank You',      label: 'Thank You',       count: AVAILABLE_TEMPLATES.filter(t => t.occasion === 'Thank You').length },
+  { id: 'Graduation',     label: 'Graduation',      count: AVAILABLE_TEMPLATES.filter(t => t.occasion === 'Graduation').length },
+  { id: 'New Baby',       label: 'New Baby',        count: AVAILABLE_TEMPLATES.filter(t => t.occasion === 'New Baby').length },
+  { id: 'Congratulations',label: 'Congratulations', count: AVAILABLE_TEMPLATES.filter(t => t.occasion === 'Congratulations').length },
+  { id: 'Holiday',        label: 'Holiday',         count: AVAILABLE_TEMPLATES.filter(t => t.occasion === 'Holiday').length },
+  { id: 'Get Well',       label: 'Get Well',        count: AVAILABLE_TEMPLATES.filter(t => t.occasion === 'Get Well').length },
+  { id: 'Just Because',   label: 'Just Because',    count: AVAILABLE_TEMPLATES.filter(t => t.occasion === 'Just Because').length },
 ];
 
 const OCCASION_TAGLINES: Record<string, string> = {
@@ -914,12 +957,12 @@ function PtOccasions({ occasion, setOccasion }: PtOccasionsProps) {
 function PtMarketplace({ onPersonalize }: PtMarketplaceProps) {
   const [occasion, setOccasion] = React.useState('all');
   const [search, setSearch] = React.useState('');
-  const filtered = TEMPLATES.filter(t => {
+  const filtered = AVAILABLE_TEMPLATES.filter(t => {
     if (occasion !== 'all' && t.occasion !== occasion) return false;
     if (search && !`${t.name} ${t.tag} ${t.sub}`.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });
-  const featured = TEMPLATES.filter(t => FEATURED_IDS.includes(t.id));
+  const featured = AVAILABLE_TEMPLATES.filter(t => FEATURED_IDS.includes(t.id));
 
   return (
     <div className="pt-shell">
@@ -979,7 +1022,7 @@ function PtMarketplace({ onPersonalize }: PtMarketplaceProps) {
       {occasion === 'all' && !search ? (
         <div className="pt-occ-sections">
           {OCCASIONS.filter(o => o.id !== 'all').map(o => {
-            const real = TEMPLATES.filter(t => t.occasion === o.id);
+            const real = AVAILABLE_TEMPLATES.filter(t => t.occasion === o.id);
             if (!real.length) return null;
             const items = padOccasion(real, o.id);
             return (
@@ -1058,6 +1101,7 @@ function PtPersonalizeModal({
         : initialReferenceImageNames.map((name) => ({ name, url: "/assets/LogoMark.png" }))
       : [],
   );
+  const photoPreviewsRef = React.useRef<PhotoPreview[]>([]);
   const [attested, setAttested] = React.useState(booleanValue(initialPhoto.attested));
   const [gateOpen, setGateOpen] = React.useState(false);
   const [describe, setDescribe] = React.useState(textValue(initialPhoto.mode) === "description");
@@ -1076,15 +1120,17 @@ function PtPersonalizeModal({
   const last = idx === MODAL_STEPS.length - 1;
   const generationCost = includeSong ? CARD_WITH_QR_SONG_CREDITS : MIN_GENERATION_CREDITS;
   const hasPhoto = photoPreviews.length > 0;
+  const photoMax = Math.max(1, tmpl?.photoMax ?? 1);
 
   React.useEffect(() => {
     setStep(initialStep);
   }, [open, initialStep]);
   React.useEffect(() => {
-    return () => {
-      photoPreviews.forEach((photo) => URL.revokeObjectURL(photo.url));
-    };
+    photoPreviewsRef.current = photoPreviews;
   }, [photoPreviews]);
+  React.useEffect(() => () => {
+    photoPreviewsRef.current.forEach((photo) => URL.revokeObjectURL(photo.url));
+  }, []);
 
   if (!open || !tmpl) return null;
 
@@ -1098,31 +1144,49 @@ function PtPersonalizeModal({
   };
   const goBack = () => { if (idx > 0) setStep(MODAL_STEPS[idx - 1].id); };
   const addPersonalizeFiles = (list: FileList | File[] | null) => {
-    const file = Array.from(list || []).find((incoming) => /image\/(jpeg|png|webp)/.test(incoming.type));
-    if (!file) return;
+    const incoming = Array.from(list || []).filter((file) => /image\/(jpeg|png|webp)/.test(file.type));
+    if (!incoming.length) return;
     setPhotoPreviews((current) => {
-      current.forEach((photo) => {
-        URL.revokeObjectURL(photo.url);
-        releasePendingUpload(photo.clientUploadId);
-      });
-      return [{
-        url: URL.createObjectURL(file),
-        name: file.name,
-        mimeType: file.type,
-        size: file.size,
-        clientUploadId: registerPendingUpload(file),
-      }];
+      if (photoMax === 1) {
+        current.forEach((photo) => {
+          URL.revokeObjectURL(photo.url);
+          releasePendingUpload(photo.clientUploadId);
+        });
+      }
+      const retained = photoMax === 1 ? [] : current;
+      const accepted = incoming.slice(0, Math.max(0, photoMax - retained.length));
+      return [
+        ...retained,
+        ...accepted.map((file) => ({
+          url: URL.createObjectURL(file),
+          name: file.name,
+          mimeType: file.type,
+          size: file.size,
+          clientUploadId: registerPendingUpload(file),
+        })),
+      ];
     });
     setDescribe(false);
     setAttested(false);
   };
-  const removePersonalizePhoto = () => {
+  const clearPersonalizePhotos = () => {
     setPhotoPreviews((current) => {
       current.forEach((photo) => {
         URL.revokeObjectURL(photo.url);
         releasePendingUpload(photo.clientUploadId);
       });
       return [];
+    });
+    setAttested(false);
+  };
+  const removePersonalizePhoto = (index: number) => {
+    setPhotoPreviews((current) => {
+      const removed = current[index];
+      if (removed) {
+        URL.revokeObjectURL(removed.url);
+        releasePendingUpload(removed.clientUploadId);
+      }
+      return current.filter((_photo, photoIndex) => photoIndex !== index);
     });
     setAttested(false);
   };
@@ -1162,12 +1226,8 @@ function PtPersonalizeModal({
     occasion: tmpl.occasion,
     creativeBrief: {
       flow: "personalize_template",
-      template: {
-        id: tmpl.id,
-        name: tmpl.name,
-        occasion: tmpl.occasion,
-        tag: tmpl.tag,
-      },
+      orientation: "portrait",
+      template: buildTemplateBrief(tmpl),
       photo: {
         mode: describe ? "description" : hasPhoto ? "upload" : "unset",
         description: describe ? describeText.trim() || undefined : undefined,
@@ -1238,6 +1298,12 @@ function PtPersonalizeModal({
                 </p>
               </div>
 
+              <div className="pt-fixed-format" aria-label="Fixed card format">
+                <span>Card format</span>
+                <strong>Portrait · 5×7</strong>
+                <em>Fixed by this template</em>
+              </div>
+
               <div className="pt-photo-grid">
                 <label
                   className={`pt-upload ${!describe && hasPhoto ? 'is-active' : ''}`}
@@ -1248,15 +1314,23 @@ function PtPersonalizeModal({
                   }}
                 >
                   <span className="pt-upload-icon"><PtIcon name="upload" w={28} /></span>
-                  <span className="pt-upload-title">{hasPhoto ? 'Photo ready' : 'Drop a photo here'}</span>
-                  <span className="pt-upload-sub">Or click to browse. JPG · PNG · HEIC · WEBP</span>
+                  <span className="pt-upload-title">
+                    {hasPhoto
+                      ? `${photoPreviews.length} of ${photoMax} ready`
+                      : photoMax > 1
+                        ? 'Drop photos here'
+                        : 'Drop a photo here'}
+                  </span>
+                  <span className="pt-upload-sub">Or click to browse. JPG · PNG · WEBP</span>
                   <span className="pt-upload-rules">
                     <span>· 10 MB max</span>
+                    <span>· {photoMax} photo{photoMax === 1 ? '' : 's'} max</span>
                     <span>· faces stay recognizable</span>
                   </span>
                   <input
                     type="file"
-                    accept="image/*"
+                    accept="image/jpeg,image/png,image/webp"
+                    multiple={photoMax > 1}
                     style={{ position: 'absolute', opacity: 0, pointerEvents: 'none' }}
                     onChange={(event) => {
                       addPersonalizeFiles(event.target.files);
@@ -1270,7 +1344,7 @@ function PtPersonalizeModal({
                   <span className="pt-photo-or-title">Skip upload</span>
                   <p className="pt-photo-or-sub">Describe a memory, joke, or imaginary scene. We'll generate the card from your words alone.</p>
                   <button type="button" className={describe ? 'pt-cta' : 'pt-cta-secondary'}
-                          onClick={() => { setDescribe(true); removePersonalizePhoto(); }}>
+                          onClick={() => { setDescribe(true); clearPersonalizePhotos(); }}>
                     Describe My Card <PtIcon name="sparkle" w={14} />
                   </button>
                 </div>
@@ -1279,14 +1353,16 @@ function PtPersonalizeModal({
               {!describe && hasPhoto && (
                 <div className="pt-ref-tray">
                   <div className="pt-ref-count">
-                    <b>{photoPreviews.length}</b> photo selected
-                    <span className="pt-ref-cap">{"\u00b7"} preview loaded below</span>
+                    <b>{photoPreviews.length}</b> photo{photoPreviews.length === 1 ? '' : 's'} selected
+                    <span className="pt-ref-cap">
+                      {"\u00b7"} {photoMax - photoPreviews.length} slot{photoMax - photoPreviews.length === 1 ? '' : 's'} left
+                    </span>
                   </div>
                   <div className="pt-ref-thumbs">
-                    {photoPreviews.map((photo) => (
+                    {photoPreviews.map((photo, photoIndex) => (
                       <span key={photo.url} className="pt-ref-thumb" style={{ backgroundImage: `url(${photo.url})` }}>
                         <span className="pt-ref-name">{photo.name}</span>
-                        <button type="button" className="pt-ref-x" onClick={removePersonalizePhoto} aria-label="Remove uploaded photo">
+                        <button type="button" className="pt-ref-x" onClick={() => removePersonalizePhoto(photoIndex)} aria-label={`Remove ${photo.name}`}>
                           <PtIcon name="close" w={12} />
                         </button>
                       </span>
@@ -1584,7 +1660,7 @@ function PersonalizeApp({
   requireAuthToContinue = false,
 }: PersonalizeAppProps) {
   const router = useRouter();
-  const [chosen, setChosen] = React.useState<Template | null>(openModal ? TEMPLATES[0] : null);
+  const [chosen, setChosen] = React.useState<Template | null>(openModal ? AVAILABLE_TEMPLATES[0] : null);
   const [modalOpen, setModalOpen] = React.useState(openModal);
   const [view, setView] = React.useState<PersonalizeView>('marketplace');
   const [reviewGen, setReviewGen] = React.useState(false);
@@ -1752,7 +1828,7 @@ function PersonalizeApp({
             creativeBrief: brief,
           });
           rememberDraftId(draft.id);
-          setChosen(TEMPLATES.find((candidate) => candidate.id === templateId) || TEMPLATES[0]);
+          setChosen(findTemplateById(templateId) || AVAILABLE_TEMPLATES[0]);
           setModalOpen(true);
         })
         .catch((error) => {
@@ -1770,7 +1846,7 @@ function PersonalizeApp({
     }
 
     if (openModal) {
-      beginTemplateDraft(TEMPLATES[0]);
+      beginTemplateDraft(AVAILABLE_TEMPLATES[0]);
     }
   }, [beginTemplateDraft, openModal, rememberDraftId, resumeDraftId]);
 

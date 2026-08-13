@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import type { DemoUser } from "./DemoUser";
 import { useAuth } from "./AuthProvider";
 import {
@@ -10,6 +11,14 @@ import {
   fetchPaymentMethods,
   updateAuthenticatedUser,
   updatePaymentMethod,
+  completeMockCardPackCheckout,
+  createLocalIdempotencyKey,
+  fetchCardPackPurchase,
+  fetchOwnedGifts,
+  previewGift,
+  redeemGift,
+  startGiftCheckout,
+  type GiftRecord,
   type PaymentMethod,
   type SavePaymentMethodRequest,
 } from "../lib/api";
@@ -23,6 +32,41 @@ type RequiredAccountUserProps = {
 };
 
 type GiftDeliveryMethod = "email" | "text";
+
+type PendingGiftPurchase = {
+  giftId: string;
+  purchaseId: string;
+};
+
+const PENDING_GIFT_PURCHASE_KEY = "souvenote_pending_gift_purchase";
+
+function readPendingGiftPurchase(): PendingGiftPurchase | null {
+  try {
+    const parsed = JSON.parse(
+      window.sessionStorage.getItem(PENDING_GIFT_PURCHASE_KEY) || "null",
+    ) as Partial<PendingGiftPurchase> | null;
+    return parsed?.giftId && parsed.purchaseId
+      ? { giftId: parsed.giftId, purchaseId: parsed.purchaseId }
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function writePendingGiftPurchase(pending: PendingGiftPurchase) {
+  try {
+    window.sessionStorage.setItem(
+      PENDING_GIFT_PURCHASE_KEY,
+      JSON.stringify(pending),
+    );
+  } catch {}
+}
+
+function clearPendingGiftPurchase() {
+  try {
+    window.sessionStorage.removeItem(PENDING_GIFT_PURCHASE_KEY);
+  } catch {}
+}
 
 type RedeemGiftPageProps = {
   sender?: string;
@@ -278,8 +322,93 @@ function GiftSouvenotePage({ user }: AccountUserProps) {
   const accountUser = useAccountDisplayUser(user);
   const [via, setVia] = React.useState<GiftDeliveryMethod>("email");
   const [name, setName] = React.useState("");
+  const [contact, setContact] = React.useState("");
+  const [message, setMessage] = React.useState("");
   const [sent, setSent] = React.useState(false);
+  const [submitting, setSubmitting] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+  const [redemptionPath, setRedemptionPath] = React.useState<string | null>(null);
   const firstName = name.trim().split(" ")[0] || "them";
+
+  React.useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("purchase") !== "gift") return;
+    if (params.get("checkout") === "cancel") {
+      setError("Gift checkout was canceled. Nothing was charged.");
+      window.history.replaceState({}, "", "/gift");
+      return;
+    }
+    if (params.get("checkout") !== "success") return;
+    const pending = readPendingGiftPurchase();
+    if (!pending) {
+      setError(
+        "Payment is being confirmed. Your funded gift will appear on this page shortly.",
+      );
+      window.history.replaceState({}, "", "/gift");
+      return;
+    }
+
+    let active = true;
+    let timeoutId: number | undefined;
+    const checkPurchase = async (attempt: number) => {
+      try {
+        const result = await fetchCardPackPurchase(pending.purchaseId);
+        if (!active) return;
+        if (result.purchase.status === "paid") {
+          const gifts = await fetchOwnedGifts();
+          if (!active) return;
+          const gift = gifts.find((candidate) => candidate.id === pending.giftId);
+          if (!gift?.redemptionPath) {
+            throw new Error(
+              "Payment is confirmed, but the private gift link is still being prepared. Refresh this page in a moment.",
+            );
+          }
+          setName(gift.recipientName);
+          if (gift.deliveryMethod) setVia(gift.deliveryMethod);
+          setRedemptionPath(gift.redemptionPath);
+          setSent(true);
+          setError(null);
+          setSubmitting(false);
+          clearPendingGiftPurchase();
+          window.history.replaceState({}, "", "/gift");
+          return;
+        }
+        if (
+          ["payment_failed", "payment_canceled", "checkout_expired"].includes(
+            result.purchase.status,
+          )
+        ) {
+          throw new Error(
+            `Gift checkout ended with status ${result.purchase.status}.`,
+          );
+        }
+        if (attempt >= 10) {
+          throw new Error(
+            "Payment is still being confirmed. Refresh this page in a moment.",
+          );
+        }
+        timeoutId = window.setTimeout(
+          () => void checkPurchase(attempt + 1),
+          1000,
+        );
+      } catch (unknownError) {
+        if (!active) return;
+        setError(
+          unknownError instanceof Error
+            ? unknownError.message
+            : "Gift payment could not be confirmed.",
+        );
+        setSubmitting(false);
+      }
+    };
+
+    setSubmitting(true);
+    void checkPurchase(0);
+    return () => {
+      active = false;
+      if (timeoutId !== undefined) window.clearTimeout(timeoutId);
+    };
+  }, []);
 
   return (
     <div className="bmc-shell" data-screen-label="Gift a Souvenote">
@@ -303,9 +432,42 @@ function GiftSouvenotePage({ user }: AccountUserProps) {
 
       <form
         className="acc-gift-grid"
-        onSubmit={(event: React.FormEvent<HTMLFormElement>) => {
+        onSubmit={async (event: React.FormEvent<HTMLFormElement>) => {
           event.preventDefault();
-          setSent(true);
+          setSubmitting(true);
+          setError(null);
+          try {
+            const started = await startGiftCheckout(
+              {
+                recipientName: name,
+                recipientContact: contact,
+                deliveryMethod: via,
+                personalMessage: message,
+              },
+              createLocalIdempotencyKey("gift"),
+            );
+            writePendingGiftPurchase({
+              giftId: started.gift!.id,
+              purchaseId: started.purchase.id,
+            });
+            if (started.checkoutSession.providerMode === "mock") {
+              const completed = await completeMockCardPackCheckout(
+                started.purchase.id,
+                started.checkoutSession.id,
+              );
+              setRedemptionPath(completed.gift?.redemptionPath || started.gift?.redemptionPath || null);
+              setSent(true);
+              clearPendingGiftPurchase();
+            } else if (started.checkoutSession.checkoutUrl) {
+              window.location.assign(started.checkoutSession.checkoutUrl);
+            } else {
+              throw new Error("Checkout did not return a payment link.");
+            }
+          } catch (unknownError) {
+            setError(unknownError instanceof Error ? unknownError.message : "Could not send this gift.");
+          } finally {
+            setSubmitting(false);
+          }
         }}
       >
         {/* LEFT - what they get + where to send */}
@@ -383,6 +545,20 @@ function GiftSouvenotePage({ user }: AccountUserProps) {
                 placeholder={
                   via === "email" ? "jordan@example.com" : "(555) 012-3456"
                 }
+                value={contact}
+                onChange={(event) => setContact(event.target.value)}
+                required
+              />
+            </div>
+            <div className="acc-field" style={{ marginTop: 18, marginBottom: 0 }}>
+              <span className="acc-flabel">Personal note (optional)</span>
+              <textarea
+                className="input-dark"
+                rows={3}
+                maxLength={500}
+                placeholder="A little something for you..."
+                value={message}
+                onChange={(event) => setMessage(event.target.value)}
               />
             </div>
           </div>
@@ -405,7 +581,7 @@ function GiftSouvenotePage({ user }: AccountUserProps) {
             <div className="acc-gift-meta">
               <div className="acc-summary-row">
                 <span className="k">Includes</span>
-                <span className="v">10 credits · 1 physical send</span>
+                <span className="v">10 credits · print &amp; standard delivery</span>
               </div>
               <div className="acc-summary-row">
                 <span className="k">Delivery</span>
@@ -423,22 +599,33 @@ function GiftSouvenotePage({ user }: AccountUserProps) {
             <button
               type="submit"
               className={`bmc-cta acc-gift-cta ${sent ? "is-sent" : ""}`}
+              disabled={submitting || sent}
             >
               {sent ? (
                 <>Gift on its way ✓</>
+              ) : submitting ? (
+                <>Preparing gift...</>
               ) : (
                 <>{GiftIco.send} Send gift · $6.99</>
               )}
             </button>
+            {error && <p className="acc-gift-foot" role="alert">{error}</p>}
             {sent ? (
-              <p className="acc-gift-foot">
-                We've sent {firstName} a redemption link by {via}. They'll sign
-                up and find a full card pack waiting.
-              </p>
+              <>
+                <p className="acc-gift-foot">
+                  {firstName}&apos;s gift is funded and its {via} delivery is recorded in mock mode.
+                  They&apos;ll receive 10 credits and one prepaid printed-and-delivered card when they redeem it.
+                </p>
+                {redemptionPath && (
+                  <Link className="bmc-text-link" href={redemptionPath}>
+                    Open redemption link
+                  </Link>
+                )}
+              </>
             ) : (
               <p className="acc-gift-foot">
-                Prefer to bundle it? <b>Gift a Souvenote</b> also appears as an
-                add-on at checkout.
+                Gift checkout is settled separately so its private claim link
+                stays tied to the intended recipient.
               </p>
             )}
           </div>
@@ -454,7 +641,54 @@ function GiftSouvenotePage({ user }: AccountUserProps) {
 // redeem, then land on the options page with the pack applied.
 // ============================================================
 function RedeemGiftPage({ sender = "A friend" }: RedeemGiftPageProps) {
-  const normalizedSender = sender.trim() || "A friend";
+  const searchParams = useSearchParams();
+  const auth = useAuth();
+  const token = searchParams.get("token")?.trim() || "";
+  const [gift, setGift] = React.useState<GiftRecord | null>(null);
+  const [loading, setLoading] = React.useState(Boolean(token));
+  const [redeeming, setRedeeming] = React.useState(false);
+  const [redeemed, setRedeemed] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    if (!token) {
+      setLoading(false);
+      setError("This gift link is missing its redemption token.");
+      return;
+    }
+    previewGift(token)
+      .then((nextGift) => {
+        if (!cancelled) {
+          setGift(nextGift);
+          setRedeemed(nextGift.status === "redeemed");
+        }
+      })
+      .catch((unknownError) => {
+        if (!cancelled) setError(unknownError instanceof Error ? unknownError.message : "This gift is unavailable.");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [token]);
+
+  async function redeem() {
+    if (!token) return;
+    setRedeeming(true);
+    setError(null);
+    try {
+      const result = await redeemGift(token);
+      setGift(result.gift);
+      setRedeemed(true);
+    } catch (unknownError) {
+      setError(unknownError instanceof Error ? unknownError.message : "Could not redeem this gift.");
+    } finally {
+      setRedeeming(false);
+    }
+  }
+
+  const normalizedSender = gift?.senderName?.trim() || sender.trim() || "A friend";
   const senderDisplay =
     normalizedSender.toLowerCase() === "a friend"
       ? normalizedSender
@@ -493,9 +727,11 @@ function RedeemGiftPage({ sender = "A friend" }: RedeemGiftPageProps) {
         </h1>
         <p className="bmc-lede acc-redeem-lede">
           There's a full card pack waiting in your name: ten creation credits
-          and a physical card send. Make a card, add an optional QR-code song
-          for someone you love, and we'll mail it for you.
+          and one physical card with printing and standard delivery already paid.
+          Make a card, add an optional QR-code song for someone you love, and
+          we&apos;ll mail it for you.
         </p>
+        {gift?.personalMessage && <p className="acc-redeem-note">“{gift.personalMessage}”</p>}
       </div>
 
       <div className="acc-steps acc-redeem-steps">
@@ -509,16 +745,38 @@ function RedeemGiftPage({ sender = "A friend" }: RedeemGiftPageProps) {
       </div>
 
       <div className="acc-redeem-cta">
-        <Link className="bmc-cta acc-redeem-btn" href="/signup">
-          {GiftIco.heart} Sign up to redeem
-        </Link>
-        <Link className="bmc-text-link" href="/login">
-          Already have an account? Log in
-        </Link>
+        {loading ? (
+          <span className="bmc-cta acc-redeem-btn">Checking gift...</span>
+        ) : redeemed ? (
+          <Link className="bmc-cta acc-redeem-btn" href="/create">
+            {GiftIco.heart} Start creating
+          </Link>
+        ) : auth.status === "authenticated" ? (
+          <button className="bmc-cta acc-redeem-btn" type="button" onClick={redeem} disabled={redeeming || !gift}>
+            {GiftIco.heart} {redeeming ? "Redeeming..." : "Redeem my gift"}
+          </button>
+        ) : (
+          <>
+            <Link
+              className="bmc-cta acc-redeem-btn"
+              href={`/signup?returnTo=${encodeURIComponent(`/gift/redeem?token=${token}`)}`}
+            >
+              {GiftIco.heart} Sign up to redeem
+            </Link>
+            <Link
+              className="bmc-text-link"
+              href={`/login?returnTo=${encodeURIComponent(`/gift/redeem?token=${token}`)}`}
+            >
+              Already have an account? Log in
+            </Link>
+          </>
+        )}
       </div>
+      {error && <p className="acc-redeem-note" role="alert">{error}</p>}
       <p className="acc-redeem-note">
-        Your gift applies the moment you sign up, and you'll land on your
-        options page with <b>10 credits</b> ready to spend.
+        {redeemed
+          ? <>Your account now has <b>10 gift credits</b> and <b>one prepaid physical send</b>.</>
+          : <>Redeem after signing in to add <b>10 credits</b> and <b>one prepaid physical send</b> to your account.</>}
       </p>
     </div>
   );

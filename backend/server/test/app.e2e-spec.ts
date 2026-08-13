@@ -93,6 +93,11 @@ describe('authenticated ownership boundary (e2e)', () => {
         return { rows: [] };
       }
 
+      if (query.includes('FROM card_entitlement_ledger')) {
+        const userId = String(params[0]);
+        return { rows: [{ balance: userId === 'user-a' ? '4' : '0' }] };
+      }
+
       if (
         query.includes('FROM card_drafts') &&
         query.includes('WHERE user_id = $1')
@@ -418,6 +423,20 @@ describe('authenticated ownership boundary (e2e)', () => {
       userId: 'user-a',
       cardDrafts: [{ id: 'draft-a', user_id: 'user-a' }],
     });
+  });
+
+  it('returns a server-authoritative card balance for the authenticated owner', async () => {
+    await request(app.getHttpServer())
+      .get('/api/card-entitlements/balance')
+      .set('Authorization', 'Bearer token-a')
+      .expect(200)
+      .expect({ userId: 'user-a', balance: 4 });
+
+    await request(app.getHttpServer())
+      .get('/api/card-entitlements/balance')
+      .set('Authorization', 'Bearer token-b')
+      .expect(200)
+      .expect({ userId: 'user-b', balance: 0 });
   });
 
   it("hides another user's draft and order", async () => {

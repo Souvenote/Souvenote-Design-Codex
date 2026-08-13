@@ -53,11 +53,17 @@ export class StripeCheckoutProvider implements CheckoutProvider {
       ...(request.creditPackPurchaseId
         ? { souvenoteCreditPackPurchaseId: request.creditPackPurchaseId }
         : {}),
+      ...(request.cardPackPurchaseId
+        ? { souvenoteCardPackPurchaseId: request.cardPackPurchaseId }
+        : {}),
     };
-    const clientReferenceId = request.orderId ?? request.creditPackPurchaseId;
+    const clientReferenceId =
+      request.orderId ??
+      request.creditPackPurchaseId ??
+      request.cardPackPurchaseId;
     if (!clientReferenceId) {
       throw new InternalServerErrorException(
-        'Checkout requires an order or credit-pack purchase reference.',
+        'Checkout requires an order, credit-pack, or card-pack purchase reference.',
       );
     }
     const session = await this.measure('checkout_session_create', () =>

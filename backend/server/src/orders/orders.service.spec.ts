@@ -1,6 +1,8 @@
 import { BadRequestException } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
 import { PricingService } from '../pricing/pricing.service';
+import { CardEntitlementsService } from '../card-entitlements/card-entitlements.service';
+import type { DatabaseTransaction } from '../database/database.service';
 import { OrderRow, OrdersService } from './orders.service';
 
 describe('OrdersService', () => {
@@ -13,17 +15,32 @@ describe('OrdersService', () => {
     country: 'GB',
   };
   const query = jest.fn();
+  const transactionQuery = jest.fn();
+  const transaction = {
+    query: transactionQuery,
+  } as unknown as DatabaseTransaction;
+  const withTransaction = jest.fn(
+    <T>(operation: (active: DatabaseTransaction) => Promise<T>) =>
+      operation(transaction),
+  );
   const databaseService = {
     query,
+    withTransaction,
   } as unknown as DatabaseService;
   const resolveOrderOffer = jest.fn();
   const pricingService = {
     resolveOrderOffer,
   } as unknown as PricingService;
-  const service = new OrdersService(databaseService, pricingService);
+  const deductInTransaction = jest.fn();
+  const service = new OrdersService(databaseService, pricingService, {
+    deductInTransaction,
+  } as unknown as CardEntitlementsService);
 
   beforeEach(() => {
     query.mockReset();
+    transactionQuery.mockReset();
+    withTransaction.mockClear();
+    deductInTransaction.mockReset().mockResolvedValue(undefined);
     resolveOrderOffer.mockReset();
     resolveOrderOffer.mockResolvedValue({
       id: 'offer-id',
@@ -170,6 +187,64 @@ describe('OrdersService', () => {
       3,
       expect.any(String),
       expect.arrayContaining(['big_sender_2_10', 4495, 'cad', 5]),
+    );
+  });
+
+  it('creates a zero-charge prepaid delivery and reserves cards atomically', async () => {
+    const prepaidOrder = {
+      ...order,
+      status: 'paid' as const,
+      offer_code: 'prepaid_card_delivery',
+      amount_cents: 0,
+      quantity: 2,
+      payment_id: null,
+      checkout_session_id: null,
+      funding_source: 'card_bank' as const,
+      card_entitlements_reserved_at: '2026-08-12T12:00:00.000Z',
+      pricing_snapshot: {
+        offerCode: 'prepaid_card_delivery',
+        printingIncluded: true,
+        shippingIncluded: true,
+        creditsPerCard: 0,
+      },
+    };
+    query
+      .mockResolvedValueOnce({ rows: [{ id: 'draft-id' }] })
+      .mockResolvedValueOnce({ rows: [{ id: 'asset-id' }] });
+    transactionQuery
+      .mockResolvedValueOnce({ rows: [prepaidOrder] })
+      .mockResolvedValueOnce({ rows: [] });
+
+    await expect(
+      service.createOrder('user-id', {
+        cardDraftId: 'draft-id',
+        selectedAssetId: 'asset-id',
+        fundingSource: 'card_bank',
+        quantity: 2,
+        recipientAddress: address,
+        recipientAddresses: [address, address],
+        senderAddress: address,
+      }),
+    ).resolves.toMatchObject({
+      order: {
+        status: 'paid',
+        amountCents: 0,
+        fundingSource: 'card_bank',
+        paymentId: null,
+      },
+    });
+    expect(resolveOrderOffer).not.toHaveBeenCalled();
+    expect(deductInTransaction).toHaveBeenCalledWith(
+      transaction,
+      'user-id',
+      2,
+      'order:order-id',
+      'order:order-id:card-bank-reservation',
+    );
+    expect(transactionQuery).toHaveBeenNthCalledWith(
+      1,
+      expect.stringContaining("'paid'"),
+      expect.arrayContaining([2]),
     );
   });
 

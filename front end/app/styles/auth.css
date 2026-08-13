@@ -766,6 +766,14 @@
 }
 .auth-link:hover { color: var(--gold); }
 .auth-link.is-prominent { color: var(--gold); }
+.auth-link:disabled {
+  cursor: not-allowed;
+  opacity: .55;
+}
+.auth-confirmation-resend {
+  align-self: flex-start;
+  margin-top: 10px;
+}
 
 /* Social buttons */
 .auth-socials { display: flex; flex-direction: column; gap: 10px; margin-bottom: 22px; }

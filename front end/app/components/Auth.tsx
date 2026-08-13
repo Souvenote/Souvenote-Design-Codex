@@ -7,6 +7,7 @@ import { useAuth } from "./AuthProvider";
 import {
   CognitoClientError,
   consumeHostedUiError,
+  formatCognitoCodeDelivery,
   getConfiguredSocialProviders,
   type CognitoSocialProvider,
   type HostedUiError,
@@ -219,9 +220,20 @@ function friendlyAuthError(error: unknown) {
     if (error.code === "InvalidPasswordException") return error.message;
     if (error.code === "CodeMismatchException") return "That confirmation code did not match.";
     if (error.code === "ExpiredCodeException") return "That confirmation code expired. Request a new code and try again.";
+    if (error.code === "CodeDeliveryFailureException") return "The confirmation email could not be delivered. Verify the email address and try again.";
   }
 
   return error instanceof Error ? error.message : "Authentication failed. Please try again.";
+}
+
+function confirmationDeliveryError(error: unknown) {
+  if (
+    error instanceof CognitoClientError &&
+    ["LimitExceededException", "TooManyRequestsException"].includes(error.code)
+  ) {
+    return "Too many confirmation emails were requested. Wait a while before trying again.";
+  }
+  return friendlyAuthError(error);
 }
 
 function passwordResetRequestError(error: unknown) {
@@ -287,7 +299,13 @@ function loginStatusMessage(
 function SignUpView() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { signup, confirmSignup, startSocialSignIn, error: authContextError } = useAuth();
+  const {
+    signup,
+    confirmSignup,
+    resendSignupConfirmation,
+    startSocialSignIn,
+    error: authContextError,
+  } = useAuth();
   const [email, setEmail] = React.useState('');
   const [pw, setPw] = React.useState('');
   const [pw2, setPw2] = React.useState('');
@@ -339,7 +357,7 @@ function SignUpView() {
       const result = await signup(email, pw);
       if (result.needsConfirmation) {
         setNeedsConfirmation(true);
-        setAuthMessage("Check your email for a Cognito confirmation code, then enter it below.");
+        setAuthMessage(formatCognitoCodeDelivery(result.codeDelivery));
         return;
       }
 
@@ -354,6 +372,20 @@ function SignUpView() {
       setSubmitting(false);
     }
   }, [email, pw, pw2, returnTo, router, signup, terms]);
+
+  const handleResendConfirmation = React.useCallback(async () => {
+    setAuthError(null);
+    setAuthMessage(null);
+    setSubmitting(true);
+    try {
+      const delivery = await resendSignupConfirmation(email);
+      setAuthMessage(formatCognitoCodeDelivery(delivery, { resent: true }));
+    } catch (error) {
+      setAuthError(confirmationDeliveryError(error));
+    } finally {
+      setSubmitting(false);
+    }
+  }, [email, resendSignupConfirmation]);
 
   const handleConfirm = React.useCallback(async () => {
     setAuthError(null);
@@ -456,6 +488,14 @@ function SignUpView() {
             <div className="auth-field">
               <label className="auth-label">Confirmation code</label>
               <input className="auth-input" placeholder="123456" value={confirmationCode} onChange={(e) => setConfirmationCode(e.target.value)} />
+              <button
+                type="button"
+                className="auth-link auth-confirmation-resend is-prominent"
+                onClick={handleResendConfirmation}
+                disabled={submitting}
+              >
+                {submitting ? "Sending..." : "Resend confirmation email"}
+              </button>
             </div>
           )}
 
@@ -492,7 +532,13 @@ type LoginViewProps = {
 function LoginView({ firstTime = false }: LoginViewProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { login, confirmSignup, startSocialSignIn, error: authContextError } = useAuth();
+  const {
+    login,
+    confirmSignup,
+    resendSignupConfirmation,
+    startSocialSignIn,
+    error: authContextError,
+  } = useAuth();
   const isFirstTime = firstTime || searchParams.get("signup") === "created";
   const socialProviders = isFirstTime ? [] : CONFIGURED_SOCIAL_PROVIDERS;
   const [email, setEmail] = React.useState(() => searchParams.get("email") || '');
@@ -560,6 +606,20 @@ function LoginView({ firstTime = false }: LoginViewProps) {
       setSubmitting(false);
     }
   }, [confirmSignup, confirmationCode, email, login, pw, returnTo, router]);
+
+  const handleResendConfirmation = React.useCallback(async () => {
+    setAuthError(null);
+    setAuthMessage(null);
+    setSubmitting(true);
+    try {
+      const delivery = await resendSignupConfirmation(email);
+      setAuthMessage(formatCognitoCodeDelivery(delivery, { resent: true }));
+    } catch (error) {
+      setAuthError(confirmationDeliveryError(error));
+    } finally {
+      setSubmitting(false);
+    }
+  }, [email, resendSignupConfirmation]);
 
   const handleSocialLogin = React.useCallback(async (provider: CognitoSocialProvider) => {
     setAuthError(null);
@@ -644,6 +704,14 @@ function LoginView({ firstTime = false }: LoginViewProps) {
           <div className="auth-field">
             <label className="auth-label">Confirmation code</label>
             <input className="auth-input" placeholder="123456" value={confirmationCode} onChange={(e) => setConfirmationCode(e.target.value)} />
+            <button
+              type="button"
+              className="auth-link auth-confirmation-resend is-prominent"
+              onClick={handleResendConfirmation}
+              disabled={submitting}
+            >
+              {submitting ? "Sending..." : "Resend confirmation email"}
+            </button>
           </div>
         )}
 

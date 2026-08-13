@@ -90,10 +90,16 @@ fulfillment attempt from the API, so a refresh does not depend on browser-local
 checkout state. The backend remains responsible for ownership enforcement and
 provider reconciliation.
 
-The account profile derives approved card/song totals and recent order activity
-from owner-scoped APIs. The card-bank display remains zero until the product
-model and corresponding server-authoritative API are approved; it is not
-inferred from local cart purchases.
+The account profile derives approved card/song totals, recent order activity,
+and the physical card-bank balance from owner-scoped APIs. The card bank is the
+sum of a server-authoritative entitlement ledger and is never inferred from
+local cart state or a checkout redirect.
+
+Each card purchased in a Big Sender pack includes its later printing and
+standard delivery. Delivery atomically reserves cards from that bank and
+creates a zero-charge paid order without opening Checkout or granting credits a
+second time. Definitive fulfillment failures return the reserved cards; retries
+must reserve them again.
 
 Account settings expose only backed actions. Cognito owns password recovery and
 the current browser can sign out; unconfigured MFA, global session revocation,
@@ -103,8 +109,9 @@ mutations are presented as unavailable instead of as working controls.
 ## Remaining TODOs
 
 - Add browser-level coverage for the configured Cognito email and hosted-UI flows.
-- Replace the remaining demo cart, card-bank, and currency state with product API data.
-- Connect card packs, credit packs, and referral invites to product APIs.
+- Replace the remaining browser-local cart catalog with product API data; standalone Big Sender card packs and credit packs now use durable server-priced checkout and ledger settlement.
+- Replace mock gift/referral delivery states with reviewed launch-provider
+  templates only when those provider integrations are approved for activation.
 - Version 2: build Community Cards. The current create tile and footer mention are intentionally static and do not route to a missing page.
 - Build future pages such as About and standalone community card detail pages once final UI source is provided.
 

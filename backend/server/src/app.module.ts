@@ -20,6 +20,9 @@ import { ObservabilityModule } from './observability/observability.module';
 import { OperationsModule } from './operations/operations.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { RetentionModule } from './retention/retention.module';
+import { CardEntitlementsModule } from './card-entitlements/card-entitlements.module';
+import { GiftsModule } from './gifts/gifts.module';
+import { ReferralsModule } from './referrals/referrals.module';
 
 @Module({
   imports: [
@@ -33,6 +36,9 @@ import { RetentionModule } from './retention/retention.module';
     HealthModule,
     PricingModule,
     CreditsModule,
+    CardEntitlementsModule,
+    GiftsModule,
+    ReferralsModule,
     GenerationModule,
     CardDraftsModule,
     AssetModule,

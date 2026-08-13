@@ -459,6 +459,21 @@ Resources:
         - Key: Environment
           Value: !Ref EnvironmentName
 
+  GiftReferralSecret:
+    Type: AWS::SecretsManager::Secret
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      Description: HMAC secret for private Souvenote gift and referral claims.
+      GenerateSecretString:
+        ExcludePunctuation: true
+        PasswordLength: 64
+      Tags:
+        - Key: Project
+          Value: Souvenote
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
   AnalyticsHashSecret:
     Type: AWS::SecretsManager::Secret
     Properties:
@@ -607,6 +622,7 @@ Resources:
                 Resource:
                   - !GetAtt Database.MasterUserSecret.SecretArn
                   - !Ref PublicLinkSecret
+                  - !Ref GiftReferralSecret
                   - !Ref AnalyticsHashSecret
       Tags:
         - Key: Project
@@ -1136,6 +1152,26 @@ Resources:
                 - UseCustomDomain
                 - !Sub 'https://${CustomDomainName}/cart?checkout=cancel'
                 - !Sub 'https://${Distribution.DomainName}/cart?checkout=cancel'
+            - Name: CARD_CHECKOUT_SUCCESS_URL
+              Value: !If
+                - UseCustomDomain
+                - !Sub 'https://${CustomDomainName}/cart?checkout=success&purchase=cards&session_id={CHECKOUT_SESSION_ID}'
+                - !Sub 'https://${Distribution.DomainName}/cart?checkout=success&purchase=cards&session_id={CHECKOUT_SESSION_ID}'
+            - Name: CARD_CHECKOUT_CANCEL_URL
+              Value: !If
+                - UseCustomDomain
+                - !Sub 'https://${CustomDomainName}/cart?checkout=cancel&purchase=cards'
+                - !Sub 'https://${Distribution.DomainName}/cart?checkout=cancel&purchase=cards'
+            - Name: GIFT_CHECKOUT_SUCCESS_URL
+              Value: !If
+                - UseCustomDomain
+                - !Sub 'https://${CustomDomainName}/gift?checkout=success&purchase=gift&session_id={CHECKOUT_SESSION_ID}'
+                - !Sub 'https://${Distribution.DomainName}/gift?checkout=success&purchase=gift&session_id={CHECKOUT_SESSION_ID}'
+            - Name: GIFT_CHECKOUT_CANCEL_URL
+              Value: !If
+                - UseCustomDomain
+                - !Sub 'https://${CustomDomainName}/gift?checkout=cancel&purchase=gift'
+                - !Sub 'https://${Distribution.DomainName}/gift?checkout=cancel&purchase=gift'
             - Name: AUTHORIZATION_WORKER_ENABLED
               Value: 'false'
             - Name: FULFILLMENT_PROVIDER_MODE
@@ -1166,6 +1202,8 @@ Resources:
                     - ':password::'
             - Name: PUBLIC_LINK_HMAC_SECRET
               ValueFrom: !Ref PublicLinkSecret
+            - Name: GIFT_REFERRAL_HMAC_SECRET
+              ValueFrom: !Ref GiftReferralSecret
             - Name: ANALYTICS_ID_HASH_SECRET
               ValueFrom: !Ref AnalyticsHashSecret
           LogConfiguration:

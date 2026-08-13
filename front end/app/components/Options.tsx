@@ -3,7 +3,13 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { fetchPricingOffers, type PricingOffer } from "../lib/api";
+import {
+  createLocalIdempotencyKey,
+  createReferralInvite,
+  fetchPricingOffers,
+  fetchReferralDashboard,
+  type PricingOffer,
+} from "../lib/api";
 import { StampCorners } from "./Ornaments";
 import { useAuth } from "./AuthProvider";
 import {
@@ -402,8 +408,46 @@ function LockGlyph() {
 // SECTION — REFERRAL
 // ============================================================
 function ReferralBlock() {
+  const auth = useAuth();
+  const router = useRouter();
   const [email, setEmail] = React.useState('');
   const [sent, setSent] = React.useState(false);
+  const [referralPath, setReferralPath] = React.useState<string | null>(null);
+  const [error, setError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (auth.status !== "authenticated") return;
+    fetchReferralDashboard()
+      .then((dashboard) => setReferralPath(dashboard.referral.path))
+      .catch(() => setReferralPath(null));
+  }, [auth.status]);
+
+  async function submitInvite(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (auth.status !== "authenticated") {
+      router.push("/login?returnTo=/refer");
+      return;
+    }
+    setError(null);
+    try {
+      await createReferralInvite(email, createLocalIdempotencyKey("referral"));
+      setSent(true);
+      setEmail('');
+      window.setTimeout(() => setSent(false), 2400);
+    } catch (unknownError) {
+      setError(unknownError instanceof Error ? unknownError.message : "Could not create the invite.");
+    }
+  }
+
+  function copyReferral() {
+    if (!referralPath) {
+      router.push(auth.status === "authenticated" ? "/refer" : "/login?returnTo=/refer");
+      return;
+    }
+    navigator.clipboard?.writeText(`${window.location.origin}${referralPath}`).catch(() => {});
+    setSent(true);
+    window.setTimeout(() => setSent(false), 1800);
+  }
   return (
     <section className="opt-referral" data-screen-label="03 Referral">
       <div className="opt-referral-inner">
@@ -411,21 +455,20 @@ function ReferralBlock() {
           <div className="souv-eyebrow opt-eyebrow">REFERRAL</div>
           <h2 className="souv-h1 opt-h2">
             Invite a friend,{' '}
-            <span className="souv-hero-italic text-metallic-rose-gold">give 3, get 3</span>
+            <span className="souv-hero-italic text-metallic-rose-gold">give 10, get 10</span>
           </h2>
           <p className="opt-lede opt-referral-lede">
-            Each friend who signs up adds <em>three credits</em> to your balance and starts theirs
-            with two.
+            Your friend starts with <em>ten credits</em>. You earn ten after their first physical card is sent.
           </p>
           <ul className="opt-referral-ticks">
-            <li><Tick /> +3 credits per successful signup</li>
+            <li><Tick /> +10 credits after their first physical send</li>
             <li><Tick /> No cap, keep inviting</li>
-            <li><Tick /> Delivered by Sendgrid, never spammy</li>
+            <li><Tick /> Invite delivery stays mocked until launch providers are enabled</li>
           </ul>
         </div>
         <form
           className="opt-referral-form"
-          onSubmit={(event: React.FormEvent<HTMLFormElement>) => { event.preventDefault(); if (email) { setSent(true); setTimeout(() => setSent(false), 2400); setEmail(''); } }}
+          onSubmit={submitInvite}
         >
           <label className="opt-referral-label" htmlFor="ref-email">Their email</label>
           <div className="opt-referral-row">
@@ -446,11 +489,12 @@ function ReferralBlock() {
             <span>or</span>
             <span className="souv-rule-gold" />
           </div>
-          <button type="button" className="souv-btn-log opt-referral-copy-btn">
+          {error && <p className="opt-referral-label" role="alert">{error}</p>}
+          <button type="button" className="souv-btn-log opt-referral-copy-btn" onClick={copyReferral}>
             Copy My Referral Link
           </button>
           <div className="opt-referral-link" title="Tap copy button">
-            souvenote.com/?ref=<b>cameron-w</b>
+            {referralPath ? <>souvenote.com<b>{referralPath}</b></> : <b>Sign in to create your secure link</b>}
           </div>
         </form>
       </div>
@@ -483,7 +527,7 @@ const CARD_PACKS_DATA: CardPacksData = {
   tiered: {
     id: 'tiered',
     name: 'Big Sender',
-    priceUnit: 'Sliding Scale · Includes shipping and 10 AI creation credits',
+    priceUnit: 'Sliding Scale · Includes printing, delivery, and 10 AI creation credits',
     creditsPerCard: '10',
     minCards: MIN_BIG_SENDER_CARDS,
     maxCards: MAX_BIG_SENDER_CARDS,
@@ -578,6 +622,7 @@ function buildCardPacksData(offers: PricingOffer[]): CardPacksData {
   );
 
   const bigSenderTiers = bigSenderOffers.map((offer) => ({
+    offerCode: offer.id,
     min: offer.cardCountMin,
     max: offer.cardCountMax,
     pricePerCard: centsToDollars(offer.priceCents) ?? 0,
@@ -615,7 +660,7 @@ function buildCardPacksData(offers: PricingOffer[]): CardPacksData {
           id: "big_sender",
           name: "Big Sender",
           priceUnit: firstBigSender?.shippingIncluded
-            ? "Sliding Scale - Includes shipping and AI creation credits"
+            ? "Sliding Scale - Includes printing, delivery, and AI creation credits"
             : CARD_PACKS_DATA.tiered.priceUnit,
           creditsPerCard: firstBigSender
             ? String(firstBigSender.creditsPerCard)
@@ -1015,7 +1060,7 @@ function TieredPackCard({ pack }: TieredPackCardProps) {
     <article className="opt-pack opt-pack-unified opt-pack-gold" data-screen-label="04b Big Sender">
       <header className="opt-pk-head">
         <h3 className="opt-pk-name">Big Sender</h3>
-        <MetaBullets items={['Send multiple different cards', 'Includes shipping', <span key="credits-per-card" className="text-metallic-rose-gold">10 AI creation credits per card</span>]} />
+        <MetaBullets items={['Send multiple different cards', 'Printing and standard delivery included', <span key="credits-per-card" className="text-metallic-rose-gold">10 AI creation credits per card</span>]} />
       </header>
 
       {/* Cost — all three tier prices, in gold */}
@@ -1185,29 +1230,69 @@ function TryRiskFreeCard({ pack }: TryRiskFreeCardProps) {
 // SECTION — TRY RISK-FREE DEEP-DIVE (callout strip)
 // ============================================================
 function RiskFreeCallout({ inline }: RiskFreeCalloutProps) {
+  const [pack, setPack] = React.useState<CardPack>(CARD_PACKS_DATA.trf);
+
+  React.useEffect(() => {
+    let active = true;
+
+    fetchPricingOffers()
+      .then((offers) => {
+        if (!active) return;
+        setPack(buildCardPacksData(offers).trf);
+      })
+      .catch(() => {
+        // The checked-in CAD catalog is the intentional offline fallback.
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const holdPrice = pack.price ?? "$9.99";
+  const noSendPrice = formatCents(pack.noSendFeeCents) ?? "$2.00";
+  const holdDays = pack.holdDays ?? 5;
+  const credits = pack.creditsPerCard ?? pack.tokens ?? "10";
+
   return (
-    <section className={`opt-trf ${inline ? 'is-inline' : ''}`} data-screen-label="06 TRF Callout">
+    <section
+      className={`opt-trf ${inline ? 'is-inline' : ''}`}
+      data-screen-label="06 TRF Callout"
+      id="try-risk-free-details"
+      aria-labelledby="try-risk-free-heading"
+    >
       <div className="opt-trf-inner">
-        <div className="opt-trf-eyebrow">
-          <span className="souv-rule-gold" />
-          <span>HOW TRY RISK-FREE RESOLVES</span>
-          <span className="souv-rule-gold" />
+        <div className="opt-trf-head">
+          <div className="opt-trf-eyebrow">
+            <span className="souv-rule-gold" />
+            <span>TRY RISK-FREE, STEP BY STEP</span>
+            <span className="souv-rule-gold" />
+          </div>
+          <h2 className="souv-h1 opt-trf-heading" id="try-risk-free-heading">
+            Create first.{' '}
+            <span className="souv-hero-italic text-metallic-rose-gold">
+              Decide within {holdDays} days.
+            </span>
+          </h2>
+          <p className="opt-trf-lede">
+            Your card is never printed until you choose to send it. The temporary hold simply unlocks your creative credits and review window.
+          </p>
         </div>
         <div className="opt-trf-grid">
           <div className="opt-trf-step">
             <div className="opt-trf-num">01</div>
-            <div className="opt-trf-title">$9.99 hold placed</div>
-            <div className="opt-trf-body">A five-day review window begins when payment is authorized. Ten credits are granted immediately.</div>
+            <div className="opt-trf-title">{holdPrice} hold placed</div>
+            <div className="opt-trf-body">Your {holdDays}-day review window begins when payment is authorized, and {credits} creation credits unlock immediately.</div>
           </div>
           <div className="opt-trf-step">
             <div className="opt-trf-num">02</div>
             <div className="opt-trf-title">Send a card → full charge</div>
-            <div className="opt-trf-body">We capture the full $9.99 from the hold on send.</div>
+            <div className="opt-trf-body">Choose to send and we capture the full {holdPrice}. Printing and shipping are included.</div>
           </div>
           <div className="opt-trf-step">
             <div className="opt-trf-num">03</div>
-            <div className="opt-trf-title">Don't send → pay-per-use</div>
-            <div className="opt-trf-body">If you choose not to send, or take no action for five days, we charge a flat CA$2 creative fee and release the rest of the hold.</div>
+            <div className="opt-trf-title">Don&apos;t send → creative fee only</div>
+            <div className="opt-trf-body">Choose not to send—or take no action for {holdDays} days—and we charge {noSendPrice} for the credits, then release the rest of the hold.</div>
           </div>
         </div>
       </div>

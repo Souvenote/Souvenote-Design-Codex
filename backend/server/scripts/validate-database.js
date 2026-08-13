@@ -12,9 +12,12 @@ const expectedTables = [
   'assets',
   'audit_logs',
   'card_drafts',
+  'card_entitlement_ledger',
+  'card_pack_purchases',
   'credit_ledger',
   'credit_pack_purchases',
   'fulfillment_jobs',
+  'gift_purchases',
   'generation_jobs',
   'notification_delivery_events',
   'notification_outbox',
@@ -22,6 +25,7 @@ const expectedTables = [
   'payments',
   'pricing_catalog',
   'public_card_links',
+  'referral_invites',
   'stripe_webhook_events',
   'uploads',
   'user_payment_methods',
@@ -48,9 +52,9 @@ async function main() {
 
   const migrationFiles = sqlFiles(migrationDirectory);
   const seedFiles = sqlFiles(seedDirectory);
-  if (migrationFiles.length < 12) {
+  if (migrationFiles.length < 16) {
     throw new Error(
-      `Expected migrations through at least 012, found ${migrationFiles.length}.`,
+      `Expected migrations through at least 016, found ${migrationFiles.length}.`,
     );
   }
   migrationFiles.forEach((fileName, index) => {

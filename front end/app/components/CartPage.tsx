@@ -9,19 +9,21 @@ import { CardArt } from "./CardArt";
 import { AuthGatePrompt } from "./AuthGatePrompt";
 import { useAuth } from "./AuthProvider";
 import {
+  completeMockCardPackCheckout,
   completeMockCreditPackCheckout,
   createLocalIdempotencyKey,
+  fetchCardPackPurchase,
+  fetchCreditBalance,
   fetchCreditPackPurchase,
+  startCardPackCheckout,
   startCreditPackCheckout,
 } from "../lib/api";
 import { publishCreditBalance } from "../lib/creditBalance";
+import { publishCardEntitlementBalance } from "../lib/cardEntitlementBalance";
 import { makeBigSenderCartItem, makeTryRiskFreeCartItem } from "./pricingCatalog";
-import { addDemoBalance, getCartTopUpDelta } from "./DemoBalance";
+import { getCartTopUpDelta } from "./DemoBalance";
 import { consumePricingReturn, peekPricingReturn } from "./PricingReturn";
 import {
-  BLANK_SOUVENOTE_GIFT_CART_ID,
-  BLANK_SOUVENOTE_GIFT_PRICE,
-  addBlankSouvenoteGifts,
   isBlankSouvenoteGiftId,
 } from "./GiftAddon";
 
@@ -75,6 +77,7 @@ const CART_SEED: CartItem[] = [];
 const CART_KEY = "souv_cart";
 const TOP_UP_GIFT_OFFER_SEEN_KEY = "souv_topup_blank_gift_offer_seen";
 const PENDING_CREDIT_PURCHASE_KEY = "souv_pending_credit_purchase";
+const PENDING_CARD_PURCHASE_KEY = "souv_pending_card_purchase";
 
 type PendingCreditPurchase = {
   offerCode: string;
@@ -83,19 +86,13 @@ type PendingCreditPurchase = {
   checkoutSessionId?: string;
 };
 
-function makeBlankSouvenoteGiftCartItem(): CartItem {
-  return {
-    id: BLANK_SOUVENOTE_GIFT_CART_ID,
-    type: "gift",
-    name: "Blank Souvenote Gift",
-    meta: "A blank Souvenote for someone else to create",
-    sub: "We'll remind you at delivery that you have one to give.",
-    qty: 1,
-    price: BLANK_SOUVENOTE_GIFT_PRICE,
-    unitNote: "gift add-on",
-    lockedQuantity: true,
-  };
-}
+type PendingCardPurchase = {
+  offerCode: string;
+  quantity: number;
+  idempotencyKey: string;
+  purchaseId?: string;
+  checkoutSessionId?: string;
+};
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object";
@@ -112,15 +109,16 @@ function normalizeCartItems(raw: unknown): CartItem[] {
     const isBigSender = source.id === "pack-bigsender" || source.replaceGroup === "pack-bigsender";
     const isTryRiskFree = source.id === "pack-try-risk-free" || source.replaceGroup === "pack-try-risk-free";
     const isBlankGift = isBlankSouvenoteGiftId(source.id);
+    // Legacy browser-only gifts were never server-settled. Drop them from the
+    // cart; the signed recipient workflow lives at /gift.
+    if (isBlankGift) return;
     const normalized: CartItem = isBigSender
       ? makeBigSenderCartItem(source.cardCount || parseInt(String(source.meta || ""), 10) || source.qty || 1)
       : isTryRiskFree
         ? makeTryRiskFreeCartItem({
           creditsPerCard: Number(source.creditsPerCard) || undefined,
         })
-        : isBlankGift
-          ? makeBlankSouvenoteGiftCartItem()
-          : {
+        : {
             ...source,
             id: source.id || `cart-item-${index}`,
             type: source.type || "cart",
@@ -131,7 +129,7 @@ function normalizeCartItems(raw: unknown): CartItem[] {
 
     const existing = next.find((candidate) => candidate.id === normalized.id);
     if (existing) {
-      if (normalized.id === "pack-bigsender" || normalized.id === "pack-try-risk-free" || isBlankSouvenoteGiftId(normalized.id)) {
+      if (normalized.id === "pack-bigsender" || normalized.id === "pack-try-risk-free") {
         Object.assign(existing, normalized);
       } else {
         existing.qty += normalized.qty;
@@ -198,6 +196,33 @@ function readPendingCreditPurchase(): PendingCreditPurchase | null {
 function writePendingCreditPurchase(purchase: PendingCreditPurchase): void {
   window.localStorage.setItem(
     PENDING_CREDIT_PURCHASE_KEY,
+    JSON.stringify(purchase),
+  );
+}
+
+function readPendingCardPurchase(): PendingCardPurchase | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const parsed = JSON.parse(
+      window.localStorage.getItem(PENDING_CARD_PURCHASE_KEY) || "null",
+    ) as unknown;
+    if (
+      !isRecord(parsed) ||
+      typeof parsed.offerCode !== "string" ||
+      !Number.isInteger(parsed.quantity) ||
+      typeof parsed.idempotencyKey !== "string"
+    ) {
+      return null;
+    }
+    return parsed as PendingCardPurchase;
+  } catch {
+    return null;
+  }
+}
+
+function writePendingCardPurchase(purchase: PendingCardPurchase): void {
+  window.localStorage.setItem(
+    PENDING_CARD_PURCHASE_KEY,
     JSON.stringify(purchase),
   );
 }
@@ -351,10 +376,10 @@ type GiftCheckoutOfferProps = {
   open: boolean;
   onClose: () => void;
   onDecline: () => void;
-  onAdd: () => void;
+  onChoose: () => void;
 };
 
-function GiftCheckoutOffer({ open, onClose, onDecline, onAdd }: GiftCheckoutOfferProps) {
+function GiftCheckoutOffer({ open, onClose, onDecline, onChoose }: GiftCheckoutOfferProps) {
   if (!open) return null;
 
   return (
@@ -369,10 +394,10 @@ function GiftCheckoutOffer({ open, onClose, onDecline, onAdd }: GiftCheckoutOffe
               <span>Gift a Souvenote</span>
             </div>
             <h2 id="cart-gift-offer-title" className="cart-gift-title">
-              Add a blank <span className="souv-hero-italic text-metallic-gold">Souvenote</span> to your order for $6.99?
+              Send a <span className="souv-hero-italic text-metallic-gold">Souvenote</span> gift for $6.99?
             </h2>
             <p className="cart-gift-lede">
-              This lets a recipient of your choice create a Souvenote for someone else. We&apos;ll remind you at delivery that you have one to give!
+              Choose the recipient now so the paid gift can be tied to a private redemption link and settled separately from this cart.
             </p>
             <div className="cart-gift-includes">
               <div className="acc-gift-inc">
@@ -381,7 +406,7 @@ function GiftCheckoutOffer({ open, onClose, onDecline, onAdd }: GiftCheckoutOffe
               </div>
               <div className="acc-gift-inc">
                 <span className="acc-gift-inc-ico"><CartIco name="truck" w={20} /></span>
-                <div><div className="acc-gift-inc-h">Delivery reminder</div><div className="acc-gift-inc-p">We&apos;ll surface the gift again when you send your card.</div></div>
+                <div><div className="acc-gift-inc-h">Printing &amp; delivery included</div><div className="acc-gift-inc-p">Their physical card&apos;s printing and standard delivery are prepaid.</div></div>
               </div>
             </div>
           </div>
@@ -393,15 +418,15 @@ function GiftCheckoutOffer({ open, onClose, onDecline, onAdd }: GiftCheckoutOffe
             <div className="acc-gift-price"><span className="cur">$</span>6.99<span className="cad">CAD</span></div>
             <div className="acc-gift-name">Blank Souvenote Gift</div>
             <div className="acc-gift-meta">
-              <div className="acc-summary-row"><span className="k">Includes</span><span className="v">1 blank gift</span></div>
-              <div className="acc-summary-row"><span className="k">Recipient</span><span className="v">Chosen at delivery</span></div>
-              <div className="acc-summary-row"><span className="k">Reminder</span><span className="v">Delivery step</span></div>
+              <div className="acc-summary-row"><span className="k">Includes</span><span className="v">10 credits + 1 send</span></div>
+              <div className="acc-summary-row"><span className="k">Recipient</span><span className="v">Choose now</span></div>
+              <div className="acc-summary-row"><span className="k">Delivery</span><span className="v">Included</span></div>
             </div>
           </aside>
         </div>
         <div className="cart-gift-actions">
           <button type="button" className="bmc-cta-secondary cart-gift-skip" onClick={onDecline}>No thanks</button>
-          <button type="button" className="bmc-cta cart-gift-add" onClick={onAdd}>Add gift · $6.99 <CartIco name="arrow" w={15} /></button>
+          <button type="button" className="bmc-cta cart-gift-add" onClick={onChoose}>Choose recipient <CartIco name="arrow" w={15} /></button>
         </div>
       </div>
     </div>
@@ -431,7 +456,7 @@ function CartPaid() {
       <h2 className="cart-empty-h">Payment confirmed</h2>
       <p className="cart-empty-p">
         Thank you - your order <b style={{ color: "var(--gold-hi)" }}>{order}</b> is in. A receipt is on its way to your inbox,
-        and your cards, packs, and credits are now on your account.
+        and your verified purchases are now on your account.
       </p>
       <div className="cart-empty-cta">
         <Link href="/create/my-cards-and-songs" className="bmc-cta">Go to Saved Cards &amp; Songs <CartIco name="arrow" w={15} /></Link>
@@ -472,6 +497,7 @@ function CartPage() {
     if (!hydrated || !isAuthenticated) return;
     const params = new URLSearchParams(window.location.search);
     if (params.get("checkout") !== "success") return;
+    if (params.get("purchase") === "cards") return;
     const pending = readPendingCreditPurchase();
     if (!pending?.purchaseId) return;
 
@@ -525,6 +551,70 @@ function CartPage() {
     };
   }, [hydrated, isAuthenticated]);
 
+  React.useEffect(() => {
+    if (!hydrated || !isAuthenticated) return;
+    const params = new URLSearchParams(window.location.search);
+    if (
+      params.get("checkout") !== "success" ||
+      params.get("purchase") !== "cards"
+    ) {
+      return;
+    }
+    const pending = readPendingCardPurchase();
+    if (!pending?.purchaseId) return;
+
+    let active = true;
+    let timeoutId: number | undefined;
+    const checkPurchase = async (attempt: number) => {
+      try {
+        const result = await fetchCardPackPurchase(pending.purchaseId!);
+        if (!active) return;
+        if (result.purchase.status === "paid") {
+          const creditBalance = await fetchCreditBalance();
+          if (!active) return;
+          finishCardPackPurchase(result.balance, creditBalance);
+          window.history.replaceState({}, "", "/cart");
+          return;
+        }
+        if (
+          [
+            "payment_failed",
+            "payment_canceled",
+            "checkout_expired",
+          ].includes(result.purchase.status)
+        ) {
+          throw new Error(
+            `Card-pack checkout ended with status ${result.purchase.status}.`,
+          );
+        }
+        if (attempt >= 10) {
+          throw new Error(
+            "Payment is still being confirmed. Refresh this page in a moment.",
+          );
+        }
+        timeoutId = window.setTimeout(
+          () => void checkPurchase(attempt + 1),
+          1000,
+        );
+      } catch (error) {
+        if (!active) return;
+        setCheckoutError(
+          error instanceof Error
+            ? error.message
+            : "Card-pack payment could not be confirmed.",
+        );
+        setCheckoutProcessing(false);
+      }
+    };
+    setCheckoutProcessing(true);
+    void checkPurchase(0);
+
+    return () => {
+      active = false;
+      if (timeoutId !== undefined) window.clearTimeout(timeoutId);
+    };
+  }, [hydrated, isAuthenticated]);
+
   function onQty(id: string, delta: number) {
     setItems((current) => current.map((item) => item.id === id ? { ...item, qty: Math.max(1, item.qty + delta) } : item));
   }
@@ -540,17 +630,12 @@ function CartPage() {
   async function handlePaid() {
     const topUpDelta = getCartTopUpDelta(items);
 
-    if (topUpDelta.credits > 0) {
+    if (topUpDelta.credits > 0 || topUpDelta.cards > 0) {
       throw new Error(
-        "Credit packs must complete their server-priced checkout separately.",
+        "Cards and credits must complete their server-priced checkout separately.",
       );
     }
 
-    const blankGiftCount = items.reduce((sum, item) => (
-      isBlankSouvenoteGiftId(item.id) ? sum + Math.max(1, item.qty) : sum
-    ), 0);
-    if (topUpDelta.cards > 0) addDemoBalance({ cards: topUpDelta.cards });
-    if (blankGiftCount > 0) addBlankSouvenoteGifts(blankGiftCount);
     setCheckoutOpen(false);
     setItems([]);
     try {
@@ -585,6 +670,98 @@ function CartPage() {
       return;
     }
     setConfirmed(true);
+  }
+
+  function finishCardPackPurchase(
+    cardBalance: Parameters<typeof publishCardEntitlementBalance>[0],
+    creditBalance: Parameters<typeof publishCreditBalance>[0],
+  ) {
+    publishCardEntitlementBalance(cardBalance);
+    publishCreditBalance(creditBalance);
+    setCheckoutProcessing(false);
+    setCheckoutError(null);
+    setCheckoutOpen(false);
+    setItems([]);
+    try {
+      window.localStorage.removeItem(CART_KEY);
+      window.localStorage.removeItem(PENDING_CARD_PURCHASE_KEY);
+    } catch {}
+
+    const returnTo = consumePricingReturn();
+    if (returnTo) {
+      router.push(returnTo);
+      return;
+    }
+    setConfirmed(true);
+  }
+
+  async function beginCardPackCheckout(item: CartItem) {
+    const quantity = Number(item.cardCount);
+    if (!item.offerCode || !Number.isInteger(quantity)) {
+      throw new Error(
+        "This card pack is missing its backend offer or quantity. Remove it and choose the pack again.",
+      );
+    }
+    const existing = readPendingCardPurchase();
+    const pending: PendingCardPurchase =
+      existing?.offerCode === item.offerCode &&
+      existing.quantity === quantity
+        ? existing
+        : {
+            offerCode: item.offerCode,
+            quantity,
+            idempotencyKey: createLocalIdempotencyKey(
+              `card-pack-${item.offerCode}-${quantity}`,
+            ),
+          };
+    writePendingCardPurchase(pending);
+
+    const started = await startCardPackCheckout(
+      pending.offerCode,
+      pending.quantity,
+      pending.idempotencyKey,
+    );
+    writePendingCardPurchase({
+      ...pending,
+      purchaseId: started.purchase.id,
+      checkoutSessionId: started.checkoutSession.id,
+    });
+
+    if (started.purchase.status === "paid") {
+      const [cardResult, creditBalance] = await Promise.all([
+        fetchCardPackPurchase(started.purchase.id),
+        fetchCreditBalance(),
+      ]);
+      finishCardPackPurchase(cardResult.balance, creditBalance);
+      return;
+    }
+
+    if (started.checkoutSession.providerMode === "mock") {
+      const completed = await completeMockCardPackCheckout(
+        started.purchase.id,
+        started.checkoutSession.id,
+      );
+      if (!completed.cardBalance || !completed.creditBalance) {
+        throw new Error(
+          "Card-pack payment completed without updated account balances.",
+        );
+      }
+      finishCardPackPurchase(
+        completed.cardBalance,
+        completed.creditBalance,
+      );
+      return;
+    }
+
+    const checkoutUrl = started.checkoutSession.checkoutUrl;
+    if (!checkoutUrl) {
+      throw new Error("Stripe did not return a secure checkout URL.");
+    }
+    const parsed = new URL(checkoutUrl);
+    if (parsed.protocol !== "https:") {
+      throw new Error("Stripe checkout must use HTTPS.");
+    }
+    window.location.assign(parsed.toString());
   }
 
   async function beginCreditPackCheckout(item: CartItem) {
@@ -646,12 +823,9 @@ function CartPage() {
     setCheckoutOpen(true);
   }
 
-  function addBlankSouvenoteGift() {
-    setItems((current) => {
-      if (current.some((item) => isBlankSouvenoteGiftId(item.id))) return current;
-      return [...current, makeBlankSouvenoteGiftCartItem()];
-    });
-    continueToCheckout();
+  function chooseGiftRecipient() {
+    setGiftOfferOpen(false);
+    router.push("/gift");
   }
 
   async function handleCheckoutClick() {
@@ -689,8 +863,43 @@ function CartPage() {
       return;
     }
 
-    if (items.some((item) => isBlankSouvenoteGiftId(item.id))) {
-      continueToCheckout();
+    const cardPackItems = items.filter(
+      (item) =>
+        item.id === "pack-bigsender" ||
+        item.replaceGroup === "pack-bigsender",
+    );
+    if (cardPackItems.length > 0) {
+      if (
+        items.length !== 1 ||
+        cardPackItems.length !== 1 ||
+        cardPackItems[0].qty !== 1
+      ) {
+        setCheckoutError(
+          "Card packs are purchased separately. Keep one Big Sender pack in the cart and check out other items separately.",
+        );
+        return;
+      }
+      setCheckoutProcessing(true);
+      try {
+        await beginCardPackCheckout(cardPackItems[0]);
+      } catch (error) {
+        setCheckoutError(
+          error instanceof Error
+            ? error.message
+            : "Card-pack checkout could not start.",
+        );
+        setCheckoutProcessing(false);
+      }
+      return;
+    }
+
+    const physicalItems = items.filter((item) =>
+      ["card", "pack"].includes(getCartItemPresentation(item).kind),
+    );
+    if (physicalItems.length > 0) {
+      setCheckoutError(
+        "Physical cards are charged through the server-priced Delivery checkout after you choose or create the card being sent. Your card bank is never updated by this browser preview.",
+      );
       return;
     }
 
@@ -711,6 +920,11 @@ function CartPage() {
   const creditOnlyCart =
     items.length === 1 &&
     getCartItemPresentation(items[0]).kind === "credits";
+  const cardPackOnlyCart =
+    items.length === 1 &&
+    (items[0].id === "pack-bigsender" ||
+      items[0].replaceGroup === "pack-bigsender");
+  const serverPricedOnlyCart = creditOnlyCart || cardPackOnlyCart;
   const cardCount = items.reduce((sum, item) => sum + (item.cardCount || 0), 0);
   const subtotal = items.reduce((sum, item) => sum + item.price * item.qty, 0);
   const lockedCartItem = items.length === 1 && items[0].lockedQuantity && items[0].cardCount ? items[0] : null;
@@ -720,9 +934,9 @@ function CartPage() {
     ? { kind: "cards", name: lockedCartItem.name, price: subtotal, cards: lockedCardCount, tokens: lockedCardCount * lockedCreditsPerCard, bonus: 0 }
     : { kind: "cart", name: "Your cart", price: subtotal, lineCount: count, cardCount };
   const discount =
-    promoApplied && !creditOnlyCart ? +(subtotal * 0.10).toFixed(2) : 0;
+    promoApplied && !serverPricedOnlyCart ? +(subtotal * 0.10).toFixed(2) : 0;
   const taxable = subtotal - discount;
-  const tax = +(taxable * 0.05).toFixed(2);
+  const tax = serverPricedOnlyCart ? 0 : +(taxable * 0.05).toFixed(2);
   const total = +(taxable + tax).toFixed(2);
 
   return (
@@ -770,19 +984,23 @@ function CartPage() {
                       {creditOnlyCart ? "Not applicable" : "Included"}
                     </span>
                   </div>
-                  {promoApplied && (
+                  {promoApplied && discount > 0 && (
                     <div className="cart-sum-row">
                       <span className="k">Promo {"\u00b7"} SOUVENOTE10</span>
                       <span className="v is-discount">{"\u2212"}{cartMoney(discount)}</span>
                     </div>
                   )}
                   <div className="cart-sum-row">
-                    <span className="k">GST (5%)</span>
-                    <span className="v">{cartMoney(tax)}</span>
+                    <span className="k">Tax</span>
+                    <span className="v">
+                      {serverPricedOnlyCart
+                        ? "Calculated at checkout"
+                        : cartMoney(tax)}
+                    </span>
                   </div>
                 </div>
 
-                {!creditOnlyCart && <div className="cart-promo">
+                {!serverPricedOnlyCart && <div className="cart-promo">
                   {promoApplied ? (
                     <div className="cart-promo-ok"><CartIco name="tag" w={13} /> Code <b>SOUVENOTE10</b> applied {"\u00b7"} 10% off</div>
                   ) : (
@@ -826,6 +1044,8 @@ function CartPage() {
               <p className="cart-foot">
                 {creditOnlyCart
                   ? "Standalone credits are added to your account after payment."
+                  : cardPackOnlyCart
+                    ? "Cards and their included AI credits are added to your account after payment."
                   : "Shipping is always included."}
               </p>
             </aside>
@@ -835,6 +1055,7 @@ function CartPage() {
       <CheckoutModal
         open={checkoutOpen}
         pack={checkoutPack}
+        initialPromoCode={promoApplied ? "SOUVENOTE10" : null}
         onClose={() => setCheckoutOpen(false)}
         onBack={() => {
           setCheckoutOpen(false);
@@ -846,7 +1067,7 @@ function CartPage() {
         open={giftOfferOpen}
         onClose={() => setGiftOfferOpen(false)}
         onDecline={continueToCheckout}
-        onAdd={addBlankSouvenoteGift}
+        onChoose={chooseGiftRecipient}
       />
       <AuthGatePrompt
         open={authPromptOpen}

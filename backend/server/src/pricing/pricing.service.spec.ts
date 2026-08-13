@@ -133,4 +133,75 @@ describe('PricingService', () => {
       service.resolveCreditPackOffer('credit_pack_broken'),
     ).rejects.toThrow('unavailable or is not configured correctly');
   });
+
+  it('prices a standalone Big Sender pack from its exact catalog tier', async () => {
+    query.mockResolvedValueOnce({
+      rows: [
+        {
+          id: 'tier-id',
+          offer_code: 'big_sender_2_10',
+          name: 'Big Sender 2-10 Cards',
+          offer_type: 'big_sender',
+          price_cents: 899,
+          currency: 'cad',
+          card_count_min: 2,
+          card_count_max: 10,
+          credits_per_card: 10,
+          shipping_included: true,
+          metadata: {},
+        },
+      ],
+    });
+
+    await expect(
+      service.resolveCardPackOffer('big_sender_2_10', 5),
+    ).resolves.toMatchObject({
+      amountCents: 4495,
+      cardAmount: 5,
+      creditAmount: 50,
+    });
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining("offer_type IN ('big_sender', 'gift')"),
+      ['big_sender_2_10', 5],
+    );
+  });
+
+  it('prices a one-card gift with printing and delivery included', async () => {
+    query.mockResolvedValueOnce({
+      rows: [
+        {
+          id: 'gift-tier-id',
+          offer_code: 'gift_souvenote_one_card',
+          name: 'Gift a Souvenote',
+          offer_type: 'gift',
+          price_cents: 699,
+          currency: 'cad',
+          card_count_min: 1,
+          card_count_max: 1,
+          credits_per_card: 10,
+          shipping_included: true,
+          metadata: {
+            printing_included: true,
+            standard_delivery_included: true,
+          },
+        },
+      ],
+    });
+
+    await expect(
+      service.resolveCardPackOffer('gift_souvenote_one_card', 1),
+    ).resolves.toMatchObject({
+      amountCents: 699,
+      cardAmount: 1,
+      creditAmount: 10,
+      shipping_included: true,
+    });
+  });
+
+  it('rejects an out-of-range standalone card-pack quantity', async () => {
+    await expect(
+      service.resolveCardPackOffer('big_sender_2_10', 0),
+    ).rejects.toThrow('between 1 and 30');
+    expect(query).not.toHaveBeenCalled();
+  });
 });

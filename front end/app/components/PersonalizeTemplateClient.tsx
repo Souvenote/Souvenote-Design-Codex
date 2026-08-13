@@ -8,6 +8,7 @@ import { PageChrome } from "./PageChrome";
 import { PersonalizeApp } from "./Personalize";
 import { demoUser } from "./DemoUser";
 import { useCreditBalance } from "../lib/creditBalance";
+import { useCardEntitlementBalance } from "../lib/cardEntitlementBalance";
 import { MIN_GENERATION_CREDITS } from "./createFlowRules";
 import { goToPricingAfterPurchase } from "./PricingReturn";
 import { useAuth } from "./AuthProvider";
@@ -28,10 +29,11 @@ export function PersonalizeTemplateClient() {
   const entryGateChecked = React.useRef(false);
   const isAuthenticated = auth.status === "authenticated";
   const creditBalance = useCreditBalance({ enabled: isAuthenticated, fallbackBalance: 0, userId: auth.user?.id });
+  const cardBalance = useCardEntitlementBalance({ enabled: isAuthenticated, fallbackBalance: 0, userId: auth.user?.id });
   const totalCredits = creditBalance.balance;
   const accountBalance = {
     credits: { images: totalCredits, songs: 0 },
-    cardBank: 0,
+    cardBank: cardBalance.balance,
   };
 
   React.useEffect(() => {
@@ -58,7 +60,7 @@ export function PersonalizeTemplateClient() {
   return (
     <div className="souv-route-page">
       <PageChrome variant="personalize" />
-      <Navbar loggedIn={isAuthenticated} user={demoUser} credits={accountBalance.credits} cardBank={0} cartCount={0} />
+      <Navbar loggedIn={isAuthenticated} user={demoUser} credits={accountBalance.credits} cardBank={accountBalance.cardBank} cartCount={0} />
       <main>
         <PersonalizeApp
           openModal={openModal}

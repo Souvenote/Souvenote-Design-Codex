@@ -1124,13 +1124,30 @@
     linear-gradient(180deg, rgba(232,234,238,0.02), rgba(232,234,238,0.005));
   box-shadow: 0 24px 60px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04);
 }
+.opt-trf-head {
+  max-width: 760px;
+  margin: 0 auto 38px;
+  text-align: center;
+}
 .opt-trf-eyebrow {
   display: grid; grid-template-columns: 1fr auto 1fr;
   gap: 18px; align-items: center;
   font-family: var(--font-sans); font-weight: 700; font-size: 10.5px;
   letter-spacing: .3em; text-transform: uppercase;
   color: var(--gold);
-  margin-bottom: 28px;
+  margin-bottom: 20px;
+}
+.opt-trf-heading {
+  margin: 0;
+  text-align: center;
+}
+.opt-trf-lede {
+  max-width: 62ch;
+  margin: 14px auto 0;
+  font-family: var(--font-sans);
+  font-size: 15.5px;
+  line-height: 1.65;
+  color: var(--text-secondary);
 }
 .opt-trf-grid {
   display: grid; grid-template-columns: repeat(3, 1fr);
@@ -1169,7 +1186,10 @@
   .opt-pricing-grid-3 { grid-template-columns: 1fr 1fr; }
   .opt-pricing-grid-2 { grid-template-columns: 1fr 1fr; }
   .opt-referral-inner { grid-template-columns: 1fr; gap: 28px; padding: 32px 28px; }
-  .opt-trf-grid { grid-template-columns: 1fr; }
+  .opt-trf-grid { grid-template-columns: 1fr; gap: 0; }
+  .opt-trf-step { padding: 24px 0; border-top: 1px solid rgba(212,175,55,0.16); }
+  .opt-trf-step:first-child { padding-top: 0; border-top: 0; }
+  .opt-trf-step:last-child { padding-bottom: 0; }
 }
 @media (max-width: 640px) {
   .opt-head, .opt-tiles, .opt-pricing, .opt-referral, .opt-trf { padding-left: 24px; padding-right: 24px; }
@@ -1178,6 +1198,11 @@
   .opt-pricing-grid-3,
   .opt-pricing-grid-2 { grid-template-columns: 1fr; }
   .opt-pricing-credit-note { white-space: normal; }
+  .opt-trf { padding-top: 28px; padding-bottom: 56px; }
+  .opt-trf-inner { padding: 34px 24px 30px; }
+  .opt-trf-head { margin-bottom: 28px; }
+  .opt-trf-eyebrow { grid-template-columns: minmax(20px, 1fr) auto minmax(20px, 1fr); gap: 10px; letter-spacing: .18em; }
+  .opt-trf-heading { font-size: clamp(32px, 10vw, 44px); }
 }
 
 /* ============================================================
@@ -1553,4 +1578,39 @@
   background: linear-gradient(120deg,#F4D6D0,#C88B86,#E7BBB4,#C88B86,#F4D6D0);
   background-size: 240% 240%;
   box-shadow: 0 10px 26px rgba(200,139,134,.42), inset 0 1px 0 rgba(255,235,225,.7);
+}
+
+/* Keep the late unified-pack rules from overriding the mobile grid declared
+   above. Without this final cascade guard, the two card packs remain in a
+   desktop two-column grid and widen the entire pricing page. */
+@media (max-width: 640px) {
+  .opt-pricing-grid-2c {
+    grid-template-columns: minmax(0, 1fr);
+    max-width: 100%;
+    gap: 22px;
+  }
+  .opt-pricing-grid-2c .opt-pack-unified {
+    width: 100%;
+    min-width: 0;
+    padding: 24px 20px 22px;
+  }
+  .opt-pricing-head .opt-h2.opt-h2-cardpacks,
+  .opt-pricing-head .opt-h2.opt-h2-topup {
+    font-size: clamp(36px, 11vw, 46px);
+  }
+  .opt-pack-unified .opt-pack-tiers-hero {
+    gap: 2px;
+  }
+  .opt-pack-unified .opt-pack-tiers-hero .opt-pack-tier {
+    min-width: 0;
+    padding-left: 2px;
+    padding-right: 2px;
+  }
+  .opt-pack-unified .opt-pack-tiers-hero .opt-pack-tier-range {
+    font-size: 10px;
+    letter-spacing: .12em;
+  }
+  .opt-pack-unified .opt-pack-tiers-hero .opt-pack-tier-price {
+    font-size: 32px;
+  }
 }

@@ -104,6 +104,134 @@ describe('FalGenerationProvider', () => {
     });
   });
 
+  it('submits the Build My Card flow-specific prompt to the image provider', async () => {
+    submit.mockResolvedValue({ request_id: 'image-request' });
+
+    await provider.start({
+      generationJobId: 'job-a',
+      cardDraftId: 'draft-a',
+      creativeBrief: {
+        flow: 'build_my_card',
+        basics: {
+          orientation: 'landscape',
+          occasion: 'Graduation',
+        },
+        photo: {
+          mode: 'upload',
+          referenceImageCount: 2,
+        },
+        image: {
+          blueprint: 'decorate',
+          hasPhoto: true,
+          visualStyle: 'minimal',
+          accents: ['Stars/Sparkles'],
+          border: 'Minimalist line',
+          coverMode: 'with',
+          coverText: 'You did it!',
+        },
+      },
+      assetTypes: ['image'],
+      referenceImageUrls: [
+        'https://bucket.example/primary.png',
+        'https://bucket.example/supporting.png',
+      ],
+    });
+
+    const calls = submit.mock.calls as unknown as Array<
+      [string, { input: Record<string, unknown> }]
+    >;
+    const prompt = calls[0][1].input.prompt;
+    expect(prompt).toEqual(expect.any(String));
+    expect(prompt).toContain('7×5 landscape orientation');
+    expect(prompt).toContain('inside a 10% safe zone');
+    expect(prompt).toContain('FLOW: DECORATE MY PHOTO');
+    expect(prompt).toContain('Keep the primary photograph visually unchanged.');
+    expect(prompt).toContain(
+      'Generate the cover text as part of the finished image.',
+    );
+    expect(calls[0][1].input.image_size).toEqual({
+      width: 2240,
+      height: 1600,
+    });
+  });
+
+  it('requests an exact 5:7 portrait canvas for a text-only Build My Card', async () => {
+    submit.mockResolvedValue({ request_id: 'image-request' });
+
+    await provider.start({
+      generationJobId: 'job-a',
+      cardDraftId: 'draft-a',
+      creativeBrief: {
+        flow: 'build_my_card',
+        basics: { orientation: 'portrait' },
+        photo: {
+          mode: 'description',
+          description: 'A moonlit picnic beneath the stars.',
+        },
+        image: {
+          blueprint: 'transform',
+          hasPhoto: false,
+          visualStyle: 'watercolor',
+          coverMode: 'none',
+        },
+      },
+      assetTypes: ['image'],
+      referenceImageUrls: [],
+    });
+
+    const calls = submit.mock.calls as unknown as Array<
+      [string, { input: Record<string, unknown> }]
+    >;
+    expect(calls[0][1].input.image_size).toEqual({
+      width: 1600,
+      height: 2240,
+    });
+  });
+
+  it('submits a fixed portrait master prompt for Personalize a Template', async () => {
+    submit.mockResolvedValue({ request_id: 'image-request' });
+
+    await provider.start({
+      generationJobId: 'job-a',
+      cardDraftId: 'draft-a',
+      creativeBrief: {
+        flow: 'personalize_template',
+        orientation: 'portrait',
+        template: {
+          id: 'outline',
+          name: 'Outline',
+          occasion: 'Just Because',
+          description: 'Their portrait redrawn as clean single-line art.',
+          referencePolicy:
+            'Use the photograph only to reproduce subject likeness.',
+        },
+        photo: {
+          mode: 'upload',
+          referenceImageCount: 1,
+        },
+        caption: 'Simply you',
+      },
+      assetTypes: ['image'],
+      referenceImageUrls: ['https://bucket.example/subject.png'],
+    });
+
+    const calls = submit.mock.calls as unknown as Array<
+      [string, { input: Record<string, unknown> }]
+    >;
+    const prompt = calls[0][1].input.prompt;
+    expect(prompt).toContain('standard 5×7 portrait card');
+    expect(prompt).toContain(
+      'The reference photograph controls likeness; the template controls the design.',
+    );
+    expect(prompt).toContain(
+      'Generate every listed text slot as part of the finished image',
+    );
+    expect(calls[0][1].input.image_size).toEqual({
+      width: 1600,
+      height: 2240,
+    });
+  });
+
   it('completes a message-only request synchronously', async () => {
     await expect(
       provider.start({

@@ -3,12 +3,21 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { FulfillmentRecord, Order } from "./api";
 import {
   API_BASE_URL,
+  completeMockCardPackCheckout,
   completeMockCreditPackCheckout,
+  createOrder,
+  fetchCardPackPurchase,
+  fetchCardEntitlementBalance,
   fetchCreditPackPurchase,
   fetchFulfillments,
+  fetchReferralDashboard,
+  previewGift,
+  previewReferral,
   fetchPublicSouvenote,
   fetchUserOrders,
+  startCardPackCheckout,
   startCreditPackCheckout,
+  startGiftCheckout,
   uploadReferenceImage,
 } from "./api";
 
@@ -387,6 +396,300 @@ describe("standalone credit-pack API contracts", () => {
     expect(init).toMatchObject({ method: "GET", cache: "no-store" });
     expect((init?.headers as Headers).get("Authorization")).toBe(
       "Bearer test-id-token",
+    );
+  });
+});
+
+describe("gift and referral API contracts", () => {
+  const fetchMock = vi.fn<typeof fetch>();
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.stubGlobal("fetch", fetchMock);
+    authMocks.getActiveCognitoSession.mockResolvedValue({
+      idToken: "test-id-token",
+      accessToken: "test-access-token",
+      expiresAt: Date.now() + 60_000,
+      email: "owner@example.com",
+      sub: "user-1",
+    });
+  });
+
+  it("starts a one-card gift checkout with delivery recipient details", async () => {
+    fetchMock.mockResolvedValue(response({
+      checkoutSession: {
+        id: "mock-gift-session",
+        cardPackPurchaseId: "gift-pack-1",
+        paymentId: "payment-1",
+        providerMode: "mock",
+        status: "checkout_started",
+      },
+      purchase: {
+        id: "gift-pack-1",
+        offerCode: "gift_souvenote_one_card",
+        status: "checkout_started",
+        amountCents: 699,
+        currency: "cad",
+        cardAmount: 1,
+        creditAmount: 10,
+      },
+      gift: {
+        id: "gift-1",
+        claimToken: "gift-token",
+        redemptionPath: "/gift/redeem?token=gift-token",
+        cardAmount: 1,
+        creditAmount: 10,
+        printingIncluded: true,
+        standardDeliveryIncluded: true,
+      },
+    }));
+
+    await startGiftCheckout({
+      recipientName: "Jordan",
+      recipientContact: "jordan@example.com",
+      deliveryMethod: "email",
+    }, "gift-request-1");
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe(`${API_BASE_URL}/checkout/card-packs/start`);
+    expect(JSON.parse(String(init?.body))).toMatchObject({
+      offerCode: "gift_souvenote_one_card",
+      quantity: 1,
+      recipientContact: "jordan@example.com",
+      deliveryMethod: "email",
+    });
+    expect((init?.headers as Headers).get("Authorization")).toBe("Bearer test-id-token");
+  });
+
+  it("keeps gift and referral previews anonymous and no-referrer", async () => {
+    fetchMock
+      .mockResolvedValueOnce(response({ gift: {
+        id: "gift-1", status: "ready", recipientName: "Jordan", cardAmount: 1,
+        creditAmount: 10, printingIncluded: true, standardDeliveryIncluded: true,
+      } }))
+      .mockResolvedValueOnce(response({ referral: {
+        senderName: "Casey",
+        program: {
+          inviteeStarterCreditsTotal: 10,
+          inviteeReferralBonusCredits: 8,
+          referrerRewardCredits: 10,
+          referrerQualification: "first_physical_send",
+        },
+      } }));
+
+    await previewGift("gift token");
+    await previewReferral("referral token");
+
+    for (const [, init] of fetchMock.mock.calls) {
+      expect(init).toMatchObject({ method: "GET", referrerPolicy: "no-referrer" });
+      expect(new Headers(init?.headers).has("Authorization")).toBe(false);
+    }
+  });
+
+  it("loads the referral dashboard through the owner-scoped endpoint", async () => {
+    fetchMock.mockResolvedValue(response({
+      program: {
+        inviteeStarterCreditsTotal: 10,
+        inviteeReferralBonusCredits: 8,
+        referrerRewardCredits: 10,
+        referrerQualification: "first_physical_send",
+      },
+      referral: { token: "u.token", path: "/r/u.token" },
+      invites: [],
+      earnedCredits: 0,
+    }));
+
+    await fetchReferralDashboard();
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe(`${API_BASE_URL}/referrals/me`);
+    expect((init?.headers as Headers).get("Authorization")).toBe("Bearer test-id-token");
+  });
+});
+
+describe("prepaid delivery order API contract", () => {
+  const fetchMock = vi.fn<typeof fetch>();
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.stubGlobal("fetch", fetchMock);
+    authMocks.getActiveCognitoSession.mockResolvedValue({
+      idToken: "test-id-token",
+      accessToken: "test-access-token",
+      expiresAt: Date.now() + 60_000,
+      email: "owner@example.com",
+      sub: "user-1",
+    });
+  });
+
+  it("requests card-bank funding without sending a price", async () => {
+    const address = {
+      name: "Ada Lovelace",
+      line1: "1 Example Street",
+      city: "Vancouver",
+      region: "BC",
+      postalCode: "V6B 1A1",
+      country: "CA",
+    };
+    fetchMock.mockResolvedValue(
+      response({
+        order: {
+          id: "order-prepaid-1",
+          status: "paid",
+          fundingSource: "card_bank",
+          amountCents: 0,
+        },
+      }),
+    );
+
+    await expect(
+      createOrder({
+        cardDraftId: "draft-1",
+        selectedAssetId: "asset-1",
+        fundingSource: "card_bank",
+        quantity: 1,
+        recipientAddress: address,
+        recipientAddresses: [address],
+        senderAddress: address,
+      }),
+    ).resolves.toMatchObject({
+      status: "paid",
+      fundingSource: "card_bank",
+      amountCents: 0,
+    });
+    const body = JSON.parse(
+      String((fetchMock.mock.calls[0][1] as RequestInit).body),
+    );
+    expect(body).toMatchObject({
+      fundingSource: "card_bank",
+      quantity: 1,
+    });
+    expect(body).not.toHaveProperty("amountCents");
+    expect(body).not.toHaveProperty("currency");
+  });
+});
+
+describe("card-pack checkout API contract", () => {
+  const fetchMock = vi.fn<typeof fetch>();
+  const purchase = {
+    id: "card-purchase-1",
+    offerCode: "big_sender_2_10",
+    status: "checkout_started",
+    amountCents: 4495,
+    currency: "cad",
+    cardAmount: 5,
+    creditAmount: 50,
+  };
+  const checkoutSession = {
+    id: "cs_card_1",
+    cardPackPurchaseId: purchase.id,
+    paymentId: "payment-card-1",
+    providerMode: "mock",
+    status: "checkout_started",
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.stubGlobal("fetch", fetchMock);
+    authMocks.getActiveCognitoSession.mockResolvedValue({
+      idToken: "test-id-token",
+      accessToken: "test-access-token",
+      expiresAt: Date.now() + 60_000,
+      email: "owner@example.com",
+      sub: "user-1",
+    });
+  });
+
+  it("starts an exact server-priced Big Sender tier", async () => {
+    fetchMock.mockResolvedValue(response({ checkoutSession, purchase }));
+
+    await expect(
+      startCardPackCheckout("big_sender_2_10", 5, "card-request-123"),
+    ).resolves.toMatchObject({
+      purchase: { cardAmount: 5, creditAmount: 50, amountCents: 4495 },
+    });
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      `${API_BASE_URL}/checkout/card-packs/start`,
+    );
+    expect(fetchMock.mock.calls[0][1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({
+        offerCode: "big_sender_2_10",
+        quantity: 5,
+        idempotencyKey: "card-request-123",
+      }),
+    });
+  });
+
+  it("returns both settled balances from mock completion", async () => {
+    fetchMock.mockResolvedValue(
+      response({
+        checkoutSession: { ...checkoutSession, status: "paid_mock" },
+        purchase: { ...purchase, status: "paid" },
+        cardBalance: { userId: "user-1", balance: 5 },
+        creditBalance: { userId: "user-1", balance: 50 },
+      }),
+    );
+    await expect(
+      completeMockCardPackCheckout(purchase.id, checkoutSession.id),
+    ).resolves.toMatchObject({
+      cardBalance: { balance: 5 },
+      creditBalance: { balance: 50 },
+    });
+  });
+
+  it("loads an owner-scoped card-pack purchase", async () => {
+    fetchMock.mockResolvedValue(
+      response({
+        purchase: { ...purchase, status: "paid" },
+        balance: { userId: "user-1", balance: 5 },
+      }),
+    );
+    await expect(fetchCardPackPurchase(purchase.id)).resolves.toMatchObject({
+      purchase: { status: "paid" },
+      balance: { balance: 5 },
+    });
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      `${API_BASE_URL}/card-entitlements/purchases/card-purchase-1`,
+    );
+  });
+});
+
+describe("card-entitlement balance API contract", () => {
+  const fetchMock = vi.fn<typeof fetch>();
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.stubGlobal("fetch", fetchMock);
+    authMocks.getActiveCognitoSession.mockResolvedValue({
+      idToken: "test-id-token",
+      accessToken: "test-access-token",
+      expiresAt: Date.now() + 60_000,
+      email: "owner@example.com",
+      sub: "user-1",
+    });
+    authMocks.getStoredLocalUser.mockReturnValue(null);
+  });
+
+  it("loads the authenticated server-authoritative card balance", async () => {
+    fetchMock.mockResolvedValue(response({ userId: "user-1", balance: 4 }));
+
+    await expect(fetchCardEntitlementBalance()).resolves.toEqual({
+      userId: "user-1",
+      balance: 4,
+    });
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      `${API_BASE_URL}/card-entitlements/balance`,
+    );
+    expect((fetchMock.mock.calls[0][1]?.headers as Headers).get("Authorization")).toBe(
+      "Bearer test-id-token",
+    );
+  });
+
+  it("rejects malformed or negative card balances", async () => {
+    fetchMock.mockResolvedValue(response({ userId: "user-1", balance: -1 }));
+
+    await expect(fetchCardEntitlementBalance()).rejects.toThrow(
+      "Card balance response did not include a valid balance.",
     );
   });
 });

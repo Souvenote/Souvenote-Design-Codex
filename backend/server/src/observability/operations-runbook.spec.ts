@@ -5,7 +5,7 @@ const backendRoot = resolve(__dirname, '../../..');
 const runbook = readFileSync(
   resolve(backendRoot, 'docs/operations-runbook.md'),
   'utf8',
-);
+).replace(/\r\n/g, '\n');
 const schema = [
   '001_initial_schema.sql',
   '002_phase1_mock_backend.sql',
@@ -18,6 +18,8 @@ const schema = [
   '009_scribeless_fulfillment_lifecycle.sql',
   '010_public_card_links.sql',
   '011_transactional_notifications.sql',
+  '012_canadian_pricing_and_credit_packs.sql',
+  '013_card_entitlement_ledger.sql',
 ]
   .map((filename) =>
     readFileSync(

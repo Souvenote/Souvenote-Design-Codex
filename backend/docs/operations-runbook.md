@@ -2,7 +2,7 @@
 
 This runbook covers incident triage, ambiguous provider outcomes, credential
 rotation, and credentialed staging checks for the MVP backend. It reflects the
-state machines in migrations `001` through `012` and the current NestJS
+state machines in migrations `001` through `016` and the current NestJS
 services. It does not authorize manual database corrections or customer
 impersonation.
 
@@ -322,7 +322,7 @@ COMMIT;
 
 If a query fails because a migration or column is missing, stop. The target
 environment is not on the expected schema and must not receive remediation
-writes until migrations `001` through `012` are reconciled.
+writes until migrations `001` through `016` are reconciled.
 
 ## Scribeless ambiguity and fulfillment holds
 
@@ -524,6 +524,7 @@ For every rotatable provider credential:
 | AWS workload identity | Prefer short-lived role credentials and rotate at the IAM platform, not with static repository variables. Prove S3 POST, HEAD/GET signing, and least-privilege prefixes. | Retain decrypt access to the prior KMS key until old objects are migrated or intentionally retired. Changing the key affects new encryption, not existing object readability. |
 | Cognito signing keys | Cognito rotates JWKS keys; the verifier fetches an unknown `kid` while cached old keys continue validating unexpired tokens. | User pool/client ID changes are identity migrations, not ordinary secret rotations, and require explicit session/audience planning. |
 | `PUBLIC_LINK_HMAC_SECRET` | No in-place rotation is supported. Keep the exact 32-byte value backed up in a restricted, versioned secret manager and test restoration by secret version ID, never by printing it. | If compromised, freeze new song-bearing fulfillment and design a versioned-key migration. Existing printed links use stored token hashes; do not replace or orphan them ad hoc. |
+| `GIFT_REFERRAL_HMAC_SECRET` | No in-place rotation is supported for outstanding claim links. Keep the exact value in a restricted, versioned secret manager and test restoration by version ID without printing it. | If compromised, freeze new gift/referral link creation and design a versioned signer migration before replacing it; unversioned replacement invalidates outstanding links. |
 | `SENDGRID_API_KEY` | Create a least-privilege replacement, canary one staging dynamic-template send, prove the signed delivery callback, then revoke the old key. | Never use a production customer address for rotation. The event-webhook public key is verification material, not the API secret; changing webhook signing settings requires deploying its new public key before testing delivery. |
 | `POSTHOG_API_KEY` | Canary the five allowlisted events in staging, verify pseudonymous IDs/properties and deterministic replay dedupe, roll out, then revoke the old project key. | Keep person profiles, GeoIP, exception autocapture, and arbitrary event properties disabled. `ANALYTICS_ID_HASH_SECRET` is a separate continuity secret and is not rotated with the API key. |
 | `SENTRY_DSN` / project routing | Canary a synthetic staging failure and one aggregate alert, verify final event scrubbing and ownership/routing, then remove the prior project route. | A DSN is configuration, not permission to capture request data. Keep automatic integrations disabled and server-side project scrubbing enabled as defense in depth. |

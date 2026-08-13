@@ -189,78 +189,95 @@ export class CreditsService {
     source: string,
     idempotencyKey: string,
   ) {
-    this.assertPositiveAmount(amount, 'Deduction');
-    this.assertIdempotencyKey(idempotencyKey);
-
-    return this.databaseService.withTransaction(async (transaction) => {
-      const userLock = await transaction.query(
-        'SELECT id FROM users WHERE id = $1 FOR UPDATE;',
-        [userId],
-      );
-
-      if (userLock.rows.length === 0) {
-        throw new BadRequestException('Credit user was not found.');
-      }
-
-      const existing = await this.findIdempotentEntry(
+    return this.databaseService.withTransaction((transaction) =>
+      this.deductOnceWith(
         transaction,
-        idempotencyKey,
-      );
-
-      if (existing) {
-        this.assertMatchingIdempotentEntry(existing, {
-          userId,
-          eventType: 'generation_deduction',
-          amount: -amount,
-          source,
-          idempotencyKey,
-        });
-
-        return {
-          ledgerEntry: existing,
-          balance: await this.findBalanceWith(transaction, userId),
-        };
-      }
-
-      const currentBalance = await this.findBalanceWith(transaction, userId);
-      if (currentBalance.balance < amount) {
-        throw new BadRequestException('Insufficient credits.');
-      }
-
-      const insert = await transaction.query<LedgerEntryRow>(
-        `
-          INSERT INTO credit_ledger (
-            user_id,
-            event_type,
-            amount,
-            source,
-            idempotency_key,
-            metadata
-          )
-          VALUES ($1, 'generation_deduction', $2, $3, $4, $5)
-          ON CONFLICT (idempotency_key) DO NOTHING
-          RETURNING id, user_id, event_type, amount, source, idempotency_key, created_at;
-        `,
-        [userId, -amount, source, idempotencyKey, null],
-      );
-
-      const ledgerEntry =
-        insert.rows[0] ??
-        (await this.findIdempotentEntry(transaction, idempotencyKey));
-
-      this.assertMatchingIdempotentEntry(ledgerEntry, {
         userId,
-        eventType: 'generation_deduction',
-        amount: -amount,
+        amount,
         source,
         idempotencyKey,
-      });
+        'generation_deduction',
+      ),
+    );
+  }
 
+  async reserveGiftInTransaction(
+    transaction: DatabaseTransaction,
+    userId: string,
+    amount: number,
+    source: string,
+    idempotencyKey: string,
+  ) {
+    return this.deductOnceWith(
+      transaction,
+      userId,
+      amount,
+      source,
+      idempotencyKey,
+      'gift_reservation',
+    );
+  }
+
+  private async deductOnceWith(
+    transaction: DatabaseTransaction,
+    userId: string,
+    amount: number,
+    source: string,
+    idempotencyKey: string,
+    eventType: string,
+  ) {
+    this.assertPositiveAmount(amount, 'Deduction');
+    this.assertIdempotencyKey(idempotencyKey);
+    const userLock = await transaction.query(
+      'SELECT id FROM users WHERE id = $1 FOR UPDATE;',
+      [userId],
+    );
+    if (userLock.rows.length === 0) {
+      throw new BadRequestException('Credit user was not found.');
+    }
+    const expected = {
+      userId,
+      eventType,
+      amount: -amount,
+      source,
+      idempotencyKey,
+    };
+    const existing = await this.findIdempotentEntry(
+      transaction,
+      idempotencyKey,
+    );
+    if (existing) {
+      this.assertMatchingIdempotentEntry(existing, expected);
       return {
-        ledgerEntry,
+        deducted: false,
+        ledgerEntry: existing,
         balance: await this.findBalanceWith(transaction, userId),
       };
-    });
+    }
+    const currentBalance = await this.findBalanceWith(transaction, userId);
+    if (currentBalance.balance < amount) {
+      throw new BadRequestException('Insufficient credits.');
+    }
+    const insert = await transaction.query<LedgerEntryRow>(
+      `
+        INSERT INTO credit_ledger (
+          user_id, event_type, amount, source, idempotency_key, metadata
+        )
+        VALUES ($1, $2, $3, $4, $5, $6)
+        ON CONFLICT (idempotency_key) DO NOTHING
+        RETURNING id, user_id, event_type, amount, source, idempotency_key, created_at;
+      `,
+      [userId, eventType, -amount, source, idempotencyKey, null],
+    );
+    const ledgerEntry =
+      insert.rows[0] ??
+      (await this.findIdempotentEntry(transaction, idempotencyKey));
+    this.assertMatchingIdempotentEntry(ledgerEntry, expected);
+    return {
+      deducted: Boolean(insert.rows[0]),
+      ledgerEntry,
+      balance: await this.findBalanceWith(transaction, userId),
+    };
   }
 
   async refund(

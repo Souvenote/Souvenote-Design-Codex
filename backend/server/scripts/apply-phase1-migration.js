@@ -51,6 +51,10 @@ async function main() {
     '010_public_card_links.sql',
     '011_transactional_notifications.sql',
     '012_canadian_pricing_and_credit_packs.sql',
+    '013_card_entitlement_ledger.sql',
+    '014_card_pack_purchases.sql',
+    '015_prepaid_card_delivery.sql',
+    '016_gifts_and_referrals.sql',
   ];
   const sql = migrationFiles
     .map((fileName) => fs.readFileSync(path.join(migrationDir, fileName), 'utf8'))

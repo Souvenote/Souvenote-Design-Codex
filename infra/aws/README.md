@@ -10,6 +10,10 @@ credit-eligible AWS services:
 - Cognito customer authentication
 - ECR image repositories, CodeBuild, CloudWatch Logs, and Secrets Manager
 
+Gift and referral claim tokens use a dedicated, stack-managed HMAC secret so
+their signing continuity is independent from printed-card public links. Card
+pack and gift checkout returns are pinned to the deployed CloudFront origin.
+
 There is no NAT Gateway. Application tasks receive an ephemeral public address
 for outbound provider calls, but their security group accepts inbound traffic
 only from the load balancer. The load balancer accepts inbound traffic only
@@ -106,6 +110,11 @@ Current production preview:
 4. runs the schema-tracked migration task;
 5. creates or refreshes the ECS service; and
 6. waits for ECS and the public health endpoint.
+
+The final gate runs `smoke-deployment.sh` against the CloudFront URL. It checks
+the health probes, current card/gift/referral routes, unauthenticated API
+boundaries, invalid-claim non-disclosure, CORS, and security headers without
+creating accounts, purchases, provider calls, or customer data.
 
 The script targets the live `souvenote-staging-v2` stack by default. Override
 `STACK_NAME` only when intentionally creating or updating a different stack.

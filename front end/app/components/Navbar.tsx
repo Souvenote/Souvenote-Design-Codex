@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "./AuthProvider";
 import { useCreditBalance } from "../lib/creditBalance";
 import type { CreditBalanceStatus } from "../lib/creditBalance";
+import { useCardEntitlementBalance } from "../lib/cardEntitlementBalance";
+import type { CardEntitlementBalanceStatus } from "../lib/cardEntitlementBalance";
 import type { DemoCredits, DemoUser } from "./DemoUser";
 
 type NavLink = {
@@ -19,7 +21,8 @@ type NavLink = {
 type CreditsTickerProps = {
   credits?: number;
   cardBank?: number;
-  status?: CreditBalanceStatus;
+  creditStatus?: CreditBalanceStatus;
+  cardStatus?: CardEntitlementBalanceStatus;
 };
 
 type NavRightProps = {
@@ -28,6 +31,7 @@ type NavRightProps = {
   creditBalance: number;
   creditStatus: CreditBalanceStatus;
   cardBank: number;
+  cardStatus: CardEntitlementBalanceStatus;
   cartCount: number;
   profileOpen: boolean;
   setProfileOpen: React.Dispatch<React.SetStateAction<boolean>>;
@@ -78,13 +82,24 @@ function IconMenu() {
   );
 }
 
-function CreditsTicker({ credits = 0, cardBank = 0, status = "idle" }: CreditsTickerProps) {
-  const loading = status === "loading";
-  const error = status === "error";
-  const creditLabel = loading ? "Loading" : error ? "Offline" : "Credits";
-  const creditValue = loading ? "..." : credits;
+function CreditsTicker({
+  credits = 0,
+  cardBank = 0,
+  creditStatus = "idle",
+  cardStatus = "idle",
+}: CreditsTickerProps) {
+  const creditLoading = creditStatus === "loading";
+  const creditError = creditStatus === "error";
+  const cardLoading = cardStatus === "loading";
+  const cardError = cardStatus === "error";
+  const loading = creditLoading || cardLoading;
+  const error = creditError || cardError;
+  const creditLabel = creditLoading ? "Loading" : creditError ? "Offline" : "Credits";
+  const creditValue = creditLoading ? "..." : credits;
+  const cardLabel = cardLoading ? "Loading" : cardError ? "Offline" : "Cards";
+  const cardValue = cardLoading ? "..." : cardBank;
   const linkTitle = error
-    ? "Credit balance unavailable."
+    ? "One or more account balances are unavailable."
     : "View Saved Cards & Songs";
 
   return (
@@ -97,7 +112,7 @@ function CreditsTicker({ credits = 0, cardBank = 0, status = "idle" }: CreditsTi
       >
         <span className="souv-credit"><em>{creditLabel}</em><b>{creditValue}</b></span>
         <span className="souv-credit souv-credit-bank">
-          <em>Cards</em><b>{cardBank}</b>
+          <em>{cardLabel}</em><b>{cardValue}</b>
         </span>
       </Link>
       <div className="souv-cardbank-pop">
@@ -131,6 +146,7 @@ function NavRight({
   creditBalance,
   creditStatus,
   cardBank,
+  cardStatus,
   cartCount,
   profileOpen,
   setProfileOpen,
@@ -151,7 +167,12 @@ function NavRight({
 
   return (
     <div className="souv-nav-right">
-      <CreditsTicker credits={creditBalance} cardBank={cardBank} status={creditStatus} />
+      <CreditsTicker
+        credits={creditBalance}
+        cardBank={cardBank}
+        creditStatus={creditStatus}
+        cardStatus={cardStatus}
+      />
       <span className="souv-nav-sep" />
 
       <CurrencyBadge />
@@ -264,6 +285,10 @@ function Navbar({
     enabled: resolvedLoggedIn,
     fallbackBalance: localCreditBalance,
   });
+  const cardBalance = useCardEntitlementBalance({
+    enabled: resolvedLoggedIn,
+    fallbackBalance: cardBank,
+  });
 
   return (
     <header className={`souv-nav ${resolvedLoggedIn ? "is-signed-in" : "is-signed-out"} ${followUserOnScroll ? "is-follow-user-on-scroll" : ""}`}>
@@ -312,7 +337,8 @@ function Navbar({
         user={resolvedUser}
         creditBalance={creditBalance.balance}
         creditStatus={resolvedLoggedIn && creditBalance.status === "idle" ? "loading" : creditBalance.status}
-        cardBank={cardBank}
+        cardBank={cardBalance.balance}
+        cardStatus={resolvedLoggedIn && cardBalance.status === "idle" ? "loading" : cardBalance.status}
         cartCount={cartCount}
         profileOpen={profileOpen}
         setProfileOpen={setProfileOpen}

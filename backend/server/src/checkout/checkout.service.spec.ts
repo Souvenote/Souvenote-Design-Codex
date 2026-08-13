@@ -2,6 +2,7 @@ import { BadGatewayException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type Stripe from 'stripe';
 import { AnalyticsService } from '../analytics/analytics.service';
+import { CardEntitlementsService } from '../card-entitlements/card-entitlements.service';
 import { CreditsService } from '../credits/credits.service';
 import {
   DatabaseService,
@@ -34,6 +35,7 @@ const pendingOrder: OrderRow = {
     offerCode: 'try_risk_free_one_card',
     name: 'Try Risk-Free',
     unitAmountCents: 999,
+    creditsPerCard: 10,
     metadata: {
       hold_days: 5,
       decision_window_starts_at: 'payment_authorized',
@@ -144,6 +146,58 @@ const startedCreditPackPurchase = {
   payment_id: 'credit-payment-a',
 };
 
+const pendingCardPackPurchase = {
+  id: 'card-purchase-a',
+  user_id: 'user-a',
+  pricing_catalog_id: 'pricing-card-a',
+  offer_code: 'big_sender_2_10',
+  status: 'pending',
+  amount_cents: 4495,
+  currency: 'cad',
+  card_amount: 5,
+  credit_amount: 50,
+  pricing_snapshot: {
+    offerCode: 'big_sender_2_10',
+    name: 'Big Sender 2-10 Cards',
+    type: 'big_sender',
+    unitAmountCents: 899,
+    amountCents: 4495,
+    currency: 'cad',
+    cardAmount: 5,
+    creditsPerCard: 10,
+    creditAmount: 50,
+    shippingIncluded: true,
+    source: 'pricing_catalog',
+  },
+  idempotency_key: 'card-request-a',
+  checkout_session_id: null,
+  payment_id: null,
+  created_at: '2026-08-12T12:00:00.000Z',
+  updated_at: '2026-08-12T12:00:00.000Z',
+} as const;
+
+const startedCardPackPurchase = {
+  ...pendingCardPackPurchase,
+  status: 'checkout_started',
+  checkout_session_id: 'cs_card_a',
+  payment_id: 'card-payment-a',
+} as const;
+
+const startedCardPackPayment = {
+  ...creatingPayment,
+  id: 'card-payment-a',
+  order_id: null,
+  credit_pack_purchase_id: null,
+  card_pack_purchase_id: 'card-purchase-a',
+  offer_code: 'big_sender_2_10',
+  amount_cents: 4495,
+  status: 'checkout_started',
+  provider_mode: 'mock',
+  checkout_session_id: 'cs_card_a',
+  capture_method: 'automatic_async',
+  idempotency_key: 'card-checkout:card-purchase-a:mock:attempt:1',
+} as const;
+
 describe('CheckoutService', () => {
   const transactionQuery = jest.fn();
   const transaction = {
@@ -205,14 +259,28 @@ describe('CheckoutService', () => {
     if (key === 'CREDIT_CHECKOUT_CANCEL_URL') {
       return 'https://app.example.com/cart?checkout=cancel';
     }
+    if (key === 'CARD_CHECKOUT_SUCCESS_URL') {
+      return 'https://app.example.com/cart?purchase=cards&session_id={CHECKOUT_SESSION_ID}';
+    }
+    if (key === 'CARD_CHECKOUT_CANCEL_URL') {
+      return 'https://app.example.com/cart?checkout=cancel&purchase=cards';
+    }
+    if (key === 'GIFT_CHECKOUT_SUCCESS_URL') {
+      return 'https://app.example.com/gift?checkout=success&purchase=gift&session_id={CHECKOUT_SESSION_ID}';
+    }
+    if (key === 'GIFT_CHECKOUT_CANCEL_URL') {
+      return 'https://app.example.com/gift?checkout=cancel&purchase=gift';
+    }
     return undefined;
   });
   const enqueueOrderNotification = jest.fn();
   const checkoutStarted = jest.fn();
   const orderConfirmed = jest.fn();
   const grantOnceInTransaction = jest.fn();
+  const grantCardOnceInTransaction = jest.fn();
   const findBalance = jest.fn();
   const resolveCreditPackOffer = jest.fn();
+  const resolveCardPackOffer = jest.fn();
   const service = new CheckoutService(
     databaseService,
     ordersService,
@@ -223,7 +291,13 @@ describe('CheckoutService', () => {
       grantOnceInTransaction,
       findBalance,
     } as unknown as CreditsService,
-    { resolveCreditPackOffer } as unknown as PricingService,
+    {
+      grantOnceInTransaction: grantCardOnceInTransaction,
+    } as unknown as CardEntitlementsService,
+    {
+      resolveCreditPackOffer,
+      resolveCardPackOffer,
+    } as unknown as PricingService,
     {
       checkoutStarted,
       orderConfirmed,
@@ -250,8 +324,10 @@ describe('CheckoutService', () => {
     checkoutStarted.mockReset().mockResolvedValue(undefined);
     orderConfirmed.mockReset().mockResolvedValue(undefined);
     grantOnceInTransaction.mockReset();
+    grantCardOnceInTransaction.mockReset().mockResolvedValue(undefined);
     findBalance.mockReset();
     resolveCreditPackOffer.mockReset();
+    resolveCardPackOffer.mockReset();
     getActiveProvider.mockReturnValue(stripeProvider);
     findOrderRowForUpdate.mockResolvedValue(pendingOrder);
     markCheckoutStarted.mockResolvedValue({
@@ -308,6 +384,22 @@ describe('CheckoutService', () => {
       quantity: 1,
       currency: 'cad',
     });
+    expect(grantCardOnceInTransaction).toHaveBeenCalledWith(
+      transaction,
+      'user-a',
+      1,
+      'order:order-a',
+      'order:order-a:card-grant',
+      'order_purchase',
+    );
+    expect(grantOnceInTransaction).toHaveBeenCalledWith(
+      transaction,
+      'user-a',
+      10,
+      'try_risk_free_one_card',
+      'order:order-a:credit-grant',
+      'order_purchase',
+    );
   });
 
   it('starts a server-priced Stripe authorization with a durable idempotency key', async () => {
@@ -406,16 +498,7 @@ describe('CheckoutService', () => {
       })
       .mockResolvedValueOnce({ rows: [{ id: 'payment-a' }] })
       .mockResolvedValueOnce({
-        rows: [
-          {
-            id: 'order-a',
-            user_id: 'user-a',
-            status: 'paid',
-            quantity: 1,
-            amount_cents: 999,
-            currency: 'cad',
-          },
-        ],
+        rows: [{ ...pendingOrder, status: 'paid' }],
       })
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] })
@@ -436,6 +519,22 @@ describe('CheckoutService', () => {
     await service.handleStripeWebhook(Buffer.from('{}'), 'signature');
 
     expect(enqueueOrderNotification).toHaveBeenCalledTimes(1);
+    expect(grantCardOnceInTransaction).toHaveBeenCalledWith(
+      transaction,
+      'user-a',
+      1,
+      'order:order-a',
+      'order:order-a:card-grant',
+      'order_purchase',
+    );
+    expect(grantOnceInTransaction).toHaveBeenCalledWith(
+      transaction,
+      'user-a',
+      10,
+      'try_risk_free_one_card',
+      'order:order-a:credit-grant',
+      'order_purchase',
+    );
     expect(databaseQuery).toHaveBeenCalledTimes(1);
     expect(orderConfirmed).toHaveBeenCalledWith('user-a', 'order-a', {
       providerMode: 'stripe',
@@ -552,7 +651,9 @@ describe('CheckoutService', () => {
         rows: [{ pricing_snapshot: pendingOrder.pricing_snapshot }],
       })
       .mockResolvedValueOnce({ rows: [{ id: 'payment-a' }] })
-      .mockResolvedValueOnce({ rows: [{ id: 'order-a' }] })
+      .mockResolvedValueOnce({
+        rows: [{ ...pendingOrder, status: 'payment_authorized' }],
+      })
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] });
 
@@ -580,6 +681,15 @@ describe('CheckoutService', () => {
         'stripe_payment_intent_amount_capturable_updated',
       ]),
     );
+    expect(grantOnceInTransaction).toHaveBeenCalledWith(
+      transaction,
+      'user-a',
+      10,
+      'try_risk_free_one_card',
+      'order:order-a:credit-grant',
+      'order_purchase',
+    );
+    expect(grantCardOnceInTransaction).not.toHaveBeenCalled();
   });
 
   it('claims an expired five-day authorization and charges the flat no-send fee', async () => {
@@ -808,6 +918,14 @@ describe('CheckoutService', () => {
       quantity: 1,
       currency: 'cad',
     });
+    expect(grantCardOnceInTransaction).toHaveBeenCalledWith(
+      transaction,
+      'user-a',
+      1,
+      'order:order-a',
+      'order:order-a:card-grant',
+      'order_purchase',
+    );
   });
 
   it('starts a server-priced CAD credit-pack checkout', async () => {
@@ -999,6 +1117,212 @@ describe('CheckoutService', () => {
       5,
       expect.stringContaining('UPDATE credit_pack_purchases'),
       ['credit-purchase-a', 'paid', 'credit-payment-a'],
+    );
+  });
+
+  it('starts a server-priced Big Sender card-pack checkout', async () => {
+    const mockProvider: CheckoutProvider = { mode: 'mock', createSession };
+    getActiveProvider.mockReturnValue(mockProvider);
+    resolveCardPackOffer.mockResolvedValue({
+      id: 'pricing-card-a',
+      offer_code: 'big_sender_2_10',
+      name: 'Big Sender 2-10 Cards',
+      offer_type: 'big_sender',
+      price_cents: 899,
+      currency: 'cad',
+      card_count_min: 2,
+      card_count_max: 10,
+      credits_per_card: 10,
+      shipping_included: true,
+      metadata: {},
+      amountCents: 4495,
+      cardAmount: 5,
+      creditAmount: 50,
+    });
+    const creatingCardPayment = {
+      ...startedCardPackPayment,
+      status: 'creating',
+      checkout_session_id: null,
+      metadata: {},
+    };
+    transactionQuery
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [pendingCardPackPurchase] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [{ attempt_number: 1 }] })
+      .mockResolvedValueOnce({ rows: [creatingCardPayment] })
+      .mockResolvedValueOnce({
+        rows: [{ email: 'user@example.com', stripe_customer_id: null }],
+      })
+      .mockResolvedValueOnce({ rows: [startedCardPackPayment] })
+      .mockResolvedValueOnce({ rows: [startedCardPackPurchase] })
+      .mockResolvedValueOnce({ rows: [] });
+    createSession.mockResolvedValue({
+      sessionId: 'cs_card_a',
+      paymentIntentId: 'mock_pi_card_a',
+      checkoutUrl: 'mock://souvenote/checkout/cs_card_a',
+      expiresAt: new Date('2026-08-12T12:30:00.000Z'),
+      providerMetadata: { mock: true },
+    });
+
+    await expect(
+      service.startCardPackCheckout('user-a', {
+        offerCode: 'big_sender_2_10',
+        quantity: 5,
+        idempotencyKey: 'card-request-a',
+      }),
+    ).resolves.toMatchObject({
+      purchase: {
+        id: 'card-purchase-a',
+        cardAmount: 5,
+        creditAmount: 50,
+        amountCents: 4495,
+      },
+      checkoutSession: {
+        id: 'cs_card_a',
+        cardPackPurchaseId: 'card-purchase-a',
+      },
+    });
+    expect(createSession).toHaveBeenCalledWith(
+      expect.objectContaining({
+        cardPackPurchaseId: 'card-purchase-a',
+        creditPackPurchaseId: null,
+        offerCode: 'big_sender_2_10',
+        unitAmountCents: 899,
+        totalAmountCents: 4495,
+        quantity: 5,
+        currency: 'cad',
+      }),
+    );
+  });
+
+  it('atomically grants cards and credits after mock card-pack payment', async () => {
+    getActiveProvider.mockReturnValue({ mode: 'mock', createSession });
+    const paidPayment = {
+      ...startedCardPackPayment,
+      status: 'succeeded_mock',
+      amount_captured_cents: 4495,
+      metadata: { paidMockAt: '2026-08-12T12:05:00.000Z' },
+    };
+    const paidPurchase = { ...startedCardPackPurchase, status: 'paid' };
+    transactionQuery
+      .mockResolvedValueOnce({ rows: [startedCardPackPurchase] })
+      .mockResolvedValueOnce({ rows: [startedCardPackPayment] })
+      .mockResolvedValueOnce({ rows: [paidPayment] })
+      .mockResolvedValueOnce({ rows: [paidPurchase] })
+      .mockResolvedValueOnce({ rows: [] });
+    grantCardOnceInTransaction.mockResolvedValue({
+      granted: true,
+      balance: { userId: 'user-a', balance: 5 },
+    });
+    grantOnceInTransaction.mockResolvedValue({
+      granted: true,
+      balance: { userId: 'user-a', balance: 50 },
+    });
+
+    await expect(
+      service.simulateCardPackCheckoutSuccess('user-a', {
+        purchaseId: 'card-purchase-a',
+        checkoutSessionId: 'cs_card_a',
+      }),
+    ).resolves.toMatchObject({
+      purchase: { status: 'paid', cardAmount: 5, creditAmount: 50 },
+      cardBalance: { userId: 'user-a', balance: 5 },
+      creditBalance: { userId: 'user-a', balance: 50 },
+    });
+    expect(grantCardOnceInTransaction).toHaveBeenCalledWith(
+      transaction,
+      'user-a',
+      5,
+      'big_sender_2_10',
+      'card-pack-purchase:card-purchase-a:cards',
+      'card_pack_purchase',
+    );
+    expect(grantOnceInTransaction).toHaveBeenCalledWith(
+      transaction,
+      'user-a',
+      50,
+      'big_sender_2_10',
+      'card-pack-purchase:card-purchase-a:credits',
+      'card_pack_purchase',
+    );
+  });
+
+  it('keeps paid gift returns on the gift workflow', () => {
+    const redirect = service as unknown as {
+      cardCheckoutRedirectUrl: (
+        kind: 'success' | 'cancel',
+        providerMode: 'mock' | 'stripe',
+        gift?: boolean,
+      ) => string;
+    };
+
+    expect(redirect.cardCheckoutRedirectUrl('success', 'stripe', true)).toBe(
+      'https://app.example.com/gift?checkout=success&purchase=gift&session_id={CHECKOUT_SESSION_ID}',
+    );
+    expect(redirect.cardCheckoutRedirectUrl('cancel', 'stripe', true)).toBe(
+      'https://app.example.com/gift?checkout=cancel&purchase=gift',
+    );
+  });
+
+  it('settles a signed Stripe card-pack payment exactly once', async () => {
+    const stripeCardPayment = {
+      ...startedCardPackPayment,
+      provider_mode: 'stripe',
+      stripe_payment_intent_id: 'pi_card_a',
+    };
+    const event = {
+      id: 'evt_card_paid',
+      type: 'payment_intent.succeeded',
+      livemode: false,
+      api_version: '2026-06-24.dahlia',
+      created: 1_800_000_000,
+      data: {
+        object: {
+          id: 'pi_card_a',
+          metadata: {
+            souvenotePaymentId: 'card-payment-a',
+            souvenoteCardPackPurchaseId: 'card-purchase-a',
+          },
+          status: 'succeeded',
+          amount: 4495,
+          amount_capturable: 0,
+          amount_received: 4495,
+          currency: 'cad',
+        },
+      },
+    } as unknown as Stripe.Event;
+    getStripeProvider.mockReturnValue({
+      constructWebhookEvent: jest.fn().mockReturnValue(event),
+    });
+    grantCardOnceInTransaction.mockResolvedValue({
+      granted: true,
+      balance: { userId: 'user-a', balance: 5 },
+    });
+    grantOnceInTransaction.mockResolvedValue({
+      granted: true,
+      balance: { userId: 'user-a', balance: 50 },
+    });
+    transactionQuery
+      .mockResolvedValueOnce({ rows: [{ event_id: event.id }] })
+      .mockResolvedValueOnce({ rows: [stripeCardPayment] })
+      .mockResolvedValueOnce({ rows: [{ id: 'card-payment-a' }] })
+      .mockResolvedValueOnce({ rows: [startedCardPackPurchase] })
+      .mockResolvedValueOnce({
+        rows: [{ ...startedCardPackPurchase, status: 'paid' }],
+      })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [] });
+
+    await expect(
+      service.handleStripeWebhook(Buffer.from('{}'), 'signature'),
+    ).resolves.toMatchObject({ received: true, duplicate: false });
+    expect(grantCardOnceInTransaction).toHaveBeenCalledTimes(1);
+    expect(grantOnceInTransaction).toHaveBeenCalledTimes(1);
+    expect(transactionQuery).toHaveBeenNthCalledWith(
+      5,
+      expect.stringContaining('UPDATE card_pack_purchases'),
+      ['card-purchase-a', 'paid', 'card-payment-a'],
     );
   });
 });

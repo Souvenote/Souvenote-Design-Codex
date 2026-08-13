@@ -3,6 +3,13 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { BmcIcon } from "./BmcShared";
+import {
+  CHECKOUT_PROMO_CODE,
+  calculateCheckoutTotals,
+  isCheckoutPromoCode,
+  validateCheckoutCard,
+} from "./checkoutRules";
+import type { CheckoutCardDetails, CheckoutFieldErrors } from "./checkoutRules";
 import { BIG_SENDER_TIERS, MAX_BIG_SENDER_CARDS, MIN_BIG_SENDER_CARDS } from "./pricingCatalog";
 
 type CheckoutTab = "cards" | "credits";
@@ -42,16 +49,10 @@ type CheckoutModalProps = {
   open: boolean;
   pack?: CheckoutPack | null;
   country?: string;
+  initialPromoCode?: string | null;
   onClose: () => void;
   onPaid?: (pack: CheckoutPack) => void | Promise<void>;
   onBack?: () => void;
-};
-
-type CardDetails = {
-  number: string;
-  exp: string;
-  cvc: string;
-  postal: string;
 };
 
 const CO_CARD_PACKS: PickerPack[] = [
@@ -80,13 +81,13 @@ const CO_CARD_PACKS: PickerPack[] = [
 ];
 
 const CO_CREDIT_PACKS: PickerPack[] = [
-  { id: "starter", name: "Starter", tokens: 10, price: 2.00, blurb: "A quick top-up for one more generation." },
-  { id: "creator", name: "Creator", tokens: 80, price: 10.00, featured: true, blurb: "Our most popular: a season of cards & songs." },
-  { id: "power", name: "Power", tokens: 250, price: 25.00, blurb: "Best value for makers and gift-givers." },
+  { id: "starter", name: "Starter", tokens: 10, price: 2.0, blurb: "A quick top-up for one more generation." },
+  { id: "creator", name: "Creator", tokens: 80, price: 10.0, featured: true, blurb: "Our most popular: a season of cards & songs." },
+  { id: "power", name: "Power", tokens: 250, price: 25.0, blurb: "Best value for makers and gift-givers." },
 ];
 
-function coMoney(n: number) {
-  return "$" + n.toFixed(2);
+function coMoney(value: number) {
+  return "$" + value.toFixed(2);
 }
 
 function CheckoutPicker({ open, onClose, onChoose, defaultTab = "cards" }: CheckoutPickerProps) {
@@ -98,7 +99,7 @@ function CheckoutPicker({ open, onClose, onChoose, defaultTab = "cards" }: Check
   const packs = tab === "cards" ? CO_CARD_PACKS : CO_CREDIT_PACKS;
 
   return (
-    <div className="bmc-modal-wrap" role="dialog" aria-modal="true" data-screen-label="07 Checkout · Choose a pack">
+    <div className="bmc-modal-wrap" role="dialog" aria-modal="true" aria-labelledby="checkout-picker-title" data-screen-label="07 Checkout · Choose a pack">
       <div className="bmc-modal-scrim" onClick={onClose} />
       <div className="bmc-modal co-picker">
         <button type="button" className="bmc-modal-close" onClick={onClose} aria-label="Close"><BmcIcon name="close" w={16} /></button>
@@ -106,7 +107,7 @@ function CheckoutPicker({ open, onClose, onChoose, defaultTab = "cards" }: Check
           <div className="bmc-eyebrow" style={{ justifyContent: "center", color: "var(--rose-gold)", whiteSpace: "nowrap" }}>
             <span>Top up to send</span>
           </div>
-          <h2 className="bmc-modal-title" style={{ marginBottom: 18 }}>
+          <h2 className="bmc-modal-title" id="checkout-picker-title" style={{ marginBottom: 18 }}>
             Choose your <span className="souv-hero-italic text-metallic-rose-gold">cards</span>
           </h2>
           <div className="co-picker-tabs">
@@ -151,34 +152,52 @@ function CheckoutPicker({ open, onClose, onChoose, defaultTab = "cards" }: Check
   );
 }
 
-function CheckoutModal({ open, pack, country = "CA", onClose, onPaid, onBack }: CheckoutModalProps) {
+function CheckoutModal({
+  open,
+  pack,
+  country = "CA",
+  initialPromoCode,
+  onClose,
+  onPaid,
+  onBack,
+}: CheckoutModalProps) {
   const [promo, setPromo] = React.useState("");
   const [promoApplied, setPromoApplied] = React.useState(false);
-  const [card, setCard] = React.useState<CardDetails>({ number: "", exp: "", cvc: "", postal: "" });
+  const [promoError, setPromoError] = React.useState<string | null>(null);
+  const [card, setCard] = React.useState<CheckoutCardDetails>({ number: "", exp: "", cvc: "", postal: "" });
+  const [fieldErrors, setFieldErrors] = React.useState<CheckoutFieldErrors>({});
   const [processing, setProcessing] = React.useState(false);
   const [paymentError, setPaymentError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
-    if (open) {
-      setProcessing(false);
-      setPaymentError(null);
-    }
-  }, [open, pack]);
+    if (!open) return;
+    const hasInitialPromo = isCheckoutPromoCode(initialPromoCode || "");
+    setPromo(hasInitialPromo ? CHECKOUT_PROMO_CODE : "");
+    setPromoApplied(hasInitialPromo);
+    setPromoError(null);
+    setCard({ number: "", exp: "", cvc: "", postal: "" });
+    setFieldErrors({});
+    setProcessing(false);
+    setPaymentError(null);
+  }, [initialPromoCode, open, pack]);
+
+  React.useEffect(() => {
+    if (!open || processing) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [onClose, open, processing]);
 
   if (!open || !pack) return null;
 
   const isCards = pack.kind === "cards";
   const isCart = pack.kind === "cart";
-  const subtotal = pack.price;
-  const discount = promoApplied ? +(subtotal * 0.10).toFixed(2) : 0;
-  const taxable = subtotal - discount;
-  const taxRate = country === "CA" ? 0.05 : (country === "GB" ? 0.20 : 0);
-  const taxLabel = country === "CA" ? "GST (5%)" : (country === "GB" ? "VAT (20%)" : "Tax");
-  const tax = +(taxable * taxRate).toFixed(2);
-  const total = +(taxable + tax).toFixed(2);
+  const { subtotal, discount, tax, total, taxLabel } = calculateCheckoutTotals(pack.price, country, promoApplied);
 
   function fmtCard(value: string) {
-    return value.replace(/\D/g, "").slice(0, 16).replace(/(.{4})/g, "$1 ").trim();
+    return value.replace(/\D/g, "").slice(0, 19).replace(/(.{4})/g, "$1 ").trim();
   }
 
   function fmtExp(value: string) {
@@ -186,94 +205,178 @@ function CheckoutModal({ open, pack, country = "CA", onClose, onPaid, onBack }: 
     return digits.length > 2 ? digits.slice(0, 2) + " / " + digits.slice(2) : digits;
   }
 
-  function pay() {
-    if (!pack) return;
-    if (processing) return;
-    if (!onPaid) return;
+  function updateCard<Field extends keyof CheckoutCardDetails>(field: Field, value: CheckoutCardDetails[Field]) {
+    setCard((current) => ({ ...current, [field]: value }));
+    setFieldErrors((current) => ({ ...current, [field]: undefined }));
+  }
+
+  function applyPromo() {
+    if (isCheckoutPromoCode(promo)) {
+      setPromo(CHECKOUT_PROMO_CODE);
+      setPromoApplied(true);
+      setPromoError(null);
+      return;
+    }
+    setPromoApplied(false);
+    setPromoError(`That code is not valid. Try ${CHECKOUT_PROMO_CODE}.`);
+  }
+
+  function completePreview() {
+    if (processing || !onPaid || !pack) return;
+    const selectedPack = pack;
+    const nextFieldErrors = validateCheckoutCard(card);
+    setFieldErrors(nextFieldErrors);
+    if (Object.keys(nextFieldErrors).length > 0) return;
+
     setProcessing(true);
     setPaymentError(null);
     window.setTimeout(() => {
-      Promise.resolve(onPaid?.(pack))
-        .catch((error) => {
-          setPaymentError(error instanceof Error ? error.message : "Payment succeeded, but credits could not be added. Please try again.");
-          setProcessing(false);
-        });
-    }, 1300);
+      Promise.resolve(onPaid(selectedPack)).catch((error) => {
+        setPaymentError(error instanceof Error ? error.message : "Checkout could not be completed. Please try again.");
+        setProcessing(false);
+      });
+    }, 800);
   }
 
   return (
-    <div className="bmc-modal-wrap" role="dialog" aria-modal="true" data-screen-label="07 Checkout · Payment">
-      <div className="bmc-modal-scrim" onClick={onClose} />
+    <div
+      className="bmc-modal-wrap"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="checkout-title"
+      aria-describedby="checkout-preview-note"
+      data-screen-label="07 Checkout · Payment"
+    >
+      <div className="bmc-modal-scrim" onClick={processing ? undefined : onClose} />
       <div className="bmc-modal is-gold co-modal">
-        <button type="button" className="bmc-modal-close" onClick={onClose} aria-label="Close"><BmcIcon name="close" w={16} /></button>
+        <button type="button" className="bmc-modal-close" onClick={onClose} disabled={processing} aria-label="Close"><BmcIcon name="close" w={16} /></button>
         <div className="co-grid">
           <div className="co-pay">
-            <div className="co-eyebrow"><BmcIcon name="lock" w={13} /> Secure checkout</div>
-            <h2 className="co-title">Complete your purchase</h2>
+            <div className="co-eyebrow"><BmcIcon name="lock" w={13} /> Checkout preview</div>
+            <h2 className="co-title" id="checkout-title">Review your purchase</h2>
 
-            <div className="co-express">
-              <button type="button" className="co-paybtn is-apple" onClick={pay}>
-                <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.05 12.5c0-2.1 1.7-3.1 1.78-3.16-0.97-1.42-2.48-1.62-3.02-1.64-1.28-0.13-2.5 0.76-3.15 0.76-0.65 0-1.65-0.74-2.72-0.72-1.4 0.02-2.69 0.81-3.41 2.07-1.45 2.52-0.37 6.25 1.04 8.3 0.69 1 1.51 2.13 2.58 2.09 1.04-0.04 1.43-0.67 2.69-0.67 1.25 0 1.61 0.67 2.71 0.65 1.12-0.02 1.83-1.02 2.51-2.03 0.79-1.16 1.12-2.29 1.13-2.35-0.02-0.01-2.17-0.83-2.19-3.29zM15.0 6.6c0.57-0.69 0.96-1.65 0.85-2.6-0.82 0.03-1.82 0.55-2.41 1.24-0.53 0.61-0.99 1.59-0.87 2.52 0.92 0.07 1.85-0.47 2.43-1.16z" /></svg>
-                Pay
-              </button>
-              <button type="button" className="co-paybtn is-google" onClick={pay}>
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M21.6 12.2c0-.6-.05-1.2-.16-1.8H12v3.4h5.4a4.6 4.6 0 0 1-2 3v2.5h3.2c1.9-1.7 3-4.3 3-7.1z" /><path fill="#34A853" d="M12 22c2.7 0 5-.9 6.6-2.4l-3.2-2.5c-.9.6-2 .9-3.4.9-2.6 0-4.8-1.7-5.6-4.1H3.1v2.6A10 10 0 0 0 12 22z" /><path fill="#FBBC05" d="M6.4 13.9a6 6 0 0 1 0-3.8V7.5H3.1a10 10 0 0 0 0 9z" /><path fill="#EA4335" d="M12 6.1c1.5 0 2.8.5 3.8 1.5l2.8-2.8A10 10 0 0 0 3.1 7.5l3.3 2.6C7.2 7.7 9.4 6.1 12 6.1z" /></svg>
-                Pay
-              </button>
+            <div className="co-preview-note" id="checkout-preview-note" role="note">
+              <BmcIcon name="spark2" w={17} />
+              <span><b>No-charge preview.</b> No card information is sent or stored, and completing this step only updates the local demo balance.</span>
             </div>
-
-            <div className="co-or">or pay with card</div>
 
             <div className="co-card-el">
               <div>
-                <div className="co-field-label">Card number</div>
+                <label className="co-field-label" htmlFor="checkout-card-number">Card number</label>
                 <div className="co-input-wrap">
-                  <input className="co-input" inputMode="numeric" value={card.number} onChange={(event) => setCard({ ...card, number: fmtCard(event.target.value) })} placeholder="1234 1234 1234 1234" />
-                  <span className="co-card-brands">
+                  <input
+                    className="co-input"
+                    id="checkout-card-number"
+                    name="card-number"
+                    inputMode="numeric"
+                    autoComplete="cc-number"
+                    value={card.number}
+                    onChange={(event) => updateCard("number", fmtCard(event.target.value))}
+                    placeholder="4242 4242 4242 4242"
+                    aria-invalid={Boolean(fieldErrors.number)}
+                    aria-describedby={fieldErrors.number ? "checkout-card-number-error" : undefined}
+                  />
+                  <span className="co-card-brands" aria-hidden="true">
                     <span className="co-brand visa">VISA</span>
                     <span className="co-brand mc">MC</span>
                     <span className="co-brand amex">AMEX</span>
                   </span>
                 </div>
+                {fieldErrors.number && <span className="co-field-error" id="checkout-card-number-error">{fieldErrors.number}</span>}
               </div>
               <div className="co-card-split">
                 <div>
-                  <div className="co-field-label">Expiry</div>
-                  <input className="co-input" inputMode="numeric" value={card.exp} onChange={(event) => setCard({ ...card, exp: fmtExp(event.target.value) })} placeholder="MM / YY" />
+                  <label className="co-field-label" htmlFor="checkout-card-expiry">Expiry</label>
+                  <input
+                    className="co-input"
+                    id="checkout-card-expiry"
+                    name="card-expiry"
+                    inputMode="numeric"
+                    autoComplete="cc-exp"
+                    value={card.exp}
+                    onChange={(event) => updateCard("exp", fmtExp(event.target.value))}
+                    placeholder="MM / YY"
+                    aria-invalid={Boolean(fieldErrors.exp)}
+                    aria-describedby={fieldErrors.exp ? "checkout-card-expiry-error" : undefined}
+                  />
+                  {fieldErrors.exp && <span className="co-field-error" id="checkout-card-expiry-error">{fieldErrors.exp}</span>}
                 </div>
                 <div>
-                  <div className="co-field-label">CVC</div>
-                  <input className="co-input" inputMode="numeric" value={card.cvc} onChange={(event) => setCard({ ...card, cvc: event.target.value.replace(/\D/g, "").slice(0, 4) })} placeholder="CVC" />
+                  <label className="co-field-label" htmlFor="checkout-card-cvc">CVC</label>
+                  <input
+                    className="co-input"
+                    id="checkout-card-cvc"
+                    name="card-cvc"
+                    inputMode="numeric"
+                    autoComplete="cc-csc"
+                    value={card.cvc}
+                    onChange={(event) => updateCard("cvc", event.target.value.replace(/\D/g, "").slice(0, 4))}
+                    placeholder="CVC"
+                    aria-invalid={Boolean(fieldErrors.cvc)}
+                    aria-describedby={fieldErrors.cvc ? "checkout-card-cvc-error" : undefined}
+                  />
+                  {fieldErrors.cvc && <span className="co-field-error" id="checkout-card-cvc-error">{fieldErrors.cvc}</span>}
                 </div>
               </div>
               <div>
-                <div className="co-field-label">Billing postal code</div>
-                <input className="co-input" value={card.postal} onChange={(event) => setCard({ ...card, postal: event.target.value })} placeholder="V6B 1A1" />
+                <label className="co-field-label" htmlFor="checkout-card-postal">Billing postal code</label>
+                <input
+                  className="co-input"
+                  id="checkout-card-postal"
+                  name="billing-postal-code"
+                  autoComplete="postal-code"
+                  value={card.postal}
+                  onChange={(event) => updateCard("postal", event.target.value.toUpperCase())}
+                  placeholder="V6B 1A1"
+                  aria-invalid={Boolean(fieldErrors.postal)}
+                  aria-describedby={fieldErrors.postal ? "checkout-card-postal-error" : undefined}
+                />
+                {fieldErrors.postal && <span className="co-field-error" id="checkout-card-postal-error">{fieldErrors.postal}</span>}
               </div>
             </div>
 
-            <div style={{ marginTop: 18 }}>
-              <div className="co-field-label">Promo code</div>
+            <div className="co-promo-block">
+              <label className="co-field-label" htmlFor="checkout-promo">Promo code</label>
               {promoApplied ? (
-                <div className="co-promo-ok"><BmcIcon name="check" w={13} /> Code <b style={{ fontStyle: "normal" }}>SOUVENOTE10</b> applied, 10% off</div>
+                <div className="co-promo-ok"><BmcIcon name="check" w={13} /> Code <b>{CHECKOUT_PROMO_CODE}</b> applied, 10% off</div>
               ) : (
-                <div className="co-promo-row">
-                  <input className="co-input" value={promo} onChange={(event) => setPromo(event.target.value.toUpperCase())} placeholder="Add a code" />
-                  <button type="button" className="co-promo-apply" onClick={() => setPromoApplied(promo.trim().length > 0)}>Apply</button>
-                </div>
+                <>
+                  <div className="co-promo-row">
+                    <input
+                      className="co-input"
+                      id="checkout-promo"
+                      name="promo-code"
+                      value={promo}
+                      onChange={(event) => {
+                        setPromo(event.target.value.toUpperCase());
+                        setPromoError(null);
+                      }}
+                      onKeyDown={(event) => { if (event.key === "Enter") applyPromo(); }}
+                      placeholder="Add a code"
+                      aria-invalid={Boolean(promoError)}
+                      aria-describedby={promoError ? "checkout-promo-error" : undefined}
+                    />
+                    <button type="button" className="co-promo-apply" onClick={applyPromo}>Apply</button>
+                  </div>
+                  {promoError && <span className="co-field-error" id="checkout-promo-error" role="alert">{promoError}</span>}
+                </>
               )}
             </div>
 
-            <button type="button" className="bmc-cta co-pay-cta" onClick={pay} style={processing ? { opacity: 0.7, pointerEvents: "none" } : undefined}>
-              {processing ? <><span className="bmc-gen-spin" style={{ borderTopColor: "#2a1015", borderColor: "rgba(42,16,21,0.3)" }} /> Processing...</> : <>Pay {coMoney(total)} CAD <BmcIcon name="arrow" w={15} /></>}
+            <button
+              type="button"
+              className="bmc-cta co-pay-cta"
+              onClick={completePreview}
+              disabled={processing}
+              aria-busy={processing}
+            >
+              {processing
+                ? <><span className="bmc-gen-spin" style={{ borderTopColor: "#2a1015", borderColor: "rgba(42,16,21,0.3)" }} /> Completing preview...</>
+                : <>Complete preview · {coMoney(total)} CAD <BmcIcon name="arrow" w={15} /></>}
             </button>
-            {paymentError && (
-              <div className="co-promo-ok" role="alert" style={{ marginTop: 12, borderColor: "rgba(229,184,177,.45)", color: "var(--rose-gold-hi)" }}>
-                {paymentError}
-              </div>
-            )}
-            <div className="co-secure"><BmcIcon name="lock" w={13} /> Payments secured by <b>Stripe</b></div>
-            {onBack && <button type="button" className="bmc-text-link" onClick={onBack} style={{ display: "block", margin: "14px auto 0" }}>{"\u2190 Choose a different pack"}</button>}
+            {paymentError && <div className="co-checkout-error" role="alert">{paymentError}</div>}
+            <div className="co-secure"><BmcIcon name="lock" w={13} /> Preview only · no payment or card data leaves this page</div>
+            {onBack && <button type="button" className="bmc-text-link" onClick={onBack} style={{ display: "block", margin: "14px auto 0" }}>← Choose a different pack</button>}
           </div>
 
           <div className="co-summary">
@@ -292,7 +395,7 @@ function CheckoutModal({ open, pack, country = "CA", onClose, onPaid, onBack }: 
             <div className="co-lines">
               <div className="co-line"><span className="co-line-label">Subtotal</span><span className="co-line-val">{coMoney(subtotal)}</span></div>
               {(isCards || isCart) && <div className="co-line"><span className="co-line-label">Shipping</span><span className="co-line-val is-discount">Included</span></div>}
-              {promoApplied && <div className="co-line"><span className="co-line-label">Promo · SOUVENOTE10</span><span className="co-line-val is-discount">{"\u2212"}{coMoney(discount)}</span></div>}
+              {promoApplied && <div className="co-line"><span className="co-line-label">Promo · {CHECKOUT_PROMO_CODE}</span><span className="co-line-val is-discount">−{coMoney(discount)}</span></div>}
               {tax > 0 && <div className="co-line"><span className="co-line-label">{taxLabel}</span><span className="co-line-val">{coMoney(tax)}</span></div>}
             </div>
 

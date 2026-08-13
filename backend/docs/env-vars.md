@@ -175,6 +175,10 @@ CHECKOUT_SUCCESS_URL=http://localhost:3000/delivery?checkout=success&session_id=
 CHECKOUT_CANCEL_URL=http://localhost:3000/delivery?checkout=cancel
 CREDIT_CHECKOUT_SUCCESS_URL=http://localhost:3000/cart?checkout=success&session_id={CHECKOUT_SESSION_ID}
 CREDIT_CHECKOUT_CANCEL_URL=http://localhost:3000/cart?checkout=cancel
+CARD_CHECKOUT_SUCCESS_URL=http://localhost:3000/cart?checkout=success&purchase=cards&session_id={CHECKOUT_SESSION_ID}
+CARD_CHECKOUT_CANCEL_URL=http://localhost:3000/cart?checkout=cancel&purchase=cards
+GIFT_CHECKOUT_SUCCESS_URL=http://localhost:3000/gift?checkout=success&purchase=gift&session_id={CHECKOUT_SESSION_ID}
+GIFT_CHECKOUT_CANCEL_URL=http://localhost:3000/gift?checkout=cancel&purchase=gift
 AUTHORIZATION_WORKER_ENABLED=false
 AUTHORIZATION_WORKER_INTERVAL_MS=60000
 AUTHORIZATION_WORKER_BATCH_SIZE=10
@@ -189,10 +193,13 @@ STRIPE_ALLOW_PROMOTION_CODES=false
 - `mock` keeps the no-network checkout path. `stripe` creates hosted Checkout
   Sessions from immutable server-side order or standalone-credit pricing
   snapshots; it requires the secret key, at least one webhook secret, and the
-  matching card and credit-pack redirect settings.
+  matching card, credit-pack, card-pack, and gift redirect settings.
 - Redirect URLs are server-owned. The success URL must include
   `{CHECKOUT_SESSION_ID}`. HTTPS is mandatory except for local loopback URLs;
   request bodies cannot override either redirect.
+- Gift checkout has a distinct return route so Stripe confirmation can restore
+  the purchaser's private redemption-link workflow instead of treating it as a
+  regular card-pack cart purchase.
 - `STRIPE_EXPECT_LIVEMODE` must match every signed event. Keep it `false` in
   local and staging test-mode environments and set it deliberately for live
   deployment.
@@ -237,6 +244,7 @@ SCRIBELESS_QR_DESTINATION_URL=
 SCRIBELESS_ASSET_URL_EXPIRES_SECONDS=3600
 SCRIBELESS_REQUEST_TIMEOUT_MS=30000
 PUBLIC_LINK_HMAC_SECRET=
+GIFT_REFERRAL_HMAC_SECRET=
 PUBLIC_ASSET_URL_EXPIRES_SECONDS=300
 ```
 
@@ -268,6 +276,11 @@ PUBLIC_ASSET_URL_EXPIRES_SECONDS=300
 - `PUBLIC_ASSET_URL_EXPIRES_SECONDS` controls the short-lived private S3 reads
   returned after a valid token lookup. Public-link responses are no-store and
   noindex; revoked, malformed, unpaid, or unknown links all return `404`.
+- `GIFT_REFERRAL_HMAC_SECRET` signs private gift and referral claim links.
+  Generate an independent secret with at least 32 random bytes, keep it stable,
+  and never expose it to the frontend. Non-production uses a local fallback;
+  production fails closed when neither this value nor the legacy public-link
+  secret is configured.
 - Approved front artwork is provided through a bounded one-hour signed S3 URL
   for render-time ingestion. Signed URLs and Scribeless document URLs are not
   persisted in fulfillment records.
@@ -326,8 +339,8 @@ SENDGRID_REQUEST_TIMEOUT_MS=10000
   acceptance followed by an unproven local write become `delivery_unknown` and
   are never resent blindly.
 - Cognito remains responsible for account verification and password recovery.
-  Support/referral messages require an explicit product workflow before they
-  are added to the transactional outbox.
+  Gift/referral attribution is implemented, but invite delivery remains an
+  explicit mock state until separately approved provider templates are enabled.
 
 ## Analytics and observability
 

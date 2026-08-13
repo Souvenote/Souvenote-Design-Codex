@@ -7,6 +7,7 @@ export type CheckoutSessionRequest = {
   localPaymentId: string;
   orderId: string | null;
   creditPackPurchaseId: string | null;
+  cardPackPurchaseId: string | null;
   userId: string;
   customerId: string | null;
   customerEmail: string;

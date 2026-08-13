@@ -185,7 +185,8 @@ HEALTH_URL="$(stack_output BackendHealthUrl)"
 echo "Waiting for CloudFront and application health..."
 for attempt in {1..60}; do
   if curl --fail --silent --show-error "$HEALTH_URL" >/dev/null; then
-    echo "Souvenote staging is healthy: $FRONTEND_URL"
+    bash infra/aws/smoke-deployment.sh "$FRONTEND_URL"
+    echo "Souvenote staging is healthy and smoke-tested: $FRONTEND_URL"
     exit 0
   fi
   echo "Health check attempt $attempt/60 is not ready yet."

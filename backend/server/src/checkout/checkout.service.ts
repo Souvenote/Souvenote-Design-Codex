@@ -10,6 +10,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import type Stripe from 'stripe';
 import { AnalyticsService } from '../analytics/analytics.service';
+import { CardEntitlementsService } from '../card-entitlements/card-entitlements.service';
 import { CreditsService } from '../credits/credits.service';
 import {
   DatabaseService,
@@ -18,10 +19,13 @@ import {
 import { type OrderRow, OrdersService } from '../orders/orders.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PricingService } from '../pricing/pricing.service';
+import { GiftsService } from '../gifts/gifts.service';
 import type {
   FinalizeAuthorizationDto,
+  MockCardPackSuccessDto,
   MockCreditPackSuccessDto,
   MockCheckoutSuccessDto,
+  StartCardPackCheckoutDto,
   StartCreditPackCheckoutDto,
   StartCheckoutDto,
 } from './checkout.controller';
@@ -38,6 +42,7 @@ type PaymentRow = {
   user_id: string;
   order_id: string | null;
   credit_pack_purchase_id: string | null;
+  card_pack_purchase_id: string | null;
   stripe_payment_intent_id: string | null;
   offer_code: string;
   amount_cents: number;
@@ -81,6 +86,31 @@ type CreditPackPurchaseRow = {
   updated_at: Date | string;
 };
 
+type CardPackPurchaseRow = {
+  id: string;
+  user_id: string;
+  pricing_catalog_id: string;
+  offer_code: string;
+  status:
+    | 'pending'
+    | 'checkout_started'
+    | 'paid'
+    | 'payment_failed'
+    | 'payment_canceled'
+    | 'checkout_expired';
+  amount_cents: number;
+  currency: string;
+  card_amount: number;
+  credit_amount: number;
+  pricing_snapshot: Record<string, unknown>;
+  idempotency_key: string;
+  checkout_session_id: string | null;
+  payment_id: string | null;
+  gift_purchase_id: string | null;
+  created_at: Date | string;
+  updated_at: Date | string;
+};
+
 type CheckoutCustomerRow = {
   email: string;
   stripe_customer_id: string | null;
@@ -95,6 +125,13 @@ type PreparedCheckout = {
 
 type PreparedCreditPackCheckout = {
   purchase: CreditPackPurchaseRow;
+  payment: PaymentRow;
+  customer: CheckoutCustomerRow | null;
+  idempotentReplay: boolean;
+};
+
+type PreparedCardPackCheckout = {
+  purchase: CardPackPurchaseRow;
   payment: PaymentRow;
   customer: CheckoutCustomerRow | null;
   idempotentReplay: boolean;
@@ -120,9 +157,12 @@ export class CheckoutService {
     private readonly configService: ConfigService,
     private readonly notificationsService: NotificationsService,
     private readonly creditsService: CreditsService,
+    private readonly cardEntitlementsService: CardEntitlementsService,
     private readonly pricingService: PricingService,
     @Optional()
     private readonly analyticsService?: AnalyticsService,
+    @Optional()
+    private readonly giftsService?: GiftsService,
   ) {}
 
   async startCheckout(userId: string, dto: StartCheckoutDto) {
@@ -149,6 +189,7 @@ export class CheckoutService {
         localPaymentId: prepared.payment.id,
         orderId: prepared.order.id,
         creditPackPurchaseId: null,
+        cardPackPurchaseId: null,
         userId: prepared.order.user_id,
         customerId: prepared.customer.stripe_customer_id,
         customerEmail: prepared.customer.email,
@@ -288,6 +329,7 @@ export class CheckoutService {
         localPaymentId: prepared.payment.id,
         orderId: null,
         creditPackPurchaseId: prepared.purchase.id,
+        cardPackPurchaseId: null,
         userId: prepared.purchase.user_id,
         customerId: prepared.customer.stripe_customer_id,
         customerEmail: prepared.customer.email,
@@ -515,6 +557,274 @@ export class CheckoutService {
     });
   }
 
+  async startCardPackCheckout(userId: string, dto: StartCardPackCheckoutDto) {
+    const provider = this.providerRegistry.getActiveProvider();
+    const offer = await this.pricingService.resolveCardPackOffer(
+      dto.offerCode,
+      dto.quantity,
+    );
+    const prepared = await this.prepareCardPackCheckout(
+      userId,
+      dto,
+      offer,
+      provider,
+    );
+
+    if (
+      prepared.idempotentReplay &&
+      ['checkout_started', 'succeeded', 'succeeded_mock'].includes(
+        prepared.payment.status,
+      )
+    ) {
+      return this.buildCardPackCheckoutResponse(
+        prepared.purchase,
+        prepared.payment,
+        true,
+      );
+    }
+    if (!prepared.customer) {
+      throw new InternalServerErrorException(
+        'Card-pack checkout customer was not found.',
+      );
+    }
+
+    const pricing = this.resolveCardPackPricing(prepared.purchase);
+    let providerSession: CheckoutSessionResult;
+    try {
+      providerSession = await provider.createSession({
+        localPaymentId: prepared.payment.id,
+        orderId: null,
+        creditPackPurchaseId: null,
+        cardPackPurchaseId: prepared.purchase.id,
+        userId: prepared.purchase.user_id,
+        customerId: prepared.customer.stripe_customer_id,
+        customerEmail: prepared.customer.email,
+        offerCode: prepared.purchase.offer_code,
+        productName: pricing.productName,
+        unitAmountCents: pricing.unitAmountCents,
+        totalAmountCents: prepared.purchase.amount_cents,
+        quantity: prepared.purchase.card_amount,
+        currency: prepared.purchase.currency,
+        captureMethod: 'automatic_async',
+        successUrl: this.cardCheckoutRedirectUrl(
+          'success',
+          provider.mode,
+          offer.offer_type === 'gift',
+        ),
+        cancelUrl: this.cardCheckoutRedirectUrl(
+          'cancel',
+          provider.mode,
+          offer.offer_type === 'gift',
+        ),
+        idempotencyKey: prepared.payment.idempotency_key,
+      });
+    } catch (error) {
+      await this.markCardPackCheckoutStartFailed(
+        prepared.purchase,
+        prepared.payment,
+        error,
+      );
+      if (error instanceof InternalServerErrorException) throw error;
+      throw new BadGatewayException(
+        'The checkout provider could not create a card-pack session. Try again.',
+      );
+    }
+
+    const finalized = await this.databaseService.withTransaction(
+      async (transaction) => {
+        const paymentResult = await transaction.query<PaymentRow>(
+          `
+            UPDATE payments
+            SET
+              stripe_payment_intent_id = COALESCE($2, stripe_payment_intent_id),
+              checkout_session_id = $3,
+              status = 'checkout_started',
+              metadata = COALESCE(metadata, '{}'::jsonb) || $4::jsonb,
+              expires_at = $5,
+              updated_at = NOW()
+            WHERE id = $1
+              AND status IN ('creating', 'checkout_started')
+            RETURNING ${this.paymentColumns};
+          `,
+          [
+            prepared.payment.id,
+            providerSession.paymentIntentId,
+            providerSession.sessionId,
+            JSON.stringify({
+              checkoutUrl: providerSession.checkoutUrl,
+              ...providerSession.providerMetadata,
+            }),
+            providerSession.expiresAt,
+          ],
+        );
+        const payment = paymentResult.rows[0];
+        if (!payment) {
+          throw new ConflictException(
+            'Card-pack checkout changed while the provider session was being created.',
+          );
+        }
+
+        const purchaseResult = await transaction.query<CardPackPurchaseRow>(
+          `
+            UPDATE card_pack_purchases
+            SET
+              status = 'checkout_started',
+              checkout_session_id = $2,
+              payment_id = $3,
+              updated_at = NOW()
+            WHERE id = $1
+              AND status IN (
+                'pending',
+                'checkout_started',
+                'payment_failed',
+                'payment_canceled',
+                'checkout_expired'
+              )
+            RETURNING ${this.cardPackPurchaseColumns};
+          `,
+          [prepared.purchase.id, providerSession.sessionId, payment.id],
+        );
+        const purchase = purchaseResult.rows[0];
+        if (!purchase) {
+          throw new ConflictException(
+            'Card-pack purchase changed while checkout was starting.',
+          );
+        }
+        await this.writeAudit(
+          transaction,
+          purchase.user_id,
+          'card_pack_checkout_started',
+          'card_pack_purchase',
+          purchase.id,
+          {
+            paymentId: payment.id,
+            providerMode: payment.provider_mode,
+            offerCode: purchase.offer_code,
+            cardAmount: purchase.card_amount,
+          },
+        );
+        return { purchase, payment };
+      },
+    );
+
+    return this.buildCardPackCheckoutResponse(
+      finalized.purchase,
+      finalized.payment,
+      prepared.idempotentReplay,
+    );
+  }
+
+  async simulateCardPackCheckoutSuccess(
+    userId: string,
+    dto: MockCardPackSuccessDto,
+  ) {
+    if (this.providerRegistry.getActiveProvider().mode !== 'mock') {
+      throw new ForbiddenException(
+        'The mock card-pack completion endpoint is disabled outside mock mode.',
+      );
+    }
+
+    return this.databaseService.withTransaction(async (transaction) => {
+      const purchase = await this.findCardPackPurchaseForUpdate(
+        transaction,
+        dto.purchaseId,
+        userId,
+      );
+      const payment = await this.findLatestCardPackPayment(
+        transaction,
+        purchase.id,
+      );
+      if (!payment || payment.provider_mode !== 'mock') {
+        throw new BadRequestException(
+          'Mock card-pack checkout session was not found.',
+        );
+      }
+
+      if (purchase.status === 'paid') {
+        return {
+          ...this.buildCardPackCheckoutResponse(purchase, payment, true),
+          cardBalance: await this.cardEntitlementsService.findBalance(userId),
+          creditBalance: await this.creditsService.findBalance(userId),
+        };
+      }
+      if (
+        purchase.status !== 'checkout_started' ||
+        payment.status !== 'checkout_started'
+      ) {
+        throw new ConflictException(
+          'Card-pack checkout is not ready to complete.',
+        );
+      }
+      const sessionId = dto.checkoutSessionId ?? purchase.checkout_session_id;
+      if (
+        !sessionId ||
+        purchase.checkout_session_id !== sessionId ||
+        payment.checkout_session_id !== sessionId
+      ) {
+        throw new BadRequestException(
+          'Mock card-pack checkout session does not match the purchase.',
+        );
+      }
+
+      const paymentResult = await transaction.query<PaymentRow>(
+        `
+          UPDATE payments
+          SET
+            status = 'succeeded_mock',
+            amount_captured_cents = amount_cents,
+            metadata = COALESCE(metadata, '{}'::jsonb) || $2::jsonb,
+            updated_at = NOW()
+          WHERE id = $1
+            AND status = 'checkout_started'
+          RETURNING ${this.paymentColumns};
+        `,
+        [payment.id, JSON.stringify({ paidMockAt: new Date().toISOString() })],
+      );
+      const paidPayment = paymentResult.rows[0];
+      if (!paidPayment) {
+        throw new ConflictException(
+          'Card-pack payment changed while it was being completed.',
+        );
+      }
+      const purchaseResult = await transaction.query<CardPackPurchaseRow>(
+        `
+          UPDATE card_pack_purchases
+          SET status = 'paid', payment_id = $2, updated_at = NOW()
+          WHERE id = $1
+            AND status = 'checkout_started'
+          RETURNING ${this.cardPackPurchaseColumns};
+        `,
+        [purchase.id, paidPayment.id],
+      );
+      const paidPurchase = purchaseResult.rows[0];
+      if (!paidPurchase) {
+        throw new ConflictException(
+          'Card-pack purchase changed while it was being completed.',
+        );
+      }
+      const balances = await this.grantCardPackPurchaseEntitlements(
+        transaction,
+        paidPurchase,
+      );
+      await this.writeAudit(
+        transaction,
+        paidPurchase.user_id,
+        'card_pack_purchase_paid_mock',
+        'card_pack_purchase',
+        paidPurchase.id,
+        {
+          paymentId: paidPayment.id,
+          cardAmount: paidPurchase.card_amount,
+          creditAmount: paidPurchase.credit_amount,
+        },
+      );
+      return {
+        ...this.buildCardPackCheckoutResponse(paidPurchase, paidPayment, false),
+        ...balances,
+      };
+    });
+  }
+
   async simulateCheckoutSuccess(userId: string, dto: MockCheckoutSuccessDto) {
     if (this.providerRegistry.getActiveProvider().mode !== 'mock') {
       throw new ForbiddenException(
@@ -570,6 +880,7 @@ export class CheckoutService {
           payment.id,
           transaction,
         );
+        await this.grantOrderPurchaseEntitlements(transaction, updatedOrder);
         await this.writeAudit(
           transaction,
           userId,
@@ -755,6 +1066,9 @@ export class CheckoutService {
           payment.id,
           transaction,
         );
+        if (terminalOrderStatus === 'paid') {
+          await this.grantOrderPurchaseEntitlements(transaction, order);
+        }
         await this.writeAudit(
           transaction,
           userId,
@@ -1228,6 +1542,233 @@ export class CheckoutService {
     });
   }
 
+  private async prepareCardPackCheckout(
+    userId: string,
+    dto: StartCardPackCheckoutDto,
+    offer: Awaited<ReturnType<PricingService['resolveCardPackOffer']>>,
+    provider: CheckoutProvider,
+  ): Promise<PreparedCardPackCheckout> {
+    return this.databaseService.withTransaction(async (transaction) => {
+      const existingResult = await transaction.query<CardPackPurchaseRow>(
+        `
+          SELECT ${this.cardPackPurchaseColumns}
+          FROM card_pack_purchases
+          WHERE user_id = $1
+            AND idempotency_key = $2
+          FOR UPDATE;
+        `,
+        [userId, dto.idempotencyKey],
+      );
+      let purchase = existingResult.rows[0];
+      if (
+        purchase &&
+        (purchase.offer_code !== offer.offer_code ||
+          purchase.card_amount !== offer.cardAmount)
+      ) {
+        throw new ConflictException(
+          'The card-pack idempotency key is already used for another selection.',
+        );
+      }
+
+      if (!purchase) {
+        const snapshot = {
+          offerCode: offer.offer_code,
+          name: offer.name,
+          type: offer.offer_type,
+          unitAmountCents: offer.price_cents,
+          amountCents: offer.amountCents,
+          currency: offer.currency.toLowerCase(),
+          cardAmount: offer.cardAmount,
+          creditsPerCard: offer.credits_per_card,
+          creditAmount: offer.creditAmount,
+          shippingIncluded: offer.shipping_included,
+          source: 'pricing_catalog',
+        };
+        const inserted = await transaction.query<CardPackPurchaseRow>(
+          `
+            INSERT INTO card_pack_purchases (
+              user_id,
+              pricing_catalog_id,
+              offer_code,
+              status,
+              amount_cents,
+              currency,
+              card_amount,
+              credit_amount,
+              pricing_snapshot,
+              idempotency_key
+            )
+            VALUES (
+              $1, $2, $3, 'pending', $4, $5, $6, $7, $8::jsonb, $9
+            )
+            ON CONFLICT (user_id, idempotency_key) DO NOTHING
+            RETURNING ${this.cardPackPurchaseColumns};
+          `,
+          [
+            userId,
+            offer.id,
+            offer.offer_code,
+            offer.amountCents,
+            offer.currency.toLowerCase(),
+            offer.cardAmount,
+            offer.creditAmount,
+            JSON.stringify(snapshot),
+            dto.idempotencyKey,
+          ],
+        );
+        purchase = inserted.rows[0];
+        if (!purchase) {
+          const raced = await transaction.query<CardPackPurchaseRow>(
+            `
+              SELECT ${this.cardPackPurchaseColumns}
+              FROM card_pack_purchases
+              WHERE user_id = $1
+                AND idempotency_key = $2
+              FOR UPDATE;
+            `,
+            [userId, dto.idempotencyKey],
+          );
+          purchase = raced.rows[0];
+          if (
+            !purchase ||
+            purchase.offer_code !== offer.offer_code ||
+            purchase.card_amount !== offer.cardAmount
+          ) {
+            throw new ConflictException(
+              'The card-pack idempotency key is already used for another selection.',
+            );
+          }
+        }
+      }
+
+      if (!this.giftsService) {
+        if (offer.offer_type === 'gift') {
+          throw new InternalServerErrorException(
+            'Gift checkout is not configured.',
+          );
+        }
+      } else {
+        const gift = await this.giftsService.ensureGiftForCardPack(
+          transaction,
+          userId,
+          purchase.id,
+          offer.offer_type,
+          dto,
+        );
+        if (gift) {
+          purchase = { ...purchase, gift_purchase_id: gift.id };
+        }
+      }
+
+      const activePayment = await this.findActiveCardPackPayment(
+        transaction,
+        purchase.id,
+      );
+      if (purchase.status === 'paid') {
+        const payment =
+          activePayment ??
+          (await this.findLatestCardPackPayment(transaction, purchase.id));
+        if (!payment) {
+          throw new ConflictException(
+            'The completed card-pack purchase has no payment record.',
+          );
+        }
+        return { purchase, payment, customer: null, idempotentReplay: true };
+      }
+      if (purchase.status === 'checkout_started') {
+        if (!activePayment || activePayment.status !== 'checkout_started') {
+          throw new ConflictException(
+            'The card-pack checkout state is inconsistent. Contact support.',
+          );
+        }
+        return {
+          purchase,
+          payment: activePayment,
+          customer: null,
+          idempotentReplay: true,
+        };
+      }
+      if (activePayment) {
+        if (activePayment.status !== 'creating') {
+          throw new ConflictException(
+            'An active card-pack checkout already exists.',
+          );
+        }
+        return {
+          purchase,
+          payment: activePayment,
+          customer: await this.findCheckoutCustomer(transaction, userId),
+          idempotentReplay: true,
+        };
+      }
+      if (
+        ![
+          'pending',
+          'payment_failed',
+          'payment_canceled',
+          'checkout_expired',
+        ].includes(purchase.status)
+      ) {
+        throw new ConflictException(
+          `Card-pack checkout cannot start from ${purchase.status}.`,
+        );
+      }
+
+      const attemptResult = await transaction.query<{ attempt_number: number }>(
+        `
+          SELECT COALESCE(MAX(attempt_number), 0) + 1 AS attempt_number
+          FROM payments
+          WHERE card_pack_purchase_id = $1;
+        `,
+        [purchase.id],
+      );
+      const attemptNumber = Number(attemptResult.rows[0]?.attempt_number ?? 1);
+      const idempotencyKey = `card-checkout:${purchase.id}:${provider.mode}:attempt:${attemptNumber}`;
+      const paymentResult = await transaction.query<PaymentRow>(
+        `
+          INSERT INTO payments (
+            user_id,
+            order_id,
+            credit_pack_purchase_id,
+            card_pack_purchase_id,
+            stripe_payment_intent_id,
+            offer_code,
+            amount_cents,
+            currency,
+            status,
+            metadata,
+            provider_mode,
+            checkout_session_id,
+            capture_method,
+            attempt_number,
+            idempotency_key
+          )
+          VALUES (
+            $1, NULL, NULL, $2, NULL, $3, $4, $5, 'creating', '{}'::jsonb,
+            $6, NULL, 'automatic_async', $7, $8
+          )
+          RETURNING ${this.paymentColumns};
+        `,
+        [
+          purchase.user_id,
+          purchase.id,
+          purchase.offer_code,
+          purchase.amount_cents,
+          purchase.currency,
+          provider.mode,
+          attemptNumber,
+          idempotencyKey,
+        ],
+      );
+      return {
+        purchase,
+        payment: paymentResult.rows[0],
+        customer: await this.findCheckoutCustomer(transaction, userId),
+        idempotentReplay: false,
+      };
+    });
+  }
+
   private async prepareCheckout(
     userId: string,
     orderId: string,
@@ -1583,6 +2124,16 @@ export class CheckoutService {
       ],
     );
     if (!updated.rows[0]) return;
+    if (payment.card_pack_purchase_id) {
+      await this.applyCardPackProviderState(
+        transaction,
+        payment,
+        paymentStatus,
+        event,
+        amountCapturedCents,
+      );
+      return;
+    }
     if (payment.credit_pack_purchase_id) {
       await this.applyCreditPackProviderState(
         transaction,
@@ -1595,16 +2146,18 @@ export class CheckoutService {
     }
     if (!payment.order_id) {
       throw new ConflictException(
-        'Stripe payment is not connected to an order or credit-pack purchase.',
+        'Stripe payment is not connected to an order, credit-pack, or card-pack purchase.',
       );
     }
     const updatedOrder = await transaction.query<{
       id: string;
       user_id: string;
       status: string;
+      offer_code: string | null;
       quantity: number;
       amount_cents: number;
       currency: string;
+      pricing_snapshot: Record<string, unknown>;
     }>(
       `
         UPDATE orders
@@ -1620,11 +2173,14 @@ export class CheckoutService {
             'paid',
             'closed_no_send'
           )
-        RETURNING id, user_id, status, quantity, amount_cents, currency;
+        RETURNING id, user_id, status, offer_code, quantity, amount_cents, currency, pricing_snapshot;
       `,
       [payment.order_id, orderStatus, payment.id],
     );
     if (!updatedOrder.rows[0]) return;
+    if (orderStatus === 'payment_authorized') {
+      await this.grantOrderCreationCredits(transaction, updatedOrder.rows[0]);
+    }
     await this.writeAudit(
       transaction,
       payment.user_id,
@@ -1640,6 +2196,7 @@ export class CheckoutService {
     );
     if (orderStatus === 'paid') {
       const order = updatedOrder.rows[0];
+      await this.grantOrderPurchaseEntitlements(transaction, order);
       await this.notificationsService.enqueueOrderNotification(transaction, {
         eventType: 'order_confirmation',
         userId: order.user_id,
@@ -1696,10 +2253,10 @@ export class CheckoutService {
     }
     if (
       purchaseStatus === 'paid' &&
-      amountCapturedCents !== purchase.amount_cents
+      amountCapturedCents < purchase.amount_cents
     ) {
       throw new ConflictException(
-        'Stripe credit-pack payment amount does not match the catalog snapshot.',
+        'Stripe credit-pack payment is less than the catalog snapshot.',
       );
     }
 
@@ -1749,6 +2306,100 @@ export class CheckoutService {
     );
   }
 
+  private async applyCardPackProviderState(
+    transaction: DatabaseTransaction,
+    payment: PaymentRow,
+    paymentStatus: string,
+    event: Stripe.Event,
+    amountCapturedCents: number,
+  ) {
+    if (!payment.card_pack_purchase_id) {
+      throw new ConflictException(
+        'Stripe payment is not connected to a card-pack purchase.',
+      );
+    }
+    const purchaseResult = await transaction.query<CardPackPurchaseRow>(
+      `
+        SELECT ${this.cardPackPurchaseColumns}
+        FROM card_pack_purchases
+        WHERE id = $1
+          AND user_id = $2
+        FOR UPDATE;
+      `,
+      [payment.card_pack_purchase_id, payment.user_id],
+    );
+    const purchase = purchaseResult.rows[0];
+    if (!purchase) {
+      throw new ConflictException(
+        'Stripe card-pack purchase could not be reconciled.',
+      );
+    }
+
+    const statusByPayment: Record<string, CardPackPurchaseRow['status']> = {
+      authorized: 'checkout_started',
+      succeeded: 'paid',
+      failed: 'payment_failed',
+      canceled: 'payment_canceled',
+      expired: 'checkout_expired',
+    };
+    const purchaseStatus = statusByPayment[paymentStatus];
+    if (!purchaseStatus) {
+      throw new ConflictException(
+        `Unsupported card-pack payment state ${paymentStatus}.`,
+      );
+    }
+    if (
+      purchaseStatus === 'paid' &&
+      amountCapturedCents < purchase.amount_cents
+    ) {
+      throw new ConflictException(
+        'Stripe card-pack payment is less than the catalog snapshot.',
+      );
+    }
+
+    const updatedResult = await transaction.query<CardPackPurchaseRow>(
+      `
+        UPDATE card_pack_purchases
+        SET status = $2, payment_id = $3, updated_at = NOW()
+        WHERE id = $1
+          AND status IN (
+            'pending',
+            'checkout_started',
+            'payment_failed',
+            'payment_canceled',
+            'checkout_expired',
+            'paid'
+          )
+        RETURNING ${this.cardPackPurchaseColumns};
+      `,
+      [purchase.id, purchaseStatus, payment.id],
+    );
+    const updatedPurchase = updatedResult.rows[0];
+    if (!updatedPurchase) return;
+
+    if (purchaseStatus === 'paid') {
+      await this.grantCardPackPurchaseEntitlements(
+        transaction,
+        updatedPurchase,
+      );
+    }
+    await this.writeAudit(
+      transaction,
+      updatedPurchase.user_id,
+      `stripe_card_pack_${event.type.replace(/\./g, '_')}`,
+      'card_pack_purchase',
+      updatedPurchase.id,
+      {
+        stripeEventId: event.id,
+        paymentId: payment.id,
+        paymentStatus,
+        purchaseStatus,
+        cardAmount: updatedPurchase.card_amount,
+        creditAmount: updatedPurchase.credit_amount,
+      },
+    );
+  }
+
   private async findStripePaymentFromMetadata(
     transaction: DatabaseTransaction,
     metadata: Stripe.Metadata | null,
@@ -1757,11 +2408,13 @@ export class CheckoutService {
     const paymentId = metadata?.souvenotePaymentId;
     const orderId = metadata?.souvenoteOrderId;
     const creditPackPurchaseId = metadata?.souvenoteCreditPackPurchaseId;
-    if (
-      !paymentId ||
-      (!orderId && !creditPackPurchaseId) ||
-      (orderId && creditPackPurchaseId)
-    ) {
+    const cardPackPurchaseId = metadata?.souvenoteCardPackPurchaseId;
+    const referenceCount = [
+      orderId,
+      creditPackPurchaseId,
+      cardPackPurchaseId,
+    ].filter(Boolean).length;
+    if (!paymentId || referenceCount !== 1) {
       throw new BadRequestException(
         'Stripe event is missing Souvenote reconciliation metadata.',
       );
@@ -1775,15 +2428,18 @@ export class CheckoutService {
             ($2::UUID IS NOT NULL AND order_id = $2)
             OR
             ($3::UUID IS NOT NULL AND credit_pack_purchase_id = $3)
+            OR
+            ($4::UUID IS NOT NULL AND card_pack_purchase_id = $4)
           )
           AND provider_mode = 'stripe'
-          AND ($4::VARCHAR IS NULL OR stripe_payment_intent_id IS NULL OR stripe_payment_intent_id = $4)
+          AND ($5::VARCHAR IS NULL OR stripe_payment_intent_id IS NULL OR stripe_payment_intent_id = $5)
         FOR UPDATE;
       `,
       [
         paymentId,
         orderId ?? null,
         creditPackPurchaseId ?? null,
+        cardPackPurchaseId ?? null,
         paymentIntentId ?? null,
       ],
     );
@@ -1913,6 +2569,65 @@ export class CheckoutService {
     return customer;
   }
 
+  private async findCardPackPurchaseForUpdate(
+    transaction: DatabaseTransaction,
+    purchaseId: string,
+    userId: string,
+  ) {
+    const result = await transaction.query<CardPackPurchaseRow>(
+      `
+        SELECT ${this.cardPackPurchaseColumns}
+        FROM card_pack_purchases
+        WHERE id = $1
+          AND user_id = $2
+        FOR UPDATE;
+      `,
+      [purchaseId, userId],
+    );
+    const purchase = result.rows[0];
+    if (!purchase) {
+      throw new BadRequestException('Card-pack purchase was not found.');
+    }
+    return purchase;
+  }
+
+  private async findActiveCardPackPayment(
+    transaction: DatabaseTransaction,
+    purchaseId: string,
+  ) {
+    const result = await transaction.query<PaymentRow>(
+      `
+        SELECT ${this.paymentColumns}
+        FROM payments
+        WHERE card_pack_purchase_id = $1
+          AND status IN ('creating', 'checkout_started')
+        ORDER BY attempt_number DESC
+        LIMIT 1
+        FOR UPDATE;
+      `,
+      [purchaseId],
+    );
+    return result.rows[0];
+  }
+
+  private async findLatestCardPackPayment(
+    transaction: DatabaseTransaction,
+    purchaseId: string,
+  ) {
+    const result = await transaction.query<PaymentRow>(
+      `
+        SELECT ${this.paymentColumns}
+        FROM payments
+        WHERE card_pack_purchase_id = $1
+        ORDER BY attempt_number DESC
+        LIMIT 1
+        FOR UPDATE;
+      `,
+      [purchaseId],
+    );
+    return result.rows[0];
+  }
+
   private async markCheckoutStartFailed(
     order: OrderRow,
     payment: PaymentRow,
@@ -1972,6 +2687,42 @@ export class CheckoutService {
         await transaction.query(
           `
             UPDATE credit_pack_purchases
+            SET status = 'payment_failed', payment_id = $2, updated_at = NOW()
+            WHERE id = $1
+              AND status IN ('pending', 'payment_failed');
+          `,
+          [purchase.id, payment.id],
+        );
+      }
+    });
+  }
+
+  private async markCardPackCheckoutStartFailed(
+    purchase: CardPackPurchaseRow,
+    payment: PaymentRow,
+    error: unknown,
+  ) {
+    await this.databaseService.withTransaction(async (transaction) => {
+      const failed = await transaction.query<{ id: string }>(
+        `
+          UPDATE payments
+          SET
+            status = 'failed',
+            metadata = COALESCE(metadata, '{}'::jsonb) || $2::jsonb,
+            updated_at = NOW()
+          WHERE id = $1
+            AND status = 'creating'
+          RETURNING id;
+        `,
+        [
+          payment.id,
+          JSON.stringify({ providerError: this.errorMessage(error) }),
+        ],
+      );
+      if (failed.rows[0]) {
+        await transaction.query(
+          `
+            UPDATE card_pack_purchases
             SET status = 'payment_failed', payment_id = $2, updated_at = NOW()
             WHERE id = $1
               AND status IN ('pending', 'payment_failed');
@@ -2091,11 +2842,60 @@ export class CheckoutService {
     };
   }
 
+  private buildCardPackCheckoutResponse(
+    purchase: CardPackPurchaseRow,
+    payment: PaymentRow,
+    idempotentReplay: boolean,
+  ) {
+    return {
+      checkoutSession: {
+        id: payment.checkout_session_id,
+        cardPackPurchaseId: purchase.id,
+        paymentId: payment.id,
+        providerMode: payment.provider_mode,
+        status:
+          payment.status === 'succeeded_mock' ? 'paid_mock' : payment.status,
+        captureMethod: payment.capture_method,
+        amountCents: payment.amount_cents,
+        currency: payment.currency,
+        checkoutUrl:
+          typeof payment.metadata?.checkoutUrl === 'string'
+            ? payment.metadata.checkoutUrl
+            : null,
+        expiresAt: this.toIso(payment.expires_at),
+        paidAt:
+          typeof payment.metadata?.paidMockAt === 'string'
+            ? payment.metadata.paidMockAt
+            : null,
+        createdAt: this.toIso(payment.created_at),
+      },
+      purchase: {
+        id: purchase.id,
+        offerCode: purchase.offer_code,
+        status: purchase.status,
+        amountCents: purchase.amount_cents,
+        currency: purchase.currency,
+        cardAmount: purchase.card_amount,
+        creditAmount: purchase.credit_amount,
+        checkoutSessionId: purchase.checkout_session_id,
+        paymentId: purchase.payment_id,
+        giftPurchaseId: purchase.gift_purchase_id,
+        createdAt: this.toIso(purchase.created_at),
+        updatedAt: this.toIso(purchase.updated_at),
+      },
+      gift: purchase.gift_purchase_id
+        ? this.giftsService?.toCheckoutGift(purchase.gift_purchase_id)
+        : null,
+      idempotentReplay,
+    };
+  }
+
   private toPaymentResponse(payment: PaymentRow) {
     return {
       id: payment.id,
       orderId: payment.order_id,
       creditPackPurchaseId: payment.credit_pack_purchase_id,
+      cardPackPurchaseId: payment.card_pack_purchase_id,
       providerMode: payment.provider_mode,
       status: payment.status,
       captureMethod: payment.capture_method,
@@ -2153,6 +2953,142 @@ export class CheckoutService {
       );
     }
     return { productName };
+  }
+
+  private async grantOrderPurchaseEntitlements(
+    transaction: DatabaseTransaction,
+    order: Pick<
+      OrderRow,
+      'id' | 'user_id' | 'offer_code' | 'quantity' | 'pricing_snapshot'
+    >,
+  ) {
+    if (!Number.isInteger(order.quantity) || order.quantity <= 0) {
+      throw new ConflictException('Paid order quantity is invalid.');
+    }
+    const source = `order:${order.id}`;
+    const cardResult =
+      await this.cardEntitlementsService.grantOnceInTransaction(
+        transaction,
+        order.user_id,
+        order.quantity,
+        source,
+        `${source}:card-grant`,
+        'order_purchase',
+      );
+
+    await this.grantOrderCreationCredits(transaction, order);
+    return cardResult;
+  }
+
+  private resolveCardPackPricing(purchase: CardPackPurchaseRow) {
+    const snapshot = purchase.pricing_snapshot ?? {};
+    const offerCode =
+      typeof snapshot.offerCode === 'string' ? snapshot.offerCode : null;
+    const productName =
+      typeof snapshot.name === 'string' ? snapshot.name : 'Souvenote cards';
+    const unitAmountCents = Number(snapshot.unitAmountCents);
+    const amountCents = Number(snapshot.amountCents);
+    const cardAmount = Number(snapshot.cardAmount);
+    const creditAmount = Number(snapshot.creditAmount);
+    if (
+      offerCode !== purchase.offer_code ||
+      !Number.isInteger(unitAmountCents) ||
+      unitAmountCents <= 0 ||
+      !Number.isInteger(amountCents) ||
+      amountCents !== purchase.amount_cents ||
+      unitAmountCents * purchase.card_amount !== purchase.amount_cents ||
+      cardAmount !== purchase.card_amount ||
+      creditAmount !== purchase.credit_amount ||
+      String(snapshot.currency).toLowerCase() !==
+        purchase.currency.toLowerCase()
+    ) {
+      throw new ConflictException(
+        'Card-pack pricing snapshot does not match the stored purchase.',
+      );
+    }
+    return { productName, unitAmountCents };
+  }
+
+  private async grantCardPackPurchaseEntitlements(
+    transaction: DatabaseTransaction,
+    purchase: Pick<
+      CardPackPurchaseRow,
+      | 'id'
+      | 'user_id'
+      | 'offer_code'
+      | 'card_amount'
+      | 'credit_amount'
+      | 'gift_purchase_id'
+    >,
+  ) {
+    const source = `card-pack-purchase:${purchase.id}`;
+    const cardResult =
+      await this.cardEntitlementsService.grantOnceInTransaction(
+        transaction,
+        purchase.user_id,
+        purchase.card_amount,
+        purchase.offer_code,
+        `${source}:cards`,
+        'card_pack_purchase',
+      );
+    const creditResult = await this.creditsService.grantOnceInTransaction(
+      transaction,
+      purchase.user_id,
+      purchase.credit_amount,
+      purchase.offer_code,
+      `${source}:credits`,
+      'card_pack_purchase',
+    );
+    if (purchase.gift_purchase_id) {
+      if (!this.giftsService) {
+        throw new InternalServerErrorException(
+          'Gift settlement is not configured.',
+        );
+      }
+      return this.giftsService.reservePaidGiftInTransaction(
+        transaction,
+        purchase.gift_purchase_id,
+        purchase,
+      );
+    }
+    return {
+      cardBalance: cardResult.balance,
+      creditBalance: creditResult.balance,
+    };
+  }
+
+  private async grantOrderCreationCredits(
+    transaction: DatabaseTransaction,
+    order: Pick<
+      OrderRow,
+      'id' | 'user_id' | 'offer_code' | 'quantity' | 'pricing_snapshot'
+    >,
+  ) {
+    const source = `order:${order.id}`;
+    const rawCreditsPerCard = order.pricing_snapshot?.creditsPerCard;
+    const creditsPerCard =
+      rawCreditsPerCard === undefined ? 0 : Number(rawCreditsPerCard);
+    if (!Number.isInteger(creditsPerCard) || creditsPerCard < 0) {
+      throw new ConflictException(
+        'Paid order credit entitlement snapshot is invalid.',
+      );
+    }
+    const creditAmount = creditsPerCard * order.quantity;
+    if (!Number.isSafeInteger(creditAmount)) {
+      throw new ConflictException(
+        'Paid order credit entitlement total is invalid.',
+      );
+    }
+    if (creditAmount > 0) {
+      await this.creditsService.grantOnceInTransaction(
+        transaction,
+        order.user_id,
+        creditAmount,
+        order.offer_code ?? source,
+        `${source}:credit-grant`,
+        'order_purchase',
+      );
+    }
   }
 
   private noSendFee(order: OrderRow) {
@@ -2300,6 +3236,63 @@ export class CheckoutService {
     return value;
   }
 
+  private cardCheckoutRedirectUrl(
+    kind: 'success' | 'cancel',
+    providerMode: CheckoutProviderMode,
+    gift = false,
+  ) {
+    const setting = gift
+      ? kind === 'success'
+        ? 'GIFT_CHECKOUT_SUCCESS_URL'
+        : 'GIFT_CHECKOUT_CANCEL_URL'
+      : kind === 'success'
+        ? 'CARD_CHECKOUT_SUCCESS_URL'
+        : 'CARD_CHECKOUT_CANCEL_URL';
+    const fallback = gift
+      ? kind === 'success'
+        ? 'http://localhost:3000/gift?checkout=success&purchase=gift&session_id={CHECKOUT_SESSION_ID}'
+        : 'http://localhost:3000/gift?checkout=cancel&purchase=gift'
+      : kind === 'success'
+        ? 'http://localhost:3000/cart?checkout=success&purchase=cards&session_id={CHECKOUT_SESSION_ID}'
+        : 'http://localhost:3000/cart?checkout=cancel&purchase=cards';
+    const configured = this.configService.get<string>(setting)?.trim();
+    const value = configured || fallback;
+    if (providerMode === 'stripe' && !configured) {
+      throw new InternalServerErrorException(
+        `${setting} is required in Stripe checkout mode.`,
+      );
+    }
+    let parsed: URL;
+    try {
+      parsed = new URL(value);
+    } catch {
+      throw new InternalServerErrorException(`${setting} must be a valid URL.`);
+    }
+    const local = ['localhost', '127.0.0.1', '[::1]'].includes(parsed.hostname);
+    const production =
+      this.configService.get<string>('NODE_ENV')?.trim().toLowerCase() ===
+      'production';
+    if (
+      parsed.protocol !== 'https:' &&
+      !(local && parsed.protocol === 'http:' && !production)
+    ) {
+      throw new InternalServerErrorException(
+        `${setting} must use HTTPS outside local development.`,
+      );
+    }
+    if (parsed.username || parsed.password) {
+      throw new InternalServerErrorException(
+        `${setting} must not include URL credentials.`,
+      );
+    }
+    if (kind === 'success' && !value.includes('{CHECKOUT_SESSION_ID}')) {
+      throw new InternalServerErrorException(
+        `${setting} must include {CHECKOUT_SESSION_ID}.`,
+      );
+    }
+    return value;
+  }
+
   private readBoolean(key: string, fallback: boolean) {
     const configured = this.configService
       .get<string>(key)
@@ -2339,6 +3332,7 @@ export class CheckoutService {
       user_id,
       order_id,
       credit_pack_purchase_id,
+      card_pack_purchase_id,
       stripe_payment_intent_id,
       offer_code,
       amount_cents,
@@ -2374,6 +3368,27 @@ export class CheckoutService {
       idempotency_key,
       checkout_session_id,
       payment_id,
+      created_at,
+      updated_at
+    `;
+  }
+
+  private get cardPackPurchaseColumns() {
+    return `
+      id,
+      user_id,
+      pricing_catalog_id,
+      offer_code,
+      status,
+      amount_cents,
+      currency,
+      card_amount,
+      credit_amount,
+      pricing_snapshot,
+      idempotency_key,
+      checkout_session_id,
+      payment_id,
+      gift_purchase_id,
       created_at,
       updated_at
     `;

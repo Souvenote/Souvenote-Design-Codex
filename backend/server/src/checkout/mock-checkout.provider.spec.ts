@@ -8,6 +8,7 @@ describe('MockCheckoutProvider', () => {
       localPaymentId: 'payment-a',
       orderId: 'order-a',
       creditPackPurchaseId: null,
+      cardPackPurchaseId: null,
       userId: 'user-a',
       customerId: null,
       customerEmail: 'user@example.com',

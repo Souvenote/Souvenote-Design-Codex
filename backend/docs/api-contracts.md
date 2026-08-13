@@ -80,7 +80,8 @@ Service mapping:
 | Moderation | Cognito-group-protected human review queue with atomic decisions and audit logs | Optional automated provider workers |
 | Checkout | Durable mock sessions or server-priced Stripe Checkout, manual authorization, signed webhook reconciliation, and audit logs | Additional payment methods and operational tooling |
 | Fulfillment | Durable mock or Scribeless attempts, exact multi-recipient submission, safe ambiguity holds, and status polling | Background polling and operations tooling |
-| Notifications | Durable mock or SendGrid dynamic-template outbox, signed callback dedupe, and ambiguity holds | Explicit support/referral workflows |
+| Gifts/referrals | Signed private claims, escrowed gift entitlements, first-send referral rewards, mock invite delivery | Reviewed real-delivery templates |
+| Notifications | Durable mock or SendGrid dynamic-template outbox, signed callback dedupe, and ambiguity holds | Explicit support workflows |
 | Analytics | HMAC-pseudonymous, allowlisted backend funnel events through PostHog | Reviewed additions to the event schema |
 | Observability | PII-safe structured HTTP/provider logs, scrubbed Sentry errors, and aggregate lifecycle alerts | Deployment dashboards and credentialed staging validation |
 
@@ -238,6 +239,60 @@ Response `200`:
   "balance": {
     "userId": "uuid",
     "balance": 82
+  }
+}
+```
+
+## Card entitlements
+
+### GET `/card-entitlements/balance`
+
+Returns the authenticated user's server-authoritative physical-card balance.
+The balance is the sum of the append-only `card_entitlement_ledger`; the
+browser cannot grant or mutate cards. A paid order grants its immutable
+quantity exactly once, and its frozen `creditsPerCard` quantity is granted to
+the credit ledger (at authorization for Try Risk-Free, otherwise at payment).
+Creating a fulfillment attempt atomically deducts the paid quantity. A
+definitive failed attempt refunds that deduction exactly once; an ambiguous
+provider outcome remains on hold without refund so it cannot create duplicate
+physical mail.
+
+Response `200`:
+
+```json
+{
+  "userId": "uuid",
+  "balance": 4
+}
+```
+
+Status codes:
+
+| Code | Meaning |
+| --- | --- |
+| 200 | Owner-scoped card balance returned |
+| 401 | Cognito session missing or invalid |
+
+### GET `/card-entitlements/purchases/:purchaseId`
+
+Returns one standalone Big Sender purchase only to its authenticated owner,
+along with the current physical-card balance. Use this after returning from
+hosted checkout; a browser redirect alone never grants cards.
+
+```json
+{
+  "purchase": {
+    "id": "uuid",
+    "offerCode": "big_sender_2_10",
+    "status": "paid",
+    "amountCents": 4495,
+    "currency": "cad",
+    "cardAmount": 5,
+    "creditAmount": 50
+  },
+  "balance": {
+    "userId": "uuid",
+    "balance": 5
   }
 }
 ```
@@ -837,12 +892,21 @@ priced card. For single-address callers, `recipientAddress` is duplicated to
 the frozen quantity for backward compatibility. The frontend sends the full
 array for Big Sender orders so paid cards cannot be dropped at fulfillment.
 
+When `fundingSource` is `card_bank`, each requested card is already fully paid
+for by a prior card-pack purchase, including printing and standard delivery.
+The order is created as `paid` with `amountCents: 0`, no payment or Checkout
+session is created, no new credits are granted, and the exact card quantity is
+reserved from the owner-scoped ledger in the same transaction. An insufficient
+balance rolls the entire order creation back. Omit `fundingSource` or use
+`checkout` to retain the direct-payment and Try Risk-Free flows.
+
 Request:
 
 ```json
 {
   "cardDraftId": "uuid",
   "selectedAssetId": "uuid",
+  "fundingSource": "checkout",
   "offerCode": "try_risk_free_one_card",
   "quantity": 1,
   "recipientAddresses": [
@@ -928,6 +992,11 @@ Status codes:
 | 201 | Order created |
 | 400 | Invalid request, inactive/out-of-range offer, malformed catalog price, or selected image is not approved and moderation-cleared |
 | 404 | Draft not found |
+
+Prepaid response fields include `fundingSource: "card_bank"`,
+`cardEntitlementsReservedAt`, `amountCents: 0`, `paymentId: null`, and a frozen
+pricing snapshot with `printingIncluded`, `shippingIncluded`, and
+`creditsPerCard: 0`.
 
 ### GET `/orders/:orderId`
 
@@ -1086,10 +1155,55 @@ ledger path as Stripe.
 }
 ```
 
+### POST `/checkout/card-packs/start`
+
+Starts a durable automatic-capture checkout for one Big Sender tier. The
+backend validates the quantity against the exact catalog offer, calculates the
+total, and freezes both card and included-credit entitlements.
+
+The card-pack price covers the later printing and standard delivery of every
+card in the pack. Spending a card-bank entitlement therefore creates no second
+card, printing, shipping, or delivery charge.
+
+```json
+{
+  "offerCode": "big_sender_2_10",
+  "quantity": 5,
+  "idempotencyKey": "card-cart-request-uuid"
+}
+```
+
+Response `201` includes `cardPackPurchaseId`, the provider session, and:
+
+```json
+{
+  "purchase": {
+    "id": "uuid",
+    "offerCode": "big_sender_2_10",
+    "status": "checkout_started",
+    "amountCents": 4495,
+    "currency": "cad",
+    "cardAmount": 5,
+    "creditAmount": 50
+  }
+}
+```
+
+Signed settlement grants the frozen card and credit amounts in the same
+database transaction using separate idempotency keys.
+
+### POST `/checkout/card-packs/mock-success`
+
+Completes a started card-pack purchase only in mock provider mode. It validates
+the owner and checkout session, marks the payment paid, and returns both the
+updated `cardBalance` and `creditBalance`.
+
 ### POST `/checkout/mock-success`
 
 Simulates a successful checkout and updates the order to `paid_mock`.
 This route returns `403` whenever Stripe checkout mode is active.
+The same transaction grants the immutable order card quantity and included AI
+credits through their idempotent ledgers.
 
 Request:
 
@@ -1209,6 +1323,17 @@ locally as `fulfilled_mock`. Scribeless mode requires a `paid` Stripe order,
 validates the configured recurring folded-card campaign, submits every frozen
 recipient in the paid quantity, and stores only durable provider identifiers
 and safe metadata.
+
+The attempt row, order transition, and card-entitlement deduction share one
+database transaction. For a card-bank-funded order, the initial reservation
+was already deducted atomically when the zero-charge order was created, so the
+first fulfillment attempt does not deduct it again. Insufficient entitlement
+balance rolls any required retry reservation back.
+A definitive local/provider rejection refunds the attempt's deduction using a
+stable idempotency key and marks a prepaid reservation released. A later retry
+must re-reserve the cards before it can submit again. Timeouts and
+accepted-but-unreconciled responses are held without refund until provider
+state is known.
 
 The operation is idempotent while an attempt is active or successful. An
 explicit provider rejection becomes `fulfillment_failed` and may be retried as
@@ -1443,6 +1568,60 @@ customer impersonation, or arbitrary-query capabilities. Use
 | 404 | Order evidence not found |
 | 500 | Production operations allowlist is missing/invalid, or a dependency failed |
 
+## Gift Purchase and Redemption
+
+`gift_souvenote_one_card` is a CAD $6.99 one-card catalog offer. Its snapshot
+always includes 10 creation credits, printing, and standard delivery. Gift
+checkout uses the existing card-pack payment lifecycle with `quantity: 1` and
+recipient fields:
+
+```json
+{
+  "offerCode": "gift_souvenote_one_card",
+  "quantity": 1,
+  "idempotencyKey": "gift-client-key",
+  "recipientName": "Jordan",
+  "recipientContact": "jordan@example.com",
+  "deliveryMethod": "email",
+  "personalMessage": "A little something for you."
+}
+```
+
+On settlement, the one card and ten credits are granted and immediately
+reserved into gift escrow in the same transaction. They never become spendable
+by the purchaser. Mock completion is still
+`POST /checkout/card-packs/mock-success`. Stripe card-pack webhook
+reconciliation applies the same escrow rule.
+
+- `GET /gifts` lists only gifts bought by the authenticated user.
+- `GET /gifts/claim/:token` is a no-store public preview that excludes recipient
+  contact and purchaser identity.
+- `POST /gifts/claim/:token/redeem` requires authentication, prevents
+  self-redemption, checks the intended email for email-delivered gifts, and
+  atomically grants one prepaid physical send plus ten credits once.
+
+Claim tokens are signed bearer links; PostgreSQL stores the gift UUID but not
+the HMAC secret. Production requires stable secret configuration. Invitation
+delivery is recorded as `mock_delivered`; no email or SMS provider is called by
+this workflow yet.
+
+## Referrals
+
+- `GET /referrals/me` returns the authenticated user's signed personal link,
+  durable invite history, program rules, and earned-credit total.
+- `POST /referrals/invites` accepts `{ "email", "idempotencyKey" }`, blocks
+  self-referral, deduplicates repeat invitations, and records mock delivery.
+- `GET /referrals/claim/:token` publicly previews the non-PII program rules.
+- `POST /referrals/claim/:token` requires a new account (at most seven days old
+  and before its first physical send), enforces one attribution per account,
+  and grants eight bonus credits on top of the normal two-credit signup grant,
+  for ten starter credits total.
+
+The referrer receives ten credits only when the referred account's first
+fulfillment is accepted in a submitted/printing/shipped/delivered or mock-
+fulfilled state. Signup alone never grants the referrer reward. All grants use
+deterministic append-only credit-ledger keys.
+
 ## Public Souvenote Playback
 
 ### GET `/public/souvenotes/:token`
@@ -1491,6 +1670,10 @@ psql -U postgres -d souvenote_dev -f database/migrations/009_scribeless_fulfillm
 psql -U postgres -d souvenote_dev -f database/migrations/010_public_card_links.sql
 psql -U postgres -d souvenote_dev -f database/migrations/011_transactional_notifications.sql
 psql -U postgres -d souvenote_dev -f database/migrations/012_canadian_pricing_and_credit_packs.sql
+psql -U postgres -d souvenote_dev -f database/migrations/013_card_entitlement_ledger.sql
+psql -U postgres -d souvenote_dev -f database/migrations/014_card_pack_purchases.sql
+psql -U postgres -d souvenote_dev -f database/migrations/015_prepaid_card_delivery.sql
+psql -U postgres -d souvenote_dev -f database/migrations/016_gifts_and_referrals.sql
 psql -U postgres -d souvenote_dev -f database/seeds/001_pricing_catalog.sql
 ```
 

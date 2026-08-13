@@ -4,10 +4,15 @@ import * as React from "react";
 import Link from "next/link";
 import type { DemoUser } from "./DemoUser";
 import { useCreditBalance } from "../lib/creditBalance";
+import { useCardEntitlementBalance } from "../lib/cardEntitlementBalance";
 import {
   fetchCardDraftAssets,
+  createLocalIdempotencyKey,
+  createReferralInvite,
+  fetchReferralDashboard,
   fetchUserCardDrafts,
   fetchUserOrders,
+  type ReferralDashboard,
 } from "../lib/api";
 import type { CardDraftAsset, Order } from "../lib/api";
 import { useBlankSouvenoteGiftCount } from "./GiftAddon";
@@ -44,15 +49,6 @@ type ReferStep = {
 type ReferShare = {
   label: "Email" | "Instagram" | "Facebook";
   path: string;
-};
-
-type ReferStatus = "done" | "pending";
-
-type ReferItem = {
-  name: string;
-  initials: string;
-  status: ReferStatus;
-  earn: string;
 };
 
 const AccIco = {
@@ -273,6 +269,11 @@ function ProfilePage({ user }: AccountPageProps) {
     fallbackBalance: 0,
     userId: auth.user?.id,
   });
+  const cardBalance = useCardEntitlementBalance({
+    enabled: isAuthenticated,
+    fallbackBalance: 0,
+    userId: auth.user?.id,
+  });
   const blankGiftCount = useBlankSouvenoteGiftCount();
   const [creationCounts, setCreationCounts] = React.useState({
     cards: 0,
@@ -390,7 +391,10 @@ function ProfilePage({ user }: AccountPageProps) {
       num: creationStatus === "loading" ? "..." : String(creationCounts.songs),
       label: creationStatus === "error" ? "Songs offline" : "Songs made",
     },
-    { num: "0", label: "Cards in bank" },
+    {
+      num: cardBalance.status === "loading" ? "..." : String(cardBalance.balance),
+      label: cardBalance.status === "error" ? "Card bank offline" : "Cards in bank",
+    },
     ...(blankGiftCount > 0
       ? [{ num: String(blankGiftCount), label: "Blank gifts", gold: true }]
       : []),
@@ -604,8 +608,6 @@ const REFER_STEPS: ReferStep[] = [
   },
 ];
 
-const REFER_LIST: ReferItem[] = [];
-
 const REFER_SHARE: ReferShare[] = [
   { label: "Email", path: "M3 5h18v14H3z M3 6l9 7 9-7" },
   {
@@ -618,29 +620,53 @@ const REFER_SHARE: ReferShare[] = [
   },
 ];
 
-function ReferPage({ user }: AccountPageProps) {
-  const auth = useAuth();
-  const accountUser = auth.displayUser ||
-    user || {
-      name: "Souvenote User",
-      email: "user@souvenote.com",
-      initials: "SU",
-    };
+function ReferPage(_props: AccountPageProps) {
   const [copied, setCopied] = React.useState(false);
-  const referralSeed = auth.user?.id || accountUser.email || accountUser.name;
-  const referralSlug =
-    referralSeed
-      .toLowerCase()
-      .replace(/@.*/, "")
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-|-$/g, "")
-      .slice(0, 24) || "souvenote";
-  const link = `souvenote.com/r/${referralSlug}`;
+  const [dashboard, setDashboard] = React.useState<ReferralDashboard | null>(null);
+  const [inviteEmail, setInviteEmail] = React.useState("");
+  const [loading, setLoading] = React.useState(true);
+  const [submitting, setSubmitting] = React.useState(false);
+  const [notice, setNotice] = React.useState<string | null>(null);
+  const [error, setError] = React.useState<string | null>(null);
+  const origin = typeof window === "undefined" ? "" : window.location.origin;
+  const link = dashboard ? `${origin}${dashboard.referral.path}` : "Loading your secure referral link...";
+
+  const loadDashboard = React.useCallback(async () => {
+    setLoading(true);
+    try {
+      setDashboard(await fetchReferralDashboard());
+      setError(null);
+    } catch (unknownError) {
+      setError(unknownError instanceof Error ? unknownError.message : "Could not load referrals.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  React.useEffect(() => { void loadDashboard(); }, [loadDashboard]);
 
   function copy() {
-    navigator.clipboard?.writeText("https://" + link).catch(() => {});
+    if (!dashboard) return;
+    navigator.clipboard?.writeText(link).catch(() => {});
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1800);
+  }
+
+  async function invite(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSubmitting(true);
+    setNotice(null);
+    setError(null);
+    try {
+      await createReferralInvite(inviteEmail, createLocalIdempotencyKey("referral"));
+      setInviteEmail("");
+      setNotice("Invite recorded and delivered in mock mode.");
+      await loadDashboard();
+    } catch (unknownError) {
+      setError(unknownError instanceof Error ? unknownError.message : "Could not create the invite.");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -695,6 +721,21 @@ function ReferPage({ user }: AccountPageProps) {
         >
           Your personal invite link
         </div>
+        <form className="acc-referlink" onSubmit={invite} style={{ marginBottom: 12 }}>
+          <input
+            className="input-dark"
+            type="email"
+            placeholder="friend@example.com"
+            value={inviteEmail}
+            onChange={(event) => setInviteEmail(event.target.value)}
+            required
+          />
+          <button className="btn-matte acc-copybtn" type="submit" disabled={submitting}>
+            {submitting ? "Sending..." : "Invite"}
+          </button>
+        </form>
+        {notice && <p className="acc-redeem-note" role="status">{notice}</p>}
+        {error && <p className="acc-redeem-note" role="alert">{error}</p>}
         <div className="acc-referlink">
           <input
             className="input-dark"
@@ -706,6 +747,7 @@ function ReferPage({ user }: AccountPageProps) {
             type="button"
             className="btn-matte acc-copybtn"
             onClick={copy}
+            disabled={!dashboard}
           >
             {copied ? "Copied \u2713" : "Copy link"}
           </button>
@@ -738,25 +780,25 @@ function ReferPage({ user }: AccountPageProps) {
       <div className="acc-grid-2">
         <div className="acc-panel">
           <div className="acc-panel-title">Your referrals</div>
-          {REFER_LIST.length > 0 ? (
+          {dashboard && dashboard.invites.length > 0 ? (
             <div className="acc-reftable">
               <div className="acc-reftable-row head">
                 <span>Friend</span>
                 <span>Status</span>
                 <span>Earned</span>
               </div>
-              {REFER_LIST.map((referral) => (
-                <div className="acc-reftable-row" key={referral.name}>
+              {dashboard.invites.map((referral) => (
+                <div className="acc-reftable-row" key={referral.id}>
                   <div className="acc-reftable-name">
-                    <div className="acc-avatar">{referral.initials}</div>
-                    <b>{referral.name}</b>
+                    <div className="acc-avatar">{(referral.invitedEmail || "Link").slice(0, 2).toUpperCase()}</div>
+                    <b>{referral.invitedEmail || "Shared link"}</b>
                   </div>
                   <span
-                    className={`acc-pill ${referral.status === "done" ? "is-done" : "is-pending"}`}
+                    className={`acc-pill ${referral.status === "rewarded" ? "is-done" : "is-pending"}`}
                   >
-                    {referral.status === "done" ? "Joined" : "Invited"}
+                    {referral.status === "rewarded" ? "First card sent" : referral.status === "claimed" ? "Joined" : "Invited"}
                   </span>
-                  <div className="acc-reftable-earn">{referral.earn}</div>
+                  <div className="acc-reftable-earn">{referral.status === "rewarded" ? "+10" : "—"}</div>
                 </div>
               ))}
             </div>
@@ -764,7 +806,7 @@ function ReferPage({ user }: AccountPageProps) {
             <div className="acc-refer-empty">
               <p>
                 {
-                  "No referrals yet \u2014 share your link above and your friends will show up here as they join."
+                  loading ? "Loading referrals..." : "No referrals yet — share your link above and your friends will show up here as they join."
                 }
               </p>
             </div>
@@ -786,7 +828,7 @@ function ReferPage({ user }: AccountPageProps) {
             Credits earned
           </div>
           <div className="acc-stat-num is-gold" style={{ fontSize: "3.2rem" }}>
-            0
+            {dashboard?.earnedCredits ?? 0}
           </div>
           <p
             style={{
@@ -796,8 +838,9 @@ function ReferPage({ user }: AccountPageProps) {
               margin: "12px 0 0",
             }}
           >
-            You haven&apos;t earned referral credits yet. Credits are applied
-            automatically to your next card.
+            {dashboard?.earnedCredits
+              ? "Referral credits have been added to your creation balance."
+              : "Rewards are added after a referred friend completes their first physical card send."}
           </p>
         </div>
       </div>
