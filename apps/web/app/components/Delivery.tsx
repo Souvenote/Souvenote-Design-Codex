@@ -2,19 +2,13 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Navbar } from './Navbar';
 import { Footer } from './Footer';
 import { BmcIcon, BmcErrorModal, bmcError } from './BmcShared';
 import { DlvKeepsake } from './DeliveryKeepsake';
-import { fetchCardDraftAssets } from '../lib/api';
-import {
-  findGeneratedImageAsset,
-  hasGeneratedAsset,
-  MOCK_MVP_FLOW_UPDATED_EVENT,
-  readMockMvpFlowState,
-  rememberSelectedAsset,
-} from '../lib/mockMvpFlow';
+import { assetContentUrl, fetchCardDraftAssets, fetchCardDraftById } from '../lib/api';
+import type { CardDraftAsset } from '../lib/api';
 import {
   DLV_EMPTY_RECIP,
   dlvValidate,
@@ -274,6 +268,7 @@ function DeliveryApp({ user, initialCards = 0, initialCredits = DELIVERY_DEFAULT
   void initialCards;
   void initialCredits;
   const router = useRouter();
+  const searchParams = useSearchParams();
   const auth = useAuth();
   const displayUser = auth.displayUser ?? user;
 
@@ -295,11 +290,17 @@ function DeliveryApp({ user, initialCards = 0, initialCredits = DELIVERY_DEFAULT
   const [date, setDate] = React.useState('');
   const [shipping, setShipping] = React.useState('standard');
   const [song, setSong] = React.useState(false);
-  const [flowState, setFlowState] = React.useState(() => readMockMvpFlowState());
+  const cardDraftId = searchParams.get('draftId');
+  const requestedAssetId = searchParams.get('assetId');
+  const [generatedAssets, setGeneratedAssets] = React.useState<CardDraftAsset[]>([]);
+  const [selectedImageAssetId, setSelectedImageAssetId] = React.useState<string | null>(requestedAssetId);
+  const [messageText, setMessageText] = React.useState('');
   const [backendAction, setBackendAction] = React.useState<BackendAction>('idle');
   const [backendError, setBackendError] = React.useState<string | null>(null);
-  const assetLookupDraftRef = React.useRef<string | null>(null);
-  const songIncluded = flowState.generatedAssets.length ? hasGeneratedAsset(flowState.generatedAssets, 'song') : true;
+  const assetType = (asset: CardDraftAsset) => String(asset.assetType || asset.asset_type);
+  const songAsset = generatedAssets.find((asset) => assetType(asset) === 'song') || null;
+  const messageAsset = generatedAssets.find((asset) => assetType(asset) === 'message') || null;
+  const songIncluded = Boolean(songAsset);
   const blankGiftCount: number = 0;
   const [giftReminderDismissed, setGiftReminderDismissed] = React.useState(false);
   const [giftModalOpen, setGiftModalOpen] = React.useState(false);
@@ -307,48 +308,55 @@ function DeliveryApp({ user, initialCards = 0, initialCredits = DELIVERY_DEFAULT
   const [giftRecipientName, setGiftRecipientName] = React.useState('');
   const [giftRecipientContact, setGiftRecipientContact] = React.useState('');
 
-  const selectedImageAssetId =
-    flowState.selectedAssetId || findGeneratedImageAsset(flowState.generatedAssets)?.id || null;
   const cardsNeeded = mode === 'single' ? quantity : Math.max(recipients.length, 0);
-  const hasBackendOrderInputs = Boolean(flowState.cardDraftId && selectedImageAssetId);
+  const hasBackendOrderInputs = Boolean(cardDraftId && selectedImageAssetId);
   const enough = hasBackendOrderInputs && cardsNeeded > 0;
   const needsCardTopUp = false;
   const backendBusy = backendAction !== 'idle';
   React.useEffect(() => {
-    const syncFlowState = () => setFlowState(readMockMvpFlowState());
-
-    syncFlowState();
-    window.addEventListener(MOCK_MVP_FLOW_UPDATED_EVENT, syncFlowState);
-    return () => {
-      window.removeEventListener(MOCK_MVP_FLOW_UPDATED_EVENT, syncFlowState);
-    };
-  }, []);
-
-  React.useEffect(() => {
-    if (
-      !flowState.cardDraftId ||
-      selectedImageAssetId ||
-      backendAction !== 'idle' ||
-      assetLookupDraftRef.current === flowState.cardDraftId
-    )
+    if (!cardDraftId) {
+      setGeneratedAssets([]);
+      setSelectedImageAssetId(null);
+      setBackendError('Open Delivery from an approved card in Review or Saved Cards & Songs.');
       return;
+    }
 
     let active = true;
-    assetLookupDraftRef.current = flowState.cardDraftId;
     setBackendAction('loading_assets');
     setBackendError(null);
 
-    fetchCardDraftAssets(flowState.cardDraftId)
-      .then((assets) => {
-        if (!active || !flowState.cardDraftId) return;
-        const imageAsset = findGeneratedImageAsset(assets);
-        if (imageAsset?.id) {
-          rememberSelectedAsset(flowState.cardDraftId, imageAsset.id, assets);
-        } else {
-          setBackendError(
-            'Generated image asset is not ready yet. Go back to Review and wait for generation to finish.',
-          );
+    setGeneratedAssets([]);
+    setSelectedImageAssetId(null);
+
+    Promise.all([fetchCardDraftById(cardDraftId), fetchCardDraftAssets(cardDraftId)])
+      .then(([cardDraft, assets]) => {
+        if (!active) return;
+        if (cardDraft.status !== 'approved') {
+          throw new Error('This card has not been approved. Go back to Review and approve the selected outputs first.');
         }
+
+        const approvedIds = new Set(
+          [cardDraft.approvedImageAssetId, cardDraft.approvedSongAssetId, cardDraft.approvedMessageAssetId].filter(
+            (assetId): assetId is string => Boolean(assetId),
+          ),
+        );
+        const approvedAssets = assets.filter((asset) => approvedIds.has(asset.id));
+        const approvedImage = approvedAssets.find(
+          (asset) => asset.id === cardDraft.approvedImageAssetId && assetType(asset) === 'image',
+        );
+        const approvedMessage = approvedAssets.find(
+          (asset) => asset.id === cardDraft.approvedMessageAssetId && assetType(asset) === 'message',
+        );
+
+        if (!approvedImage || !approvedMessage) {
+          throw new Error('The approved card outputs are unavailable. Go back to Review and try approval again.');
+        }
+        if (requestedAssetId && requestedAssetId !== approvedImage.id) {
+          throw new Error('The requested image is not the approved image for this card.');
+        }
+
+        setGeneratedAssets(approvedAssets);
+        setSelectedImageAssetId(approvedImage.id);
       })
       .catch((error) => {
         if (!active) return;
@@ -363,10 +371,29 @@ function DeliveryApp({ user, initialCards = 0, initialCredits = DELIVERY_DEFAULT
     return () => {
       active = false;
     };
-  }, [backendAction, flowState.cardDraftId, selectedImageAssetId]);
+  }, [cardDraftId, requestedAssetId]);
+
+  React.useEffect(() => {
+    if (!messageAsset?.id) {
+      setMessageText('');
+      return;
+    }
+    let active = true;
+    fetch(assetContentUrl(messageAsset.id), { credentials: 'same-origin', cache: 'no-store' })
+      .then(async (response) => (response.ok ? response.text() : ''))
+      .then((text) => {
+        if (active) setMessageText(text.trim());
+      })
+      .catch(() => {
+        if (active) setMessageText('');
+      });
+    return () => {
+      active = false;
+    };
+  }, [messageAsset?.id]);
 
   function validateDeliveryInputs() {
-    if (!flowState.cardDraftId || !selectedImageAssetId) {
+    if (!cardDraftId || !selectedImageAssetId) {
       const message =
         'Review a generated card first so Delivery can use the real card draft and generated image asset.';
       setBackendError(message);
@@ -469,9 +496,8 @@ function DeliveryApp({ user, initialCards = 0, initialCredits = DELIVERY_DEFAULT
             A card <span className="souv-hero-italic text-metallic-rose-gold">worth sending</span>
           </h1>
           <p className="bmc-lede" style={{ margin: '0 auto' }}>
-            Your card is printed and folded, your message is hand-written in real ink, and any optional song is tucked
-            behind a QR code inside. Address entry is available for review; checkout and fulfillment are coming soon and
-            cannot create a payment or order yet.
+            Preview the approved card and enter synthetic delivery details for testing. Nothing has been printed,
+            mailed, ordered, or charged; checkout and fulfillment are disabled in this beta.
           </p>
         </div>
 
@@ -495,7 +521,14 @@ function DeliveryApp({ user, initialCards = 0, initialCredits = DELIVERY_DEFAULT
 
         <div className="dlv-grid">
           <div className="dlv-keepsake-col">
-            <DlvKeepsake song={song} songIncluded={songIncluded} onPlaySong={() => setSong((current) => !current)} />
+            <DlvKeepsake
+              song={song}
+              songIncluded={songIncluded}
+              imageUrl={selectedImageAssetId ? assetContentUrl(selectedImageAssetId) : undefined}
+              songUrl={songAsset?.id ? assetContentUrl(songAsset.id) : undefined}
+              messageText={messageText}
+              onPlaySong={() => setSong((current) => !current)}
+            />
           </div>
 
           <div className="dlv-form">
@@ -530,7 +563,7 @@ function DeliveryApp({ user, initialCards = 0, initialCredits = DELIVERY_DEFAULT
                 backendError
               ) : enough ? (
                 <>
-                  Draft {flowState.cardDraftId?.slice(0, 8)} {'\u00b7'} image asset {selectedImageAssetId?.slice(0, 8)}
+                  Draft {cardDraftId?.slice(0, 8)} {'\u00b7'} image asset {selectedImageAssetId?.slice(0, 8)}
                 </>
               ) : (
                 <>Go back to Review so Delivery can use a generated backend image asset.</>
@@ -538,7 +571,14 @@ function DeliveryApp({ user, initialCards = 0, initialCredits = DELIVERY_DEFAULT
             </span>
           </div>
           <div className="dlv-actionbar-right">
-            <Link href="/create/build-my-card#review" className="bmc-cta-secondary">
+            <Link
+              href={
+                cardDraftId
+                  ? `/create/build-my-card?draftId=${encodeURIComponent(cardDraftId)}#review`
+                  : '/create/build-my-card#review'
+              }
+              className="bmc-cta-secondary"
+            >
               <BmcIcon name="back" w={14} /> Back to review
             </Link>
             <button type="button" className="bmc-cta bmc-cta-lg" onClick={handlePrimaryAction} disabled={backendBusy}>

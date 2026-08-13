@@ -21,6 +21,24 @@
         "required": ["code", "message", "requestId"],
         "type": "object"
       },
+      "ApproveCardDraftDto": {
+        "properties": {
+          "imageAssetId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "messageAssetId": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "songAssetId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": ["imageAssetId", "messageAssetId"],
+        "type": "object"
+      },
       "AssetListResponseDto": {
         "properties": {
           "data": {
@@ -32,7 +50,7 @@
           "nextCursor": {
             "format": "uuid",
             "nullable": true,
-            "type": "object"
+            "type": "string"
           }
         },
         "required": ["data"],
@@ -78,7 +96,7 @@
           "generationJobId": {
             "format": "uuid",
             "nullable": true,
-            "type": "object"
+            "type": "string"
           },
           "generationStatus": {
             "enum": ["pending", "generating", "ready", "failed"],
@@ -139,7 +157,7 @@
           "nextCursor": {
             "format": "uuid",
             "nullable": true,
-            "type": "object"
+            "type": "string"
           }
         },
         "required": ["data"],
@@ -156,6 +174,26 @@
       },
       "CardDraftViewDto": {
         "properties": {
+          "approvedAt": {
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "approvedImageAssetId": {
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "approvedMessageAssetId": {
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
+          "approvedSongAssetId": {
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
+          },
           "createdAt": {
             "format": "date-time",
             "type": "string"
@@ -174,11 +212,11 @@
           },
           "occasion": {
             "nullable": true,
-            "type": "object"
+            "type": "string"
           },
           "relationship": {
             "nullable": true,
-            "type": "object"
+            "type": "string"
           },
           "revisionNumber": {
             "minimum": 1,
@@ -207,7 +245,7 @@
           "nextCursor": {
             "format": "uuid",
             "nullable": true,
-            "type": "object"
+            "type": "string"
           }
         },
         "required": ["data"],
@@ -414,6 +452,24 @@
         "required": ["cardDraftId", "selectedAssetId", "offerId", "quantity", "recipientAddress", "senderAddress"],
         "type": "object"
       },
+      "CreativeCapabilitiesDto": {
+        "properties": {
+          "image": {
+            "enum": ["disabled", "deterministic_mock", "sandbox", "live"],
+            "type": "string"
+          },
+          "music": {
+            "enum": ["disabled", "deterministic_mock", "sandbox", "live"],
+            "type": "string"
+          },
+          "text": {
+            "enum": ["disabled", "deterministic_mock", "sandbox", "live"],
+            "type": "string"
+          }
+        },
+        "required": ["image", "music", "text"],
+        "type": "object"
+      },
       "CreditBalanceResponseDto": {
         "properties": {
           "balance": {
@@ -560,6 +616,45 @@
         ],
         "type": "object"
       },
+      "EnvironmentCapabilitiesDto": {
+        "properties": {
+          "checkout": {
+            "enum": ["disabled", "deterministic_mock", "sandbox", "live"],
+            "type": "string"
+          },
+          "creative": {
+            "$ref": "#/components/schemas/CreativeCapabilitiesDto"
+          },
+          "externalProviderCallsEnabled": {
+            "type": "boolean"
+          },
+          "fulfillment": {
+            "enum": ["disabled", "deterministic_mock", "sandbox", "live"],
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "releaseStage": {
+            "enum": ["local", "test", "invite_only_beta", "production"],
+            "type": "string"
+          },
+          "uploads": {
+            "enum": ["disabled", "local_private", "s3_private"],
+            "type": "string"
+          }
+        },
+        "required": [
+          "releaseStage",
+          "uploads",
+          "creative",
+          "checkout",
+          "fulfillment",
+          "externalProviderCallsEnabled",
+          "label"
+        ],
+        "type": "object"
+      },
       "FulfillmentJobResponseDto": {
         "properties": {
           "fulfillmentJob": {
@@ -609,7 +704,7 @@
       "GenerationJobViewDto": {
         "properties": {
           "actionType": {
-            "enum": ["initial_image_song", "regenerate_image", "regenerate_song", "inside_message"],
+            "enum": ["initial_image", "initial_image_song", "regenerate_image", "regenerate_song", "inside_message"],
             "type": "string"
           },
           "approvedAt": {
@@ -683,7 +778,7 @@
           "nextCursor": {
             "format": "uuid",
             "nullable": true,
-            "type": "object"
+            "type": "string"
           }
         },
         "required": ["data"],
@@ -753,7 +848,7 @@
           "nextCursor": {
             "format": "uuid",
             "nullable": true,
-            "type": "object"
+            "type": "string"
           }
         },
         "required": ["data"],
@@ -1092,11 +1187,16 @@
       "StartGenerationDto": {
         "properties": {
           "actionType": {
-            "enum": ["initial_image_song", "regenerate_image", "regenerate_song", "inside_message"],
+            "enum": ["initial_image", "initial_image_song", "regenerate_image", "regenerate_song", "inside_message"],
             "type": "string"
           },
           "cardDraftId": {
             "format": "uuid",
+            "type": "string"
+          },
+          "creativeDirection": {
+            "description": "Ephemeral beta creative direction; only its hash is persisted.",
+            "maxLength": 500,
             "type": "string"
           }
         },
@@ -1156,7 +1256,7 @@
           "entitlementId": {
             "format": "uuid",
             "nullable": true,
-            "type": "object"
+            "type": "string"
           },
           "fulfillmentStartedAt": {
             "format": "date-time",
@@ -1304,6 +1404,11 @@
           "filename": {
             "type": "string"
           },
+          "heightPixels": {
+            "minimum": 1,
+            "nullable": true,
+            "type": "integer"
+          },
           "id": {
             "format": "uuid",
             "type": "string"
@@ -1315,7 +1420,7 @@
           "revisionId": {
             "format": "uuid",
             "nullable": true,
-            "type": "object"
+            "type": "string"
           },
           "rightsAttestedAt": {
             "format": "date-time",
@@ -1342,6 +1447,11 @@
           "updatedAt": {
             "format": "date-time",
             "type": "string"
+          },
+          "widthPixels": {
+            "minimum": 1,
+            "nullable": true,
+            "type": "integer"
           }
         },
         "required": [
@@ -1382,7 +1492,7 @@
           },
           "firstName": {
             "nullable": true,
-            "type": "object"
+            "type": "string"
           },
           "id": {
             "format": "uuid",
@@ -1393,14 +1503,14 @@
           },
           "lastName": {
             "nullable": true,
-            "type": "object"
+            "type": "string"
           },
           "marketingOptIn": {
             "type": "boolean"
           },
           "phone": {
             "nullable": true,
-            "type": "object"
+            "type": "string"
           },
           "preferences": {
             "additionalProperties": true,
@@ -1663,6 +1773,178 @@
         ],
         "summary": "",
         "tags": ["assets"]
+      }
+    },
+    "/api/v1/assets/{assetId}/content": {
+      "get": {
+        "operationId": "getAssetContent",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "assetId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Request conflict"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Rate limit exceeded"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "",
+        "tags": ["assets"]
+      }
+    },
+    "/api/v1/capabilities": {
+      "get": {
+        "operationId": "getEnvironmentCapabilities",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnvironmentCapabilitiesDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Request conflict"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Rate limit exceeded"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "",
+        "tags": ["capabilities"]
       }
     },
     "/api/v1/card-drafts": {
@@ -1975,6 +2257,121 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/UpdateCardDraftDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CardDraftResponseDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Request conflict"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Rate limit exceeded"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "",
+        "tags": ["card-drafts"]
+      }
+    },
+    "/api/v1/card-drafts/{draftId}/approve": {
+      "post": {
+        "operationId": "approveCardDraft",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "draftId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Unique 16-128 character retry key scoped to the authenticated operation.",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 128,
+              "minLength": 16,
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApproveCardDraftDto"
               }
             }
           },
@@ -4677,6 +5074,122 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/CompleteUploadDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadResponseDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Request conflict"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Rate limit exceeded"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "",
+        "tags": ["uploads"]
+      }
+    },
+    "/api/v1/uploads/{uploadId}/content": {
+      "put": {
+        "operationId": "storeMockUploadContent",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "uploadId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Unique 16-128 character retry key scoped to the authenticated operation.",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 128,
+              "minLength": 16,
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "format": "binary",
+                "type": "string"
               }
             }
           },

@@ -1,8 +1,9 @@
 # Souvenote database
 
 This directory owns the PostgreSQL 16 schema and its verification boundary. The
-Section 2 baseline is for a clean pre-launch database, and Section 3 adds
-immutable migrations for the approved catalog and mock lifecycles. This is not an upgrade from
+Section 2 baseline is for a clean pre-launch database, Section 3 adds
+immutable migrations for the approved catalog and mock lifecycles, and Section 4 adds
+validated private uploads, deterministic generation, and durable approval. This is not an upgrade from
 the deleted legacy draft migrations, which were never approved or applied to a
 shared environment.
 
@@ -17,11 +18,13 @@ database/
     0001_mvp_baseline.sql
     0002_pricing_credits_entitlements.sql
     0003_standalone_credit_packs.sql
+    0004_creation_workflow.sql
     checksums.sha256
   tests/
     0001_mvp_baseline.test.sql
     0002_pricing_credits_entitlements.test.sql
     0003_standalone_credit_packs.test.sql
+    0004_creation_workflow.test.sql
   migrate.mjs
   verify.mjs
 ```
@@ -104,6 +107,11 @@ The approved correction adds three standalone CAD credit-pack offers and
 owner-scoped purchase snapshots. Local/test mock capture grants the selected
 quantity through the idempotent ledger; production checkout remains disabled until
 Section 5 activates Stripe-hosted collection.
+
+Section 4 keeps every external creative provider disabled. It records actual
+validated upload dimensions, adds a one-credit image-only initial action, and
+persists owner-scoped image/song/message approval selections. Generated local/test
+assets are deterministic, private mock artifacts with zero external provider cost.
 
 ## Database invariants
 

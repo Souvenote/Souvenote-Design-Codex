@@ -3,22 +3,19 @@
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import {
+  approveCardDraft,
   createCardDraft,
   fetchCardDraftAssets,
   fetchCardDraftById,
-  mockUpload,
   refreshCardDraftBackendState,
   startGeneration,
   updateCardDraft,
 } from '../lib/api';
 import type { CardDraftAsset } from '../lib/api';
 import { publishCreditBalance } from '../lib/creditBalance';
-import {
-  rememberGeneratedAssets,
-  rememberSelectedAsset,
-  resetMockMvpOrderState,
-  writeMockMvpFlowState,
-} from '../lib/mockMvpFlow';
+import { persistableCreativeBrief } from '../lib/referenceUploads';
+import { RetrySafeIdempotencyKeys } from '../lib/retrySafeIdempotency';
+import { useReferenceUploads } from '../lib/useReferenceUploads';
 import type { CreditBalanceStatus } from '../lib/creditBalance';
 import { STEPS, BmcNavContext, BmcErrorModal, bmcError } from './BmcShared';
 import { BmcPhotoStep, BmcBasicsStep, BmcImageStep, BmcMessageStep, BmcSongStep } from './BmcSteps';
@@ -44,14 +41,6 @@ type BmcDraftInput = {
   relationship?: string;
   creativeBrief: Record<string, unknown>;
 };
-
-type ReferenceImageUpload = {
-  filename: string;
-  mimeType: string;
-  size: number;
-};
-
-const CURRENT_CARD_DRAFT_ID_KEY = 'souv_current_card_draft_id';
 
 function mergeDraftInput(current: BmcDraftInput, patch: BmcDraftInputPatch): BmcDraftInput {
   return {
@@ -84,26 +73,6 @@ function numberValue(value: unknown, fallback = 0): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
 }
 
-function getReferenceImageUploads(input: BmcDraftInput): ReferenceImageUpload[] {
-  const photo = nestedRecord(input.creativeBrief, 'photo');
-  const referenceImages = photo.referenceImages;
-  if (!Array.isArray(referenceImages)) return [];
-
-  return referenceImages.flatMap((item) => {
-    const record = asRecord(item);
-    const filename = textValue(record.filename) || textValue(record.name);
-    const mimeType = textValue(record.mimeType);
-    const size = numberValue(record.size);
-
-    if (!filename || !mimeType.includes('/') || size <= 0) return [];
-    return [{ filename, mimeType, size }];
-  });
-}
-
-function referenceUploadSignature(cardDraftId: string, uploads: ReferenceImageUpload[]) {
-  return `${cardDraftId}:${JSON.stringify(uploads)}`;
-}
-
 function isBmcWizardStep(value: string): value is BmcWizardStep {
   return ['photo', 'basics', 'image', 'message', 'song', 'review'].includes(value);
 }
@@ -124,7 +93,6 @@ function BmcWizard({
   const [includeSong, setIncludeSong] = React.useState(true);
   const [generating, setGenerating] = React.useState(false);
   const [startingGeneration, setStartingGeneration] = React.useState(false);
-  const [uploadingReferences, setUploadingReferences] = React.useState(false);
   const [reviewAssets, setReviewAssets] = React.useState<CardDraftAsset[]>([]);
   const [reviewAssetsStatus, setReviewAssetsStatus] = React.useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const [reviewAssetsError, setReviewAssetsError] = React.useState<string | null>(null);
@@ -133,7 +101,11 @@ function BmcWizard({
   const currentDraftIdRef = React.useRef<string | null>(null);
   const draftSavePromiseRef = React.useRef<Promise<string> | null>(null);
   const lastPersistedDraftRef = React.useRef<string>('');
-  const uploadedReferenceSignatureRef = React.useRef<string>('');
+  const idempotencyKeysRef = React.useRef(new RetrySafeIdempotencyKeys());
+  const referenceUploads = useReferenceUploads((uploadedDraftInput) => {
+    setDraftInput(uploadedDraftInput);
+    lastPersistedDraftRef.current = JSON.stringify(uploadedDraftInput);
+  });
 
   const hasPhoto = photoCount > 0 && !describe;
   const idx = STEPS.findIndex((candidate) => candidate.id === step);
@@ -150,10 +122,10 @@ function BmcWizard({
   }, []);
 
   const applyReviewAssets = React.useCallback((cardDraftId: string, assets: CardDraftAsset[]) => {
+    void cardDraftId;
     setReviewAssets(assets);
     setReviewAssetsStatus('ready');
     setReviewAssetsError(null);
-    rememberGeneratedAssets(cardDraftId, assets);
   }, []);
 
   const refreshReviewAssets = React.useCallback(
@@ -176,35 +148,6 @@ function BmcWizard({
     [applyReviewAssets],
   );
 
-  const uploadReferenceImages = React.useCallback(
-    async (cardDraftId: string, input: BmcDraftInput = draftInput) => {
-      const uploads = getReferenceImageUploads(input);
-      if (!uploads.length) return;
-
-      const signature = referenceUploadSignature(cardDraftId, uploads);
-      if (uploadedReferenceSignatureRef.current === signature) return;
-
-      setUploadingReferences(true);
-      try {
-        await Promise.all(
-          uploads.map((upload) =>
-            mockUpload({
-              cardDraftId,
-              filename: upload.filename,
-              mimeType: upload.mimeType,
-              size: upload.size,
-            }),
-          ),
-        );
-        uploadedReferenceSignatureRef.current = signature;
-        await refreshCardDraftBackendState(cardDraftId);
-      } finally {
-        setUploadingReferences(false);
-      }
-    },
-    [draftInput],
-  );
-
   const goNext = async () => {
     const nextStep = STEPS[idx + 1]?.id;
     if (idx >= 0 && idx < STEPS.length - 1 && isBmcWizardStep(nextStep)) {
@@ -215,7 +158,7 @@ function BmcWizard({
       if (step === 'photo') {
         try {
           const cardDraftId = await ensureDraftSaved();
-          await uploadReferenceImages(cardDraftId);
+          await referenceUploads.upload(cardDraftId, draftInput);
         } catch (error) {
           bmcError(
             error instanceof Error
@@ -244,18 +187,10 @@ function BmcWizard({
   const rememberDraftId = React.useCallback((draftId: string | null) => {
     currentDraftIdRef.current = draftId;
     setCurrentDraftId(draftId);
-
-    try {
-      if (draftId) {
-        window.localStorage.setItem(CURRENT_CARD_DRAFT_ID_KEY, draftId);
-        writeMockMvpFlowState({ cardDraftId: draftId });
-      } else {
-        window.localStorage.removeItem(CURRENT_CARD_DRAFT_ID_KEY);
-        resetMockMvpOrderState(null);
-      }
-    } catch {
-      // Local draft id persistence is best-effort until auth-backed state exists.
-    }
+    const url = new URL(window.location.href);
+    if (draftId) url.searchParams.set('draftId', draftId);
+    else url.searchParams.delete('draftId');
+    window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
   }, []);
 
   const persistDraftInput = React.useCallback((draftId: string, nextDraftInput: BmcDraftInput) => {
@@ -266,7 +201,7 @@ function BmcWizard({
     updateCardDraft(draftId, {
       occasion: nextDraftInput.occasion,
       relationship: nextDraftInput.relationship,
-      creativeBrief: nextDraftInput.creativeBrief,
+      creativeBrief: persistableCreativeBrief(nextDraftInput.creativeBrief),
     }).catch(() => {
       lastPersistedDraftRef.current = '';
     });
@@ -296,7 +231,7 @@ function BmcWizard({
         await updateCardDraft(currentDraftIdRef.current, {
           occasion: updatedDraftInput.occasion,
           relationship: updatedDraftInput.relationship,
-          creativeBrief: updatedDraftInput.creativeBrief,
+          creativeBrief: persistableCreativeBrief(updatedDraftInput.creativeBrief),
         });
         lastPersistedDraftRef.current = JSON.stringify(updatedDraftInput);
         return currentDraftIdRef.current;
@@ -306,15 +241,14 @@ function BmcWizard({
       const savePromise = createCardDraft({
         occasion: draftInput.occasion,
         relationship: draftInput.relationship,
-        creativeBrief: {
+        creativeBrief: persistableCreativeBrief({
           flow: 'build_my_card',
           includeSong: nextIncludeSong,
           ...draftInput.creativeBrief,
-        },
+        }),
       })
         .then(async (cardDraft) => {
           rememberDraftId(cardDraft.id);
-          resetMockMvpOrderState(cardDraft.id);
           await refreshCardDraftBackendState(cardDraft.id);
           return cardDraft.id;
         })
@@ -415,15 +349,23 @@ function BmcWizard({
 
     try {
       const cardDraftId = await ensureDraftSaved(includeSong);
-      await uploadReferenceImages(cardDraftId);
+      await referenceUploads.upload(cardDraftId, draftInput);
 
+      const actionType = includeSong ? 'initial_image_song' : 'initial_image';
+      const actionSignature = `${cardDraftId}:${actionType}`;
+      const idempotencyKey = idempotencyKeysRef.current.keyFor(actionSignature, 'frontend-generation');
       const response = await startGeneration({
         cardDraftId,
-        idempotencyKey: `frontend-generation-${Date.now()}`,
-        actionType: 'initial_image_song',
+        idempotencyKey,
+        actionType,
       });
       const backendState = await refreshCardDraftBackendState(cardDraftId);
       applyReviewAssets(cardDraftId, backendState.assets);
+      idempotencyKeysRef.current.complete(actionSignature, idempotencyKey);
+
+      if (response.generationJob.status !== 'succeeded') {
+        throw new Error('The deterministic mock failed safely and any reserved credits were refunded.');
+      }
 
       if (response.balance) {
         publishCreditBalance(response.balance);
@@ -446,12 +388,33 @@ function BmcWizard({
     }
   };
 
-  const spendRegenerationCredit = async () => {
-    bmcError(
-      'One-credit image and song regeneration is coming in the approved creation-workflow section. No credit was charged.',
-      'Regeneration coming soon',
-    );
-    return false;
+  const regenerateAsset = async (assetType: 'image' | 'song' | 'message', creativeDirection?: string) => {
+    if (!currentDraftId) return false;
+    const actionType =
+      assetType === 'image' ? 'regenerate_image' : assetType === 'song' ? 'regenerate_song' : 'inside_message';
+    const actionSignature = `${currentDraftId}:${actionType}:${creativeDirection?.trim() || ''}`;
+    const idempotencyKey = idempotencyKeysRef.current.keyFor(actionSignature, 'frontend-regeneration');
+    try {
+      const response = await startGeneration({
+        cardDraftId: currentDraftId,
+        idempotencyKey,
+        actionType,
+        creativeDirection,
+      });
+      const assets = await refreshReviewAssets(currentDraftId);
+      applyReviewAssets(currentDraftId, assets);
+      idempotencyKeysRef.current.complete(actionSignature, idempotencyKey);
+      publishCreditBalance(response.balance);
+      if (response.generationJob.status !== 'succeeded') {
+        bmcError('The deterministic mock failed safely and any reserved credits were refunded.', 'Regeneration failed');
+        return false;
+      }
+      return true;
+    } catch (error) {
+      bmcError(error instanceof Error ? error.message : 'Regeneration failed.', 'Regeneration failed');
+      await refreshCredits?.();
+      return false;
+    }
   };
 
   const startOver = () => {
@@ -462,7 +425,8 @@ function BmcWizard({
     setReviewAssets([]);
     setReviewAssetsStatus('idle');
     setReviewAssetsError(null);
-    uploadedReferenceSignatureRef.current = '';
+    referenceUploads.reset();
+    idempotencyKeysRef.current.clear();
     rememberDraftId(null);
     setStep('photo');
     window.location.hash = 'photo';
@@ -492,18 +456,19 @@ function BmcWizard({
           assetsError={reviewAssetsError}
           onStartOver={startOver}
           onTopUp={openPricingForCredits}
-          onRegenerateAsset={spendRegenerationCredit}
-          onApproveAll={(selectedAssetId) => {
-            if (!currentDraftId || !selectedAssetId) {
+          onRegenerateAsset={regenerateAsset}
+          onApproveAll={async (selection) => {
+            if (!currentDraftId) {
               bmcError(
-                'Generated image assets are not ready yet. Try again after the review assets finish loading.',
+                'Generated assets are not ready yet. Try again after the review assets finish loading.',
                 'Review assets unavailable',
               );
               return;
             }
-
-            rememberSelectedAsset(currentDraftId, selectedAssetId, reviewAssets);
-            router.push('/delivery');
+            const approved = await approveCardDraft(currentDraftId, selection);
+            router.push(
+              `/delivery?draftId=${encodeURIComponent(approved.id)}&assetId=${encodeURIComponent(selection.imageAssetId)}`,
+            );
           }}
         />
       ) : (
@@ -530,7 +495,7 @@ function BmcWizard({
                   onContinue={goNext}
                   initialDraft={draftInput.creativeBrief}
                   onDraftPatch={updateDraftInput}
-                  uploading={uploadingReferences}
+                  uploading={referenceUploads.uploading}
                 />
               )}
               {step === 'basics' && (

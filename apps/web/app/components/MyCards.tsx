@@ -7,12 +7,13 @@ import { Navbar } from './Navbar';
 import { Footer } from './Footer';
 import { BmcIcon } from './BmcShared';
 import { CardArt } from './CardArt';
-import { CARD_DRAFTS_UPDATED_EVENT, fetchCardDraftAssets, fetchUserCardDrafts } from '../lib/api';
+import { assetContentUrl, CARD_DRAFTS_UPDATED_EVENT, fetchCardDraftAssets, fetchUserCardDrafts } from '../lib/api';
 import type { CardDraft, CardDraftAsset } from '../lib/api';
-import { rememberSelectedAsset } from '../lib/mockMvpFlow';
 import type { DemoUser } from './DemoUser';
 import { useAuth } from './AuthProvider';
 import { AuthGatePrompt } from './AuthGatePrompt';
+import { MyCardsSongRow } from './MyCardsSongRow';
+import type { SavedSong } from './MyCardsSongRow';
 
 type MyCardsAppProps = {
   user?: DemoUser;
@@ -33,7 +34,10 @@ type McsDraft = {
 
 type McsCard = {
   id: string;
+  status: string;
+  creationRoute: string;
   selectedAssetId?: string | null;
+  imageUrl?: string | null;
   assets?: CardDraftAsset[];
   pal: string;
   glyph: string;
@@ -43,14 +47,6 @@ type McsCard = {
   days: number;
   title: string;
   saved: string;
-};
-
-type McsSong = {
-  id: string;
-  name: string;
-  voice: string;
-  card: string;
-  days: number;
 };
 
 type CardDraftWithAssets = {
@@ -85,10 +81,6 @@ type McsDraftRowProps = {
 type McsCardItemProps = {
   c: McsCard;
   onMail: (card: McsCard) => void;
-};
-
-type McsSongRowProps = {
-  s: McsSong;
 };
 
 function McsClock() {
@@ -141,11 +133,7 @@ function McsDownload() {
 
 const MCS_DRAFTS: McsDraft[] = [];
 const MCS_CARDS: McsCard[] = [];
-const MCS_SONGS: McsSong[] = [];
-const MCS_BARS = [
-  12, 18, 24, 16, 30, 22, 12, 26, 20, 28, 14, 24, 10, 22, 28, 16, 24, 12, 20, 26, 14, 22, 18, 28, 11, 20, 16, 24, 20,
-  12, 24, 28, 14, 20, 10, 24,
-];
+const MCS_SONGS: SavedSong[] = [];
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
@@ -272,27 +260,48 @@ function mapDraftToMcsDraft(draft: CardDraft): McsDraft {
 function mapDraftToMcsCard({ draft, assets }: CardDraftWithAssets): McsCard {
   const flow = draftFlow(draft);
   const title = getDraftTitle(draft);
-  const imageAsset = assets.filter((asset) => assetType(asset) === 'image').at(-1);
+  const approvedImageAssetId = typeof draft.approvedImageAssetId === 'string' ? draft.approvedImageAssetId : null;
+  const approvedSongAssetId = typeof draft.approvedSongAssetId === 'string' ? draft.approvedSongAssetId : null;
+  const approvedMessageAssetId = typeof draft.approvedMessageAssetId === 'string' ? draft.approvedMessageAssetId : null;
+  const imageAssets = assets.filter((asset) => assetType(asset) === 'image');
+  const imageAsset =
+    draft.status === 'approved' ? imageAssets.find((asset) => asset.id === approvedImageAssetId) : imageAssets.at(0);
   return {
     id: draft.id,
+    status: draft.status,
+    creationRoute: draft.creationRoute,
     selectedAssetId: imageAsset?.id || null,
+    imageUrl: imageAsset?.id ? assetContentUrl(imageAsset.id) : null,
     assets,
     pal: flow === 'personalize_template' ? 'gold' : 'rose',
     glyph: title.slice(0, 1).toUpperCase() || 'S',
-    song: hasAssetType(assets, 'song'),
-    message: hasAssetType(assets, 'message'),
+    song:
+      draft.status === 'approved'
+        ? assets.some((asset) => asset.id === approvedSongAssetId && assetType(asset) === 'song')
+        : hasAssetType(assets, 'song'),
+    message:
+      draft.status === 'approved'
+        ? assets.some((asset) => asset.id === approvedMessageAssetId && assetType(asset) === 'message')
+        : hasAssetType(assets, 'message'),
     days: daysUntilExpiry(draft.updated_at || draft.created_at),
     title,
     saved: formatSavedDate(draft.updated_at || draft.created_at),
   };
 }
 
-function mapDraftAssetsToSongs({ draft, assets }: CardDraftWithAssets): McsSong[] {
+function mapDraftAssetsToSongs({ draft, assets }: CardDraftWithAssets): SavedSong[] {
   const title = getDraftTitle(draft);
+  const approvedSongAssetId = typeof draft.approvedSongAssetId === 'string' ? draft.approvedSongAssetId : null;
   return assets
-    .filter((asset) => assetType(asset) === 'song')
+    .filter(
+      (asset) =>
+        assetType(asset) === 'song' &&
+        Boolean(asset.approvedAt) &&
+        (draft.status !== 'approved' || asset.id === approvedSongAssetId),
+    )
     .map((asset, index) => ({
       id: asset.id || `${draft.id}-song-${index}`,
+      assetUrl: assetContentUrl(asset.id),
       name: `${title} QR Song`,
       voice: 'Generated Souvenote QR song',
       card: title,
@@ -411,7 +420,15 @@ function McsCardItem({ c, onMail }: McsCardItemProps) {
           )}
           <McsExpiry days={c.days} />
         </div>
-        <CardArt palette={c.pal} glyph={c.glyph} glowIdx={c.id.charCodeAt(1)} />
+        {c.imageUrl ? (
+          <img
+            src={c.imageUrl}
+            alt={`Generated card: ${c.title}`}
+            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+          />
+        ) : (
+          <CardArt palette={c.pal} glyph={c.glyph} glowIdx={c.id.charCodeAt(1)} />
+        )}
       </div>
       <div className="mcs-card-body">
         <div className="mcs-card-title">{c.title}</div>
@@ -419,51 +436,14 @@ function McsCardItem({ c, onMail }: McsCardItemProps) {
         <div className="mcs-card-acts">
           <button type="button" className="bmc-cta" onClick={() => onMail(c)}>
             {c.gift ? <BmcIcon name="spark2" w={14} /> : <McsMail />}
-            {c.gift ? 'Give this Souvenote' : 'Mail this card'}
+            {c.gift ? 'Give this Souvenote' : c.status === 'approved' ? 'Open delivery' : 'Continue review'}
           </button>
-          {!c.gift && (
-            <button type="button" className="mcs-iconbtn" title="Download">
+          {!c.gift && c.status === 'approved' && c.imageUrl && (
+            <a className="mcs-iconbtn" title="Download approved card preview" href={c.imageUrl} download>
               <McsDownload />
-            </button>
+            </a>
           )}
         </div>
-      </div>
-    </div>
-  );
-}
-
-function McsSongRow({ s }: McsSongRowProps) {
-  const [playing, setPlaying] = React.useState(false);
-
-  return (
-    <div className={`mcs-song ${playing ? 'is-playing' : ''}`}>
-      <button
-        type="button"
-        className="mcs-song-fab"
-        onClick={() => setPlaying((current) => !current)}
-        aria-label={playing ? 'Pause' : 'Play'}
-      >
-        <BmcIcon name={playing ? 'pause' : 'play'} w={19} />
-      </button>
-      <div className="mcs-song-info">
-        <div className="mcs-song-name">{s.name}</div>
-        <div className="mcs-song-sub">
-          {s.voice} {'\u00b7'} {s.card === 'Unattached' ? 'Not on a card yet' : `On "${s.card}"`}
-        </div>
-        <div className="mcs-song-wave">
-          {MCS_BARS.map((height, index) => (
-            <i
-              key={index}
-              style={{ height: height + 'px', animationDelay: index * 0.03 + 's', opacity: playing ? 1 : 0.5 }}
-            />
-          ))}
-        </div>
-      </div>
-      <div className="mcs-song-side">
-        <McsExpiry days={s.days} />
-        <button type="button" className="mcs-iconbtn" title="Download">
-          <McsDownload />
-        </button>
       </div>
     </div>
   );
@@ -557,10 +537,19 @@ function MyCardsApp({ user, full = true }: MyCardsAppProps) {
   }
 
   function mailCard(card: McsCard) {
-    if (card.selectedAssetId) {
-      rememberSelectedAsset(card.id, card.selectedAssetId, card.assets || []);
+    if (card.status !== 'approved') {
+      router.push(
+        card.creationRoute === 'personalize_template'
+          ? `/create/personalize-a-template?modal=1&draftId=${encodeURIComponent(card.id)}`
+          : `/create/build-my-card?draftId=${encodeURIComponent(card.id)}#review`,
+      );
+      return;
     }
-    router.push('/delivery');
+    if (card.selectedAssetId) {
+      router.push(
+        `/delivery?draftId=${encodeURIComponent(card.id)}&assetId=${encodeURIComponent(card.selectedAssetId)}`,
+      );
+    }
   }
 
   if (!isAuthenticated) {
@@ -729,7 +718,7 @@ function MyCardsApp({ user, full = true }: MyCardsAppProps) {
           {songs.length ? (
             <div className="mcs-songs">
               {songs.map((song) => (
-                <McsSongRow key={song.id} s={song} />
+                <MyCardsSongRow key={song.id} song={song} />
               ))}
             </div>
           ) : (

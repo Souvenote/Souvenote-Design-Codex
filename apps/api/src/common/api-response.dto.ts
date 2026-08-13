@@ -6,9 +6,9 @@ const nullableDateTime = { ...dateTime, nullable: true };
 export class UserViewDto {
   @ApiProperty({ format: 'uuid' }) id!: string;
   @ApiProperty({ format: 'email' }) email!: string;
-  @ApiPropertyOptional({ nullable: true }) firstName!: string | null;
-  @ApiPropertyOptional({ nullable: true }) lastName!: string | null;
-  @ApiPropertyOptional({ nullable: true }) phone!: string | null;
+  @ApiPropertyOptional({ type: String, nullable: true }) firstName!: string | null;
+  @ApiPropertyOptional({ type: String, nullable: true }) lastName!: string | null;
+  @ApiPropertyOptional({ type: String, nullable: true }) phone!: string | null;
   @ApiPropertyOptional({ type: 'string', format: 'date', nullable: true }) birthday!: string | null;
   @ApiProperty({ enum: ['CA'] }) country!: string;
   @ApiProperty({ enum: ['CAD'] }) currency!: string;
@@ -102,7 +102,7 @@ export class CardEntitlementViewDto {
 
 export class CardEntitlementListResponseDto {
   @ApiProperty({ type: [CardEntitlementViewDto] }) data!: CardEntitlementViewDto[];
-  @ApiPropertyOptional({ format: 'uuid', nullable: true }) nextCursor!: string | null;
+  @ApiPropertyOptional({ type: String, format: 'uuid', nullable: true }) nextCursor!: string | null;
 }
 
 export class CardReservationViewDto {
@@ -128,7 +128,7 @@ export class CardReservationResponseDto {
 
 export class TryRiskFreeAuthorizationViewDto {
   @ApiProperty({ format: 'uuid' }) id!: string;
-  @ApiPropertyOptional({ format: 'uuid', nullable: true }) entitlementId!: string | null;
+  @ApiPropertyOptional({ type: String, format: 'uuid', nullable: true }) entitlementId!: string | null;
   @ApiProperty({ enum: ['authorized', 'captured_full', 'captured_no_send', 'canceled'] }) status!: string;
   @ApiProperty({ enum: ['CAD'] }) currency!: string;
   @ApiProperty({ type: 'integer', enum: [999] }) authorizedAmountMinor!: number;
@@ -157,10 +157,14 @@ export class CardDraftViewDto {
   @ApiProperty({ format: 'uuid' }) id!: string;
   @ApiProperty({ enum: ['personalize_template', 'build_my_card'] }) creationRoute!: string;
   @ApiProperty({ enum: ['draft', 'generating', 'review', 'approved', 'ordered', 'sent', 'archived'] }) status!: string;
-  @ApiPropertyOptional({ nullable: true }) occasion!: string | null;
-  @ApiPropertyOptional({ nullable: true }) relationship!: string | null;
+  @ApiPropertyOptional({ type: String, nullable: true }) occasion!: string | null;
+  @ApiPropertyOptional({ type: String, nullable: true }) relationship!: string | null;
   @ApiProperty({ type: 'object', additionalProperties: true }) creativeBrief!: Record<string, unknown>;
   @ApiProperty({ type: 'integer', minimum: 1 }) revisionNumber!: number;
+  @ApiPropertyOptional({ type: String, format: 'uuid', nullable: true }) approvedImageAssetId!: string | null;
+  @ApiPropertyOptional({ type: String, format: 'uuid', nullable: true }) approvedSongAssetId!: string | null;
+  @ApiPropertyOptional({ type: String, format: 'uuid', nullable: true }) approvedMessageAssetId!: string | null;
+  @ApiPropertyOptional(nullableDateTime) approvedAt!: string | null;
   @ApiProperty(dateTime) createdAt!: string;
   @ApiProperty(dateTime) updatedAt!: string;
 }
@@ -171,16 +175,18 @@ export class CardDraftResponseDto {
 
 export class CardDraftListResponseDto {
   @ApiProperty({ type: [CardDraftViewDto] }) data!: CardDraftViewDto[];
-  @ApiPropertyOptional({ format: 'uuid', nullable: true }) nextCursor!: string | null;
+  @ApiPropertyOptional({ type: String, format: 'uuid', nullable: true }) nextCursor!: string | null;
 }
 
 export class UploadViewDto {
   @ApiProperty({ format: 'uuid' }) id!: string;
   @ApiProperty({ format: 'uuid' }) cardDraftId!: string;
-  @ApiPropertyOptional({ format: 'uuid', nullable: true }) revisionId!: string | null;
+  @ApiPropertyOptional({ type: String, format: 'uuid', nullable: true }) revisionId!: string | null;
   @ApiProperty() filename!: string;
   @ApiProperty({ enum: ['image/jpeg', 'image/png', 'image/webp'] }) mimeType!: string;
   @ApiProperty({ type: 'integer', minimum: 1 }) size!: number;
+  @ApiPropertyOptional({ type: 'integer', minimum: 1, nullable: true }) widthPixels!: number | null;
+  @ApiPropertyOptional({ type: 'integer', minimum: 1, nullable: true }) heightPixels!: number | null;
   @ApiProperty({
     enum: [
       'upload_pending',
@@ -213,7 +219,9 @@ export class GenerationJobViewDto {
     enum: ['queued', 'running', 'succeeded', 'partially_failed', 'failed', 'refunded', 'canceled', 'approved'],
   })
   status!: string;
-  @ApiProperty({ enum: ['initial_image_song', 'regenerate_image', 'regenerate_song', 'inside_message'] })
+  @ApiProperty({
+    enum: ['initial_image', 'initial_image_song', 'regenerate_image', 'regenerate_song', 'inside_message'],
+  })
   actionType!: string;
   @ApiProperty({ type: 'integer', minimum: 0 }) creditsReserved!: number;
   @ApiProperty({ type: 'integer', minimum: 0 }) creditsRefunded!: number;
@@ -232,14 +240,14 @@ export class GenerationStartResponseDto extends GenerationResponseDto {
 
 export class GenerationListResponseDto {
   @ApiProperty({ type: [GenerationJobViewDto] }) data!: GenerationJobViewDto[];
-  @ApiPropertyOptional({ format: 'uuid', nullable: true }) nextCursor!: string | null;
+  @ApiPropertyOptional({ type: String, format: 'uuid', nullable: true }) nextCursor!: string | null;
 }
 
 export class AssetViewDto {
   @ApiProperty({ format: 'uuid' }) id!: string;
   @ApiProperty({ format: 'uuid' }) cardDraftId!: string;
   @ApiProperty({ format: 'uuid' }) revisionId!: string;
-  @ApiPropertyOptional({ format: 'uuid', nullable: true }) generationJobId!: string | null;
+  @ApiPropertyOptional({ type: String, format: 'uuid', nullable: true }) generationJobId!: string | null;
   @ApiProperty({ enum: ['upload', 'image', 'song', 'message', 'qr', 'print'] }) assetType!: string;
   @ApiProperty({ enum: ['pending', 'generating', 'ready', 'failed'] }) generationStatus!: string;
   @ApiProperty() mediaType!: string;
@@ -259,7 +267,7 @@ export class AssetResponseDto {
 
 export class AssetListResponseDto {
   @ApiProperty({ type: [AssetViewDto] }) data!: AssetViewDto[];
-  @ApiPropertyOptional({ format: 'uuid', nullable: true }) nextCursor!: string | null;
+  @ApiPropertyOptional({ type: String, format: 'uuid', nullable: true }) nextCursor!: string | null;
 }
 
 export class OrderViewDto {
@@ -290,7 +298,7 @@ export class OrderResponseDto {
 
 export class OrderListResponseDto {
   @ApiProperty({ type: [OrderViewDto] }) data!: OrderViewDto[];
-  @ApiPropertyOptional({ format: 'uuid', nullable: true }) nextCursor!: string | null;
+  @ApiPropertyOptional({ type: String, format: 'uuid', nullable: true }) nextCursor!: string | null;
 }
 
 export class FulfillmentJobViewDto {

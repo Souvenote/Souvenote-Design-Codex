@@ -658,6 +658,21 @@ img { display: block; max-width: 100%; }
   .souv-nav { justify-content: space-between; }
 }
 
+@media (max-width: 480px) {
+  .souv-mobile-hide-currency,
+  .souv-mobile-hide-cart,
+  .souv-nav-sep { display: none; }
+  .souv-nav-right { gap: 4px; }
+  .souv-nav-login {
+    padding: 8px 4px;
+    font-size: 9px;
+  }
+  .souv-cta-flow {
+    padding: 8px 10px;
+    font-size: 9px;
+  }
+}
+
 .souv-overlay { position: fixed; inset: 0; z-index: 55; }
 .souv-popmenu {
   position: absolute; top: calc(100% + 10px); right: 0;

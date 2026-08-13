@@ -1,11 +1,19 @@
 import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query, Req } from '@nestjs/common';
-import { ApiBearerAuth, ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiProperty, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiCreatedResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiProperty,
+  ApiPropertyOptional,
+  ApiTags,
+} from '@nestjs/swagger';
 import {
   GenerationListResponseDto,
   GenerationResponseDto,
   GenerationStartResponseDto,
 } from '../common/api-response.dto';
-import { IsEnum, IsUUID } from 'class-validator';
+import { IsEnum, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
 import type { AuthenticatedRequest } from '../auth/auth.types';
 import { Idempotent } from '../common/idempotent.decorator';
 import { CursorPaginationQueryDto } from '../common/pagination.dto';
@@ -20,6 +28,15 @@ export class StartGenerationDto {
   @ApiProperty({ enum: GENERATION_ACTIONS })
   @IsEnum(GENERATION_ACTIONS)
   actionType!: GenerationAction;
+
+  @ApiPropertyOptional({
+    maxLength: 500,
+    description: 'Ephemeral beta creative direction; only its hash is persisted.',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  creativeDirection?: string;
 }
 
 @ApiTags('generation-jobs')
@@ -38,6 +55,7 @@ export class GenerationController {
       request.header('idempotency-key')!,
       dto.cardDraftId,
       dto.actionType,
+      dto.creativeDirection,
     );
   }
 

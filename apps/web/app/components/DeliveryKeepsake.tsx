@@ -3,10 +3,20 @@ import { BmcIcon } from './BmcShared';
 type DlvKeepsakeProps = {
   song?: boolean;
   songIncluded?: boolean;
+  imageUrl?: string;
+  songUrl?: string;
+  messageText?: string;
   onPlaySong?: () => void;
 };
 
-function DlvKeepsake({ song = false, songIncluded = true, onPlaySong }: DlvKeepsakeProps) {
+function DlvKeepsake({
+  song = false,
+  songIncluded = true,
+  imageUrl,
+  songUrl,
+  messageText,
+  onPlaySong,
+}: DlvKeepsakeProps) {
   return (
     <div className="bmc-card dlv-keepsake">
       <div className="dlv-keepsake-eyebrow">
@@ -15,14 +25,24 @@ function DlvKeepsake({ song = false, songIncluded = true, onPlaySong }: DlvKeeps
       </div>
 
       <div className="dlv-art">
-        <span className="dlv-art-stamp" />
-        <span className="dlv-art-stamp is-bl" />
-        <div className="dlv-art-glyph">
-          To the moon
-          <br />
-          and back
-        </div>
-        <div className="dlv-art-fig" />
+        {imageUrl ? (
+          <img
+            src={imageUrl}
+            alt="Approved deterministic beta mock card"
+            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+          />
+        ) : (
+          <>
+            <span className="dlv-art-stamp" />
+            <span className="dlv-art-stamp is-bl" />
+            <div className="dlv-art-glyph">
+              To the moon
+              <br />
+              and back
+            </div>
+            <div className="dlv-art-fig" />
+          </>
+        )}
       </div>
 
       <div className="dlv-pieces">
@@ -32,7 +52,7 @@ function DlvKeepsake({ song = false, songIncluded = true, onPlaySong }: DlvKeeps
           </span>
           <div>
             <div className="dlv-piece-name">Front card</div>
-            <div className="dlv-piece-meta">5x7 portrait · Cinematic · printed</div>
+            <div className="dlv-piece-meta">5x7 portrait · deterministic beta preview</div>
           </div>
           <span className="dlv-piece-check">
             <BmcIcon name="check" w={18} />
@@ -51,6 +71,9 @@ function DlvKeepsake({ song = false, songIncluded = true, onPlaySong }: DlvKeeps
             <button type="button" className="dlv-piece-fab" onClick={onPlaySong} aria-label="Preview song">
               <BmcIcon name={song ? 'pause' : 'play'} w={15} />
             </button>
+            {songUrl ? (
+              <audio controls preload="metadata" src={songUrl} style={{ width: '100%', marginTop: 8 }} />
+            ) : null}
           </div>
         )}
 
@@ -60,7 +83,7 @@ function DlvKeepsake({ song = false, songIncluded = true, onPlaySong }: DlvKeeps
           </span>
           <div>
             <div className="dlv-piece-name">Inside message</div>
-            <div className="dlv-piece-meta">Hand-written by our studio</div>
+            <div className="dlv-piece-meta">Handwriting preview · not fulfilled</div>
           </div>
           <span className="dlv-piece-check">
             <BmcIcon name="check" w={18} />
@@ -69,22 +92,21 @@ function DlvKeepsake({ song = false, songIncluded = true, onPlaySong }: DlvKeeps
       </div>
 
       <div className="dlv-hand">
-        <div className="dlv-hand-label">Written inside, by hand</div>
-        <div className="dlv-hand-body">{`Mom - for every quiet morning that
-turned out to mean everything, thank you.
-I love you to the moon and back.
-- Cameron`}</div>
+        <div className="dlv-hand-label">Approved inside-message preview</div>
+        <div className="dlv-hand-body">
+          {messageText || 'The approved deterministic beta message will appear here.'}
+        </div>
       </div>
 
       <div className="dlv-ships">
         <span className="dlv-ship-tag">
-          <CheckMini /> Folded 5x7 card
+          <CheckMini /> Planned folded 5x7 format
         </span>
         <span className="dlv-ship-tag">
-          <CheckMini /> Envelope included
+          <CheckMini /> Planned envelope
         </span>
         <span className="dlv-ship-tag">
-          <CheckMini /> Realistic handwriting
+          <CheckMini /> Handwriting simulation
         </span>
         {songIncluded && (
           <span className="dlv-ship-tag">

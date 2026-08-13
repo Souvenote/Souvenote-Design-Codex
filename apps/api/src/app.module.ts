@@ -22,6 +22,8 @@ import { CsrfBoundaryGuard } from './common/csrf-boundary.guard';
 import { IdempotencyGuard } from './common/idempotency.guard';
 import { RateLimitGuard } from './common/rate-limit.guard';
 import { RedactedRequestInterceptor } from './common/redacted-request.interceptor';
+import { StorageModule } from './storage/storage.module';
+import { CapabilitiesModule } from './capabilities/capabilities.module';
 
 @Module({
   imports: [
@@ -30,7 +32,9 @@ import { RedactedRequestInterceptor } from './common/redacted-request.intercepto
       envFilePath: ['.env.local', '.env'],
     }),
     DatabaseModule,
+    StorageModule,
     HealthModule,
+    CapabilitiesModule,
     PricingModule,
     CreditsModule,
     CardEntitlementsModule,

@@ -10,6 +10,12 @@ export interface paths {
   '/api/v1/assets/{assetId}': {
     get: operations['getAsset'];
   };
+  '/api/v1/assets/{assetId}/content': {
+    get: operations['getAssetContent'];
+  };
+  '/api/v1/capabilities': {
+    get: operations['getEnvironmentCapabilities'];
+  };
   '/api/v1/card-drafts': {
     get: operations['listCardDrafts'];
     post: operations['createCardDraft'];
@@ -17,6 +23,9 @@ export interface paths {
   '/api/v1/card-drafts/{draftId}': {
     get: operations['getCardDraft'];
     patch: operations['updateCardDraft'];
+  };
+  '/api/v1/card-drafts/{draftId}/approve': {
+    post: operations['approveCardDraft'];
   };
   '/api/v1/card-entitlements': {
     get: operations['listCardEntitlements'];
@@ -96,6 +105,9 @@ export interface paths {
   '/api/v1/uploads/{uploadId}/complete': {
     patch: operations['completeMockUpload'];
   };
+  '/api/v1/uploads/{uploadId}/content': {
+    put: operations['storeMockUploadContent'];
+  };
   '/api/v1/webhooks/scribeless': {
     /** @description Signature verified. Scribeless event id is the provider idempotency key; duplicate payloads are no-ops. */
     post: operations['receiveScribelessWebhook'];
@@ -118,10 +130,18 @@ export interface components {
       message: string;
       requestId: string;
     };
+    ApproveCardDraftDto: {
+      /** Format: uuid */
+      imageAssetId: string;
+      /** Format: uuid */
+      messageAssetId: string;
+      /** Format: uuid */
+      songAssetId?: string;
+    };
     AssetListResponseDto: {
       data: components['schemas']['AssetViewDto'][];
       /** Format: uuid */
-      nextCursor?: Record<string, unknown> | null;
+      nextCursor?: string | null;
     };
     AssetResponseDto: {
       asset: components['schemas']['AssetViewDto'];
@@ -138,7 +158,7 @@ export interface components {
       createdAt: string;
       durationSeconds?: number | null;
       /** Format: uuid */
-      generationJobId?: Record<string, unknown> | null;
+      generationJobId?: string | null;
       /** @enum {string} */
       generationStatus: 'pending' | 'generating' | 'ready' | 'failed';
       heightPixels?: number | null;
@@ -156,12 +176,20 @@ export interface components {
     CardDraftListResponseDto: {
       data: components['schemas']['CardDraftViewDto'][];
       /** Format: uuid */
-      nextCursor?: Record<string, unknown> | null;
+      nextCursor?: string | null;
     };
     CardDraftResponseDto: {
       cardDraft: components['schemas']['CardDraftViewDto'];
     };
     CardDraftViewDto: {
+      /** Format: date-time */
+      approvedAt?: string | null;
+      /** Format: uuid */
+      approvedImageAssetId?: string | null;
+      /** Format: uuid */
+      approvedMessageAssetId?: string | null;
+      /** Format: uuid */
+      approvedSongAssetId?: string | null;
       /** Format: date-time */
       createdAt: string;
       /** @enum {string} */
@@ -171,8 +199,8 @@ export interface components {
       };
       /** Format: uuid */
       id: string;
-      occasion?: Record<string, unknown> | null;
-      relationship?: Record<string, unknown> | null;
+      occasion?: string | null;
+      relationship?: string | null;
       revisionNumber: number;
       /** @enum {string} */
       status: 'draft' | 'generating' | 'review' | 'approved' | 'ordered' | 'sent' | 'archived';
@@ -182,7 +210,7 @@ export interface components {
     CardEntitlementListResponseDto: {
       data: components['schemas']['CardEntitlementViewDto'][];
       /** Format: uuid */
-      nextCursor?: Record<string, unknown> | null;
+      nextCursor?: string | null;
     };
     CardEntitlementViewDto: {
       /** Format: date-time */
@@ -252,6 +280,14 @@ export interface components {
       selectedAssetId: string;
       senderAddress: components['schemas']['PostalAddressDto'];
     };
+    CreativeCapabilitiesDto: {
+      /** @enum {string} */
+      image: 'disabled' | 'deterministic_mock' | 'sandbox' | 'live';
+      /** @enum {string} */
+      music: 'disabled' | 'deterministic_mock' | 'sandbox' | 'live';
+      /** @enum {string} */
+      text: 'disabled' | 'deterministic_mock' | 'sandbox' | 'live';
+    };
     CreditBalanceResponseDto: {
       balance: number;
     };
@@ -307,6 +343,19 @@ export interface components {
       /** Format: date-time */
       updatedAt: string;
     };
+    EnvironmentCapabilitiesDto: {
+      /** @enum {string} */
+      checkout: 'disabled' | 'deterministic_mock' | 'sandbox' | 'live';
+      creative: components['schemas']['CreativeCapabilitiesDto'];
+      externalProviderCallsEnabled: boolean;
+      /** @enum {string} */
+      fulfillment: 'disabled' | 'deterministic_mock' | 'sandbox' | 'live';
+      label: string;
+      /** @enum {string} */
+      releaseStage: 'local' | 'test' | 'invite_only_beta' | 'production';
+      /** @enum {string} */
+      uploads: 'disabled' | 'local_private' | 's3_private';
+    };
     FulfillmentJobResponseDto: {
       fulfillmentJob: components['schemas']['FulfillmentJobViewDto'];
     };
@@ -327,7 +376,7 @@ export interface components {
     };
     GenerationJobViewDto: {
       /** @enum {string} */
-      actionType: 'initial_image_song' | 'regenerate_image' | 'regenerate_song' | 'inside_message';
+      actionType: 'initial_image' | 'initial_image_song' | 'regenerate_image' | 'regenerate_song' | 'inside_message';
       /** Format: date-time */
       approvedAt?: string | null;
       /** Format: uuid */
@@ -348,7 +397,7 @@ export interface components {
     GenerationListResponseDto: {
       data: components['schemas']['GenerationJobViewDto'][];
       /** Format: uuid */
-      nextCursor?: Record<string, unknown> | null;
+      nextCursor?: string | null;
     };
     GenerationResponseDto: {
       generationJob: components['schemas']['GenerationJobViewDto'];
@@ -373,7 +422,7 @@ export interface components {
     OrderListResponseDto: {
       data: components['schemas']['OrderViewDto'][];
       /** Format: uuid */
-      nextCursor?: Record<string, unknown> | null;
+      nextCursor?: string | null;
     };
     OrderResponseDto: {
       order: components['schemas']['OrderViewDto'];
@@ -482,9 +531,11 @@ export interface components {
     };
     StartGenerationDto: {
       /** @enum {string} */
-      actionType: 'initial_image_song' | 'regenerate_image' | 'regenerate_song' | 'inside_message';
+      actionType: 'initial_image' | 'initial_image_song' | 'regenerate_image' | 'regenerate_song' | 'inside_message';
       /** Format: uuid */
       cardDraftId: string;
+      /** @description Ephemeral beta creative direction; only its hash is persisted. */
+      creativeDirection?: string;
     };
     SubmitFulfillmentDto: {
       /** Format: uuid */
@@ -508,7 +559,7 @@ export interface components {
       /** @enum {string} */
       currency: 'CAD';
       /** Format: uuid */
-      entitlementId?: Record<string, unknown> | null;
+      entitlementId?: string | null;
       /** Format: date-time */
       fulfillmentStartedAt?: string | null;
       /** Format: uuid */
@@ -561,12 +612,13 @@ export interface components {
       /** Format: date-time */
       expiresAt: string;
       filename: string;
+      heightPixels?: number | null;
       /** Format: uuid */
       id: string;
       /** @enum {string} */
       mimeType: 'image/jpeg' | 'image/png' | 'image/webp';
       /** Format: uuid */
-      revisionId?: Record<string, unknown> | null;
+      revisionId?: string | null;
       /** Format: date-time */
       rightsAttestedAt?: string | null;
       size: number;
@@ -582,6 +634,7 @@ export interface components {
         | 'committed';
       /** Format: date-time */
       updatedAt: string;
+      widthPixels?: number | null;
     };
     UserViewDto: {
       /** Format: date */
@@ -594,13 +647,13 @@ export interface components {
       currency: 'CAD';
       /** Format: email */
       email: string;
-      firstName?: Record<string, unknown> | null;
+      firstName?: string | null;
       /** Format: uuid */
       id: string;
       language: string;
-      lastName?: Record<string, unknown> | null;
+      lastName?: string | null;
       marketingOptIn: boolean;
-      phone?: Record<string, unknown> | null;
+      phone?: string | null;
       preferences: {
         [key: string]: unknown;
       };
@@ -689,6 +742,99 @@ export interface operations {
       200: {
         content: {
           'application/json': components['schemas']['AssetResponseDto'];
+        };
+      };
+      /** @description Invalid request */
+      400: {
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Resource not found */
+      404: {
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Request conflict */
+      409: {
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Rate limit exceeded */
+      429: {
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Internal server error */
+      500: {
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+    };
+  };
+  getAssetContent: {
+    parameters: {
+      path: {
+        assetId: string;
+      };
+    };
+    responses: {
+      200: {
+        content: never;
+      };
+      /** @description Invalid request */
+      400: {
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Resource not found */
+      404: {
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Request conflict */
+      409: {
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Rate limit exceeded */
+      429: {
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Internal server error */
+      500: {
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+    };
+  };
+  getEnvironmentCapabilities: {
+    responses: {
+      200: {
+        content: {
+          'application/json': components['schemas']['EnvironmentCapabilitiesDto'];
         };
       };
       /** @description Invalid request */
@@ -890,6 +1036,65 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': components['schemas']['UpdateCardDraftDto'];
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          'application/json': components['schemas']['CardDraftResponseDto'];
+        };
+      };
+      /** @description Invalid request */
+      400: {
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Resource not found */
+      404: {
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Request conflict */
+      409: {
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Rate limit exceeded */
+      429: {
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Internal server error */
+      500: {
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+    };
+  };
+  approveCardDraft: {
+    parameters: {
+      header: {
+        /** @description Unique 16-128 character retry key scoped to the authenticated operation. */
+        'Idempotency-Key': string;
+      };
+      path: {
+        draftId: string;
+      };
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ApproveCardDraftDto'];
       };
     };
     responses: {
@@ -2318,6 +2523,65 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': components['schemas']['CompleteUploadDto'];
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          'application/json': components['schemas']['UploadResponseDto'];
+        };
+      };
+      /** @description Invalid request */
+      400: {
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Resource not found */
+      404: {
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Request conflict */
+      409: {
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Rate limit exceeded */
+      429: {
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Internal server error */
+      500: {
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+    };
+  };
+  storeMockUploadContent: {
+    parameters: {
+      header: {
+        /** @description Unique 16-128 character retry key scoped to the authenticated operation. */
+        'Idempotency-Key': string;
+      };
+      path: {
+        uploadId: string;
+      };
+    };
+    requestBody: {
+      content: {
+        'application/octet-stream': string;
       };
     };
     responses: {
