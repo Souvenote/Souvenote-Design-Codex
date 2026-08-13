@@ -1090,7 +1090,7 @@ function BmcMessageStep({
         title="Ready to write or need inspiration?"
         italicWord="need inspiration?"
         titleClassName="bmc-title-script"
-        titleStyle={{ whiteSpace: 'nowrap', fontSize: 'clamp(2rem, 4.4vw, 3rem)', lineHeight: 1.05 }}
+        titleStyle={{ fontSize: 'clamp(2rem, 4.4vw, 3rem)', lineHeight: 1.05 }}
         lede="Write the message that goes in your card. If you're having trouble, use our message generator up to five times for help."
       />
 
@@ -1241,7 +1241,7 @@ function BmcSongStep({
         italicWord="we'll make the tune"
         accent="rose"
         titleClassName="bmc-title-script"
-        titleStyle={{ whiteSpace: 'nowrap', fontSize: 'clamp(2rem, 4.4vw, 3rem)', lineHeight: 1.05 }}
+        titleStyle={{ fontSize: 'clamp(2rem, 4.4vw, 3rem)', lineHeight: 1.05 }}
         lede="A song is optional. If you include one, we'll place it inside the printed card as a scannable QR code."
       />
 

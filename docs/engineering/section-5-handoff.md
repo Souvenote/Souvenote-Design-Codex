@@ -5,10 +5,11 @@ Milestone and PR: Section 5 checkout and fulfillment mocks; draft PR #11 (https:
 Build-plan section and gate: Section 5 - Checkout and fulfillment mocks; checkout, webhook, payment-resolution, fulfillment, duplicate, retry, failure, reconciliation, and recovery integration tests pass
 Goal: Replace checkout/fulfillment placeholders and direct mock capture with secure server-owned hosted-checkout and deterministic fulfillment contracts, without external provider traffic.
 Codex task title: Section 5 — Checkout and fulfillment mocks
-Task lifecycle: hardening-complete; explicit-mobile-evidence-pending
+Task lifecycle: complete; exact-head-checks-pending
 Canonical repository: C:\Users\wilso\Desktop\Souvenote_Design_Codex
 Branch: codex/section-5-checkout-fulfillment-mocks
 Final implementation commit: cc9951bbfffda57933c61f4563cb30e07c7e92e5
+Responsive acceptance fix: this document's commit; use the draft PR head for the exact code record
 Verification-record commit: this document's commit; use the draft PR head for the current record
 Base commit: 44a91a2146e69f0c91a86e1ebb093e4ec457b064
 Integrated Section 4 hardening record: b1f89cc3ac27a1c8a3a7f65a2faa0acb1565f1c5
@@ -47,16 +48,16 @@ Database migrations:
 - Did not edit applied migrations 0001 through 0004.
 
 Tests and checks executed:
-- Command: npm run test:database under pinned Node.js 22.22.0/npm 10.9.8.
+- Command: npm run test:database under pinned Node.js 22.23.1/npm 10.9.8.
   Result: passed clean/repeat/tamper migration checks, SQL contracts, and API integration against disposable PostgreSQL 16.
 - Command: focused API/worker tests, lint, and workspace typecheck.
   Result: passed.
-- Command: clean npm ci, npm audit --audit-level=low, and npm run verify under pinned Node.js 22.22.0/npm 10.9.8.
+- Command: prior clean npm ci and npm audit --audit-level=low, plus current npm run verify under pinned Node.js 22.23.1/npm 10.9.8.
   Result: clean install passed; full dependency audit found zero vulnerabilities; verify passed generated-contract drift, formatting, lint, strict types, 95 tests, all four workspace builds, 40 Next.js page-generation units, and the production dependency audit.
 - Command: npm run smoke:stack:isolated.
   Result: migrations 0001-0005 and web/API/worker/PostgreSQL readiness passed; the dedicated audit project and volume were removed.
-- Command: authenticated Chrome acceptance on the credential-free local stack.
-  Result: deterministic creation, approval, synthetic Canadian addresses, CAD $9.99 hosted checkout, exact payment/fulfillment reconciliation, and authenticated confirmation passed. Forged URL status/order values failed closed. The explicit 390px repeat remains unclaimed because the browser extension disconnected.
+- Command: authenticated desktop and explicit 390x844 acceptance on the credential-free local stack.
+  Result: deterministic creation, approval, synthetic Canadian addresses, included standard delivery, CAD $9.99 hosted checkout, exact payment/fulfillment reconciliation, and authenticated confirmation passed. Forged URL status/order values failed closed. The mobile run covered all nine journey screens with no final horizontal document overflow or browser-console warnings/errors; two no-wrap heading defects discovered on the inside-message and QR-song screens were fixed and reverified.
 - Command: GitHub exact-head checks.
   Result: historical Section 5 heads passed; final truth is the check suite attached to the current draft PR #11 head, not a self-referential hash embedded in this record.
 
@@ -77,7 +78,6 @@ AWS/provider actions taken:
 - Result: no AWS mutation, live/test Stripe traffic, Scribeless traffic, payment, physical print/mail, paid call, email, analytics, deployment, or shared-environment change occurred.
 
 Unresolved risks or decisions:
-- Repeat the explicit 390px browser acceptance when the user's browser extension is connected.
 - Implement a reviewed recipient-array/order-line contract before enabling different-address Big Sender checkout; current UI blocks that case.
 - Real Stripe test and Scribeless sandbox adapters remain separately approved Section 7 activations.
 - Final print specifications and blank-card provider payload remain Section 8 gates.
@@ -85,16 +85,16 @@ Unresolved risks or decisions:
 
 Build-plan deviations:
 - Section 5 implements Stripe-compatible hosted checkout and verified webhook contracts with deterministic local/test providers. It does not send Stripe test traffic because the build plan separately places Stripe test activation in Section 7 and the Section 4 handoff prohibited external payment actions.
-- The authenticated browser journey passed, but explicit 390px evidence is missing because the user's browser extension disconnected before that repeat; this is recorded rather than replaced with another browser surface.
+- The authenticated browser journey now includes explicit 390x844 evidence from the Codex in-app browser; two heading overflow defects were fixed during acceptance without changing the approved workflow.
 
 Rollback notes:
 - Revert the Section 5 commit before migration 0005 reaches a shared database. After a shared apply, preserve 0005 and use a reviewed forward migration. Disable PAYMENT_PROVIDER_MODE, FULFILLMENT_PROVIDER_MODE, and the blank-handoff flag for immediate runtime rollback.
 
 Exact recommended next task prompt:
-Prepare Section 6 — Approved AWS staging — from the approved build plan using the final Section 5 head. First repeat Section 5 responsive browser acceptance at 390px when the user's browser extension is connected, then produce the minimum CDK resource and gross-cost approval packet. Do not mutate AWS or deploy staging until the user approves that exact scoped resource/cost packet. Keep every paid provider flag off and preserve the Section 5 checkout/fulfillment deterministic rollback path.
+Prepare Section 6 — Approved AWS staging — from the approved build plan using the final Section 5 head. Produce the minimum CDK resource and gross-cost approval packet before any AWS mutation or staging deployment. Keep every paid provider flag off and preserve the Section 5 checkout/fulfillment deterministic rollback path.
 
 Task retirement:
 - Final exact-head checks: do not infer from a hash embedded in this self-referential record; use the checks attached to the current draft PR #11 head.
-- Rename to `Section 5 — Checkout and fulfillment mocks (Complete)`: pending the explicit 390px browser repeat; the prior sidebar record is unavailable, so the durable state remains here and in draft PR #11.
-- Archive before the next section starts: pending the explicit 390px browser repeat and current-head required checks; retain draft PR #11 and this handoff as the durable record.
+- Rename to `Section 5 — Checkout and fulfillment mocks (Complete)`: ready after current-head required checks pass.
+- Archive before the next section starts: ready after PR #11 merges; retain PR #11 and this handoff as the durable record.
 ```
