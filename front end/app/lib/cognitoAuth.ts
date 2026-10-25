@@ -403,9 +403,37 @@ function getStoredHostedUiState(): HostedUiState | null {
   }
 }
 
+function cleanInternalPath(value: string | undefined, fallback: string) {
+  if (
+    !value
+    || !value.startsWith("/")
+    || value.startsWith("//")
+    || value.includes("\\")
+    || /[\u0000-\u001f\u007f]/.test(value)
+  ) {
+    return fallback;
+  }
+
+  try {
+    const baseUrl = "https://souvenote.invalid";
+    const parsed = new URL(value, baseUrl);
+    if (parsed.origin !== baseUrl) return fallback;
+    return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+  } catch {
+    return fallback;
+  }
+}
+
 function cleanAuthPath(value: string | undefined) {
-  if (!value || !value.startsWith("/") || value.startsWith("//")) return "/login";
-  return value;
+  const path = cleanInternalPath(value, "/login");
+  const pathname = new URL(path, "https://souvenote.invalid").pathname;
+  return pathname === "/login" || pathname === "/signup" ? path : "/login";
+}
+
+function hostedUiErrorMessage(errorCode: string | undefined) {
+  return errorCode === "access_denied"
+    ? "Social sign-in was cancelled or denied. Please try again."
+    : "Could not finish social sign-in. Please try again.";
 }
 
 function clearHostedUiState() {
@@ -430,7 +458,10 @@ function storeHostedUiError(error: HostedUiError) {
 
 function storeHostedUiAttempt(attempt: HostedUiAttempt) {
   if (typeof window === "undefined") return;
-  window.sessionStorage.setItem(HOSTED_UI_ATTEMPT_STORAGE_KEY, JSON.stringify(attempt));
+  window.sessionStorage.setItem(HOSTED_UI_ATTEMPT_STORAGE_KEY, JSON.stringify({
+    ...attempt,
+    authPath: cleanAuthPath(attempt.authPath),
+  } satisfies HostedUiAttempt));
 }
 
 function cleanHostedUiCallbackUrl(url: URL) {
@@ -506,7 +537,7 @@ export async function startHostedUiSignIn(provider?: CognitoSocialProvider, retu
     state,
     verifier,
     redirectUri: config.redirectUri,
-    returnTo,
+    returnTo: cleanInternalPath(returnTo, "/create"),
     authPath,
     provider,
   } satisfies HostedUiState));
@@ -541,7 +572,7 @@ export async function completeHostedUiSignIn(currentUrl?: string): Promise<Cogni
     const authPath = cleanAuthPath(storedState?.authPath);
     storeHostedUiError({
       code: oauthError,
-      message: oauthErrorDescription || oauthError,
+      message: hostedUiErrorMessage(oauthError),
       provider: storedState?.provider,
     });
     clearHostedUiState();
@@ -590,7 +621,7 @@ export async function completeHostedUiSignIn(currentUrl?: string): Promise<Cogni
     const message = payload.error_description || payload.error || "Could not finish social sign-in.";
     storeHostedUiError({
       code: payload.error || "HostedUiTokenError",
-      message,
+      message: hostedUiErrorMessage(payload.error),
       provider: storedState.provider,
     });
     clearHostedUiState();
@@ -619,7 +650,10 @@ export async function completeHostedUiSignIn(currentUrl?: string): Promise<Cogni
   });
   storeCognitoSession(session);
   if (storedState.returnTo) {
-    window.localStorage.setItem(HOSTED_UI_RETURN_STORAGE_KEY, storedState.returnTo);
+    window.localStorage.setItem(
+      HOSTED_UI_RETURN_STORAGE_KEY,
+      cleanInternalPath(storedState.returnTo, "/create"),
+    );
   }
   return session;
 }
@@ -667,7 +701,7 @@ export function consumeHostedUiReturnTo() {
   if (typeof window === "undefined") return null;
   const value = window.localStorage.getItem(HOSTED_UI_RETURN_STORAGE_KEY);
   window.localStorage.removeItem(HOSTED_UI_RETURN_STORAGE_KEY);
-  return value;
+  return value ? cleanInternalPath(value, "/create") : null;
 }
 
 export function getHostedUiLogoutUrl() {

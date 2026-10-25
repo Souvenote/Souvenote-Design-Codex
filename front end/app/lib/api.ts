@@ -780,9 +780,17 @@ export async function grantCredits({
 }
 
 export function createLocalIdempotencyKey(prefix: string) {
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-    return `${prefix}-${crypto.randomUUID()}`;
+  const secureCrypto = globalThis.crypto;
+  if (secureCrypto && typeof secureCrypto.randomUUID === "function") {
+    return `${prefix}-${secureCrypto.randomUUID()}`;
   }
 
-  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  if (secureCrypto && typeof secureCrypto.getRandomValues === "function") {
+    const randomBytes = new Uint8Array(16);
+    secureCrypto.getRandomValues(randomBytes);
+    const randomValue = Array.from(randomBytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+    return `${prefix}-${randomValue}`;
+  }
+
+  throw new Error("Secure randomness is unavailable; an idempotency key could not be created.");
 }
