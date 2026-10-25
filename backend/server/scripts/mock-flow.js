@@ -56,7 +56,7 @@ async function request(method, route, body) {
     );
   }
 
-  console.log(`[ok] ${method} ${route} -> ${response.status}`);
+  console.log(`[ok] request completed -> ${response.status}`);
   return json;
 }
 
@@ -75,7 +75,7 @@ async function expectHttpError(method, route, body, expectedStatus) {
     );
   }
 
-  console.log(`[ok] ${method} ${route} -> expected ${expectedStatus}`);
+  console.log(`[ok] request returned expected status ${expectedStatus}`);
 }
 
 async function seedMockUser() {
@@ -107,7 +107,7 @@ async function main() {
 
   await request('GET', '/health');
   const user = await seedMockUser();
-  console.log(`[ok] seeded mock user ${user.email} (${user.id})`);
+  console.log('[ok] seeded mock user');
 
   await request('POST', '/credits/grant', {
     userId: user.id,
@@ -208,13 +208,7 @@ async function main() {
   console.log(
     JSON.stringify(
       {
-        userId: user.id,
-        draftId,
-        selectedAssetId: selectedAsset.id,
-        orderId,
         finalOrderStatus: fulfillmentResponse.order.status,
-        mockFulfillmentId:
-          fulfillmentResponse.fulfillment.mockFulfillmentId,
       },
       null,
       2,
@@ -222,11 +216,9 @@ async function main() {
   );
 }
 
-main().catch((error) => {
-  console.error('\nMock backend flow failed.');
-  console.error(error.message);
+main().catch(() => {
   console.error(
-    `Make sure the server is running at ${apiBaseUrl} and migrations 001 + 002 are applied.`,
+    '\nMock backend flow failed. Verify that the mock backend is available and required migrations are applied.',
   );
   process.exit(1);
 });
