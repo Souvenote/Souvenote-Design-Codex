@@ -121,6 +121,9 @@ export const AUTH_SESSION_UPDATED_EVENT = "souv-auth-session-updated";
 const HOSTED_UI_STATE_STORAGE_KEY = "souv_cognito_oauth_state";
 const HOSTED_UI_ERROR_PARAM = "souvOauthError";
 const HOSTED_UI_PROVIDER_PARAM = "souvOauthProvider";
+const LEGACY_HOSTED_UI_RETURN_STORAGE_KEY = "souv_cognito_oauth_return_to";
+const LEGACY_HOSTED_UI_ERROR_STORAGE_KEY = "souv_cognito_oauth_error";
+const LEGACY_HOSTED_UI_ATTEMPT_STORAGE_KEY = "souv_cognito_oauth_attempt";
 
 const EXPIRY_SKEW_MS = 60_000;
 let pendingHostedUiError: HostedUiError | null = null;
@@ -272,7 +275,15 @@ function decodeHostedUiContext(value: string | null): HostedUiContext | null {
   if (!value) return null;
   try {
     const parsed = JSON.parse(decodeBase64Url(value)) as Partial<HostedUiContext>;
-    return typeof parsed.nonce === "string" ? parsed as HostedUiContext : null;
+    if (typeof parsed.nonce !== "string") return null;
+    return {
+      nonce: parsed.nonce,
+      returnTo: typeof parsed.returnTo === "string"
+        ? cleanHostedUiReturnPath(parsed.returnTo, "/create")
+        : undefined,
+      authPath: typeof parsed.authPath === "string" ? cleanAuthPath(parsed.authPath) : undefined,
+      provider: cleanProvider(parsed.provider),
+    };
   } catch {
     return null;
   }
@@ -472,6 +483,13 @@ function clearHostedUiState() {
   window.localStorage.removeItem(HOSTED_UI_STATE_STORAGE_KEY);
 }
 
+function clearLegacyHostedUiStorage() {
+  if (typeof window === "undefined") return;
+  window.localStorage.removeItem(LEGACY_HOSTED_UI_RETURN_STORAGE_KEY);
+  window.sessionStorage.removeItem(LEGACY_HOSTED_UI_ERROR_STORAGE_KEY);
+  window.sessionStorage.removeItem(LEGACY_HOSTED_UI_ATTEMPT_STORAGE_KEY);
+}
+
 function storeHostedUiError(error: HostedUiError) {
   pendingHostedUiError = error;
 }
@@ -526,6 +544,7 @@ export function clearCognitoAuthState() {
   pendingHostedUiError = null;
   pendingHostedUiAttempt = null;
   pendingHostedUiReturnTo = null;
+  clearLegacyHostedUiStorage();
   clearHostedUiState();
   dispatchAuthUpdate();
 }
@@ -552,6 +571,7 @@ export async function startHostedUiSignIn(provider?: CognitoSocialProvider, retu
   pendingHostedUiError = null;
   pendingHostedUiAttempt = null;
   pendingHostedUiReturnTo = null;
+  clearLegacyHostedUiStorage();
   clearHostedUiState();
   dispatchAuthUpdate();
 
@@ -590,7 +610,6 @@ export async function completeHostedUiSignIn(currentUrl?: string): Promise<Cogni
   const code = url.searchParams.get("code");
   const state = url.searchParams.get("state");
   const oauthError = url.searchParams.get("error");
-  const oauthErrorDescription = url.searchParams.get("error_description");
   const storedState = getStoredHostedUiState();
   const decodedContext = decodeHostedUiContext(state);
   const hostedUiContext = storedState && decodedContext?.nonce === storedState.state ? decodedContext : null;
@@ -608,7 +627,7 @@ export async function completeHostedUiSignIn(currentUrl?: string): Promise<Cogni
     if (`${window.location.pathname}${window.location.search}` !== authPath) {
       window.location.replace(authPath);
     }
-    throw new CognitoClientError(oauthErrorDescription || oauthError, oauthError);
+    throw new CognitoClientError(hostedUiErrorMessage(oauthError), "HostedUiError");
   }
 
   if (!code || !state) return null;
@@ -646,7 +665,6 @@ export async function completeHostedUiSignIn(currentUrl?: string): Promise<Cogni
 
   const payload = await response.json().catch(() => ({})) as HostedUiTokenResponse;
   if (!response.ok) {
-    const message = payload.error_description || payload.error || "Could not finish social sign-in.";
     const error = {
       code: payload.error === "access_denied" ? "access_denied" : "HostedUiTokenError",
       message: hostedUiErrorMessage(payload.error),
@@ -660,8 +678,8 @@ export async function completeHostedUiSignIn(currentUrl?: string): Promise<Cogni
       window.location.replace(authPath);
     }
     throw new CognitoClientError(
-      message,
-      payload.error || "HostedUiTokenError",
+      "Could not finish social sign-in. Please try again.",
+      "HostedUiTokenError",
     );
   }
 
