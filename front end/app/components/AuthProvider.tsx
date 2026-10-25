@@ -156,14 +156,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } catch (unknownError) {
           if (hostedUiSession) {
             const attempt = consumeHostedUiAttempt();
-            rememberHostedUiError({
+            const authPath = rememberHostedUiError({
               code: "HostedUiAccountSyncError",
               message: errorMessageFromUnknown(unknownError, "Could not connect that social login to your Souvenote account."),
               provider: attempt?.provider,
-            });
+            }, attempt?.authPath || "/login");
 
-            const authPath = attempt?.authPath || "/login";
-            if (`${window.location.pathname}${window.location.search}` !== authPath) {
+            if (authPath && `${window.location.pathname}${window.location.search}` !== authPath) {
               window.location.replace(authPath);
             }
           }

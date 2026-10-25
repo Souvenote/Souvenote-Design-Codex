@@ -75,6 +75,10 @@ type HostedUiState = {
   state: string;
   verifier: string;
   redirectUri: string;
+};
+
+type HostedUiContext = {
+  nonce: string;
   returnTo?: string;
   authPath?: string;
   provider?: CognitoSocialProvider;
@@ -115,11 +119,13 @@ export const AUTH_SESSION_STORAGE_KEY = "souv_cognito_session";
 export const AUTH_LOCAL_USER_STORAGE_KEY = "souv_local_user";
 export const AUTH_SESSION_UPDATED_EVENT = "souv-auth-session-updated";
 const HOSTED_UI_STATE_STORAGE_KEY = "souv_cognito_oauth_state";
-const HOSTED_UI_RETURN_STORAGE_KEY = "souv_cognito_oauth_return_to";
-const HOSTED_UI_ERROR_STORAGE_KEY = "souv_cognito_oauth_error";
-const HOSTED_UI_ATTEMPT_STORAGE_KEY = "souv_cognito_oauth_attempt";
+const HOSTED_UI_ERROR_PARAM = "souvOauthError";
+const HOSTED_UI_PROVIDER_PARAM = "souvOauthProvider";
 
 const EXPIRY_SKEW_MS = 60_000;
+let pendingHostedUiError: HostedUiError | null = null;
+let pendingHostedUiAttempt: HostedUiAttempt | null = null;
+let pendingHostedUiReturnTo: string | null = null;
 
 export type CognitoSocialProvider = "Google" | "Facebook" | "SignInWithApple";
 
@@ -256,6 +262,20 @@ function decodeBase64Url(value: string) {
   }
 
   return new TextDecoder().decode(bytes);
+}
+
+function encodeHostedUiContext(context: HostedUiContext) {
+  return base64UrlEncode(new TextEncoder().encode(JSON.stringify(context)));
+}
+
+function decodeHostedUiContext(value: string | null): HostedUiContext | null {
+  if (!value) return null;
+  try {
+    const parsed = JSON.parse(decodeBase64Url(value)) as Partial<HostedUiContext>;
+    return typeof parsed.nonce === "string" ? parsed as HostedUiContext : null;
+  } catch {
+    return null;
+  }
 }
 
 function decodeJwtClaims(token: string): JwtClaims {
@@ -403,7 +423,7 @@ function getStoredHostedUiState(): HostedUiState | null {
   }
 }
 
-function cleanInternalPath(value: string | undefined, fallback: string) {
+export function cleanHostedUiReturnPath(value: string | undefined, fallback: string) {
   if (
     !value
     || !value.startsWith("/")
@@ -425,7 +445,7 @@ function cleanInternalPath(value: string | undefined, fallback: string) {
 }
 
 function cleanAuthPath(value: string | undefined) {
-  const path = cleanInternalPath(value, "/login");
+  const path = cleanHostedUiReturnPath(value, "/login");
   const pathname = new URL(path, "https://souvenote.invalid").pathname;
   return pathname === "/login" || pathname === "/signup" ? path : "/login";
 }
@@ -436,32 +456,31 @@ function hostedUiErrorMessage(errorCode: string | undefined) {
     : "Could not finish social sign-in. Please try again.";
 }
 
+function cleanProvider(value: string | undefined): CognitoSocialProvider | undefined {
+  return value === "Google" || value === "Facebook" || value === "SignInWithApple" ? value : undefined;
+}
+
+function hostedUiErrorPath(authPath: string, error: HostedUiError) {
+  const url = new URL(cleanAuthPath(authPath), "https://souvenote.invalid");
+  url.searchParams.set(HOSTED_UI_ERROR_PARAM, error.code === "access_denied" ? "access_denied" : "failed");
+  if (error.provider) url.searchParams.set(HOSTED_UI_PROVIDER_PARAM, error.provider);
+  return `${url.pathname}${url.search}${url.hash}`;
+}
+
 function clearHostedUiState() {
   if (typeof window === "undefined") return;
   window.localStorage.removeItem(HOSTED_UI_STATE_STORAGE_KEY);
 }
 
-function clearHostedUiError() {
-  if (typeof window === "undefined") return;
-  window.sessionStorage.removeItem(HOSTED_UI_ERROR_STORAGE_KEY);
-}
-
-function clearHostedUiAttempt() {
-  if (typeof window === "undefined") return;
-  window.sessionStorage.removeItem(HOSTED_UI_ATTEMPT_STORAGE_KEY);
-}
-
 function storeHostedUiError(error: HostedUiError) {
-  if (typeof window === "undefined") return;
-  window.sessionStorage.setItem(HOSTED_UI_ERROR_STORAGE_KEY, JSON.stringify(error));
+  pendingHostedUiError = error;
 }
 
 function storeHostedUiAttempt(attempt: HostedUiAttempt) {
-  if (typeof window === "undefined") return;
-  window.sessionStorage.setItem(HOSTED_UI_ATTEMPT_STORAGE_KEY, JSON.stringify({
+  pendingHostedUiAttempt = {
     ...attempt,
     authPath: cleanAuthPath(attempt.authPath),
-  } satisfies HostedUiAttempt));
+  };
 }
 
 function cleanHostedUiCallbackUrl(url: URL) {
@@ -504,13 +523,16 @@ export function clearCognitoAuthState() {
   if (typeof window === "undefined") return;
   window.localStorage.removeItem(AUTH_SESSION_STORAGE_KEY);
   window.localStorage.removeItem(AUTH_LOCAL_USER_STORAGE_KEY);
-  window.localStorage.removeItem(HOSTED_UI_RETURN_STORAGE_KEY);
+  pendingHostedUiError = null;
+  pendingHostedUiAttempt = null;
+  pendingHostedUiReturnTo = null;
   clearHostedUiState();
   dispatchAuthUpdate();
 }
 
-export function rememberHostedUiError(error: HostedUiError) {
+export function rememberHostedUiError(error: HostedUiError, authPath?: string) {
   storeHostedUiError(error);
+  return authPath ? hostedUiErrorPath(authPath, error) : undefined;
 }
 
 export async function startHostedUiSignIn(provider?: CognitoSocialProvider, returnTo = "/create") {
@@ -518,7 +540,7 @@ export async function startHostedUiSignIn(provider?: CognitoSocialProvider, retu
 
   const config = getHostedUiConfig();
   const verifier = randomBase64Url(64);
-  const state = randomBase64Url(32);
+  const nonce = randomBase64Url(32);
   const challenge = await pkceChallenge(verifier);
   const currentAuthPath = `${window.location.pathname}${window.location.search}`;
   const authPath = cleanAuthPath(currentAuthPath.startsWith("/login") || currentAuthPath.startsWith("/signup")
@@ -527,19 +549,22 @@ export async function startHostedUiSignIn(provider?: CognitoSocialProvider, retu
 
   window.localStorage.removeItem(AUTH_SESSION_STORAGE_KEY);
   window.localStorage.removeItem(AUTH_LOCAL_USER_STORAGE_KEY);
-  window.localStorage.removeItem(HOSTED_UI_RETURN_STORAGE_KEY);
-  clearHostedUiError();
-  clearHostedUiAttempt();
+  pendingHostedUiError = null;
+  pendingHostedUiAttempt = null;
+  pendingHostedUiReturnTo = null;
   clearHostedUiState();
   dispatchAuthUpdate();
 
-  window.localStorage.setItem(HOSTED_UI_STATE_STORAGE_KEY, JSON.stringify({
-    state,
-    verifier,
-    redirectUri: config.redirectUri,
-    returnTo: cleanInternalPath(returnTo, "/create"),
+  const state = encodeHostedUiContext({
+    nonce,
+    returnTo: cleanHostedUiReturnPath(returnTo, "/create"),
     authPath,
     provider,
+  });
+  window.localStorage.setItem(HOSTED_UI_STATE_STORAGE_KEY, JSON.stringify({
+    state: nonce,
+    verifier,
+    redirectUri: config.redirectUri,
   } satisfies HostedUiState));
 
   const params = new URLSearchParams({
@@ -567,16 +592,19 @@ export async function completeHostedUiSignIn(currentUrl?: string): Promise<Cogni
   const oauthError = url.searchParams.get("error");
   const oauthErrorDescription = url.searchParams.get("error_description");
   const storedState = getStoredHostedUiState();
+  const decodedContext = decodeHostedUiContext(state);
+  const hostedUiContext = storedState && decodedContext?.nonce === storedState.state ? decodedContext : null;
 
   if (oauthError) {
-    const authPath = cleanAuthPath(storedState?.authPath);
-    storeHostedUiError({
-      code: oauthError,
+    const error = {
+      code: oauthError === "access_denied" ? "access_denied" : "HostedUiError",
       message: hostedUiErrorMessage(oauthError),
-      provider: storedState?.provider,
-    });
+      provider: hostedUiContext?.provider,
+    } satisfies HostedUiError;
+    storeHostedUiError(error);
     clearHostedUiState();
     cleanHostedUiCallbackUrl(url);
+    const authPath = hostedUiErrorPath(cleanAuthPath(hostedUiContext?.authPath), error);
     if (`${window.location.pathname}${window.location.search}` !== authPath) {
       window.location.replace(authPath);
     }
@@ -585,15 +613,16 @@ export async function completeHostedUiSignIn(currentUrl?: string): Promise<Cogni
 
   if (!code || !state) return null;
 
-  if (!storedState || storedState.state !== state) {
-    const authPath = cleanAuthPath(storedState?.authPath);
-    storeHostedUiError({
+  if (!storedState || !hostedUiContext) {
+    const error = {
       code: "InvalidHostedUiState",
       message: "The social sign-in response could not be verified. Please try again.",
-      provider: storedState?.provider,
-    });
+      provider: undefined,
+    } satisfies HostedUiError;
+    storeHostedUiError(error);
     clearHostedUiState();
     cleanHostedUiCallbackUrl(url);
+    const authPath = hostedUiErrorPath("/login", error);
     if (`${window.location.pathname}${window.location.search}` !== authPath) {
       window.location.replace(authPath);
     }
@@ -617,15 +646,16 @@ export async function completeHostedUiSignIn(currentUrl?: string): Promise<Cogni
 
   const payload = await response.json().catch(() => ({})) as HostedUiTokenResponse;
   if (!response.ok) {
-    const authPath = cleanAuthPath(storedState.authPath);
     const message = payload.error_description || payload.error || "Could not finish social sign-in.";
-    storeHostedUiError({
-      code: payload.error || "HostedUiTokenError",
+    const error = {
+      code: payload.error === "access_denied" ? "access_denied" : "HostedUiTokenError",
       message: hostedUiErrorMessage(payload.error),
-      provider: storedState.provider,
-    });
+      provider: hostedUiContext.provider,
+    } satisfies HostedUiError;
+    storeHostedUiError(error);
     clearHostedUiState();
     cleanHostedUiCallbackUrl(url);
+    const authPath = hostedUiErrorPath(cleanAuthPath(hostedUiContext.authPath), error);
     if (`${window.location.pathname}${window.location.search}` !== authPath) {
       window.location.replace(authPath);
     }
@@ -645,63 +675,45 @@ export async function completeHostedUiSignIn(currentUrl?: string): Promise<Cogni
   clearHostedUiState();
   cleanHostedUiCallbackUrl(url);
   storeHostedUiAttempt({
-    authPath: cleanAuthPath(storedState.authPath),
-    provider: storedState.provider,
+    authPath: cleanAuthPath(hostedUiContext.authPath),
+    provider: hostedUiContext.provider,
   });
   storeCognitoSession(session);
-  if (storedState.returnTo) {
-    window.localStorage.setItem(
-      HOSTED_UI_RETURN_STORAGE_KEY,
-      cleanInternalPath(storedState.returnTo, "/create"),
-    );
-  }
+  pendingHostedUiReturnTo = hostedUiContext.returnTo
+    ? cleanHostedUiReturnPath(hostedUiContext.returnTo, "/create")
+    : null;
   return session;
 }
 
 export function consumeHostedUiError(): HostedUiError | null {
   if (typeof window === "undefined") return null;
-
-  try {
-    const raw = window.sessionStorage.getItem(HOSTED_UI_ERROR_STORAGE_KEY);
-    window.sessionStorage.removeItem(HOSTED_UI_ERROR_STORAGE_KEY);
-    if (!raw) return null;
-
-    const parsed = JSON.parse(raw) as Partial<HostedUiError>;
-    if (typeof parsed.code !== "string" || typeof parsed.message !== "string") return null;
-    return {
-      code: parsed.code,
-      message: parsed.message,
-      provider: parsed.provider,
-    };
-  } catch {
-    return null;
+  const url = new URL(window.location.href);
+  const errorCode = url.searchParams.get(HOSTED_UI_ERROR_PARAM) || undefined;
+  const provider = cleanProvider(url.searchParams.get(HOSTED_UI_PROVIDER_PARAM) || undefined);
+  const error = pendingHostedUiError || (errorCode ? {
+    code: errorCode === "access_denied" ? "access_denied" : "HostedUiError",
+    message: hostedUiErrorMessage(errorCode),
+    provider,
+  } : null);
+  pendingHostedUiError = null;
+  if (errorCode) {
+    url.searchParams.delete(HOSTED_UI_ERROR_PARAM);
+    url.searchParams.delete(HOSTED_UI_PROVIDER_PARAM);
+    window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
   }
+  return error;
 }
 
 export function consumeHostedUiAttempt(): HostedUiAttempt | null {
-  if (typeof window === "undefined") return null;
-
-  try {
-    const raw = window.sessionStorage.getItem(HOSTED_UI_ATTEMPT_STORAGE_KEY);
-    window.sessionStorage.removeItem(HOSTED_UI_ATTEMPT_STORAGE_KEY);
-    if (!raw) return null;
-
-    const parsed = JSON.parse(raw) as Partial<HostedUiAttempt>;
-    if (typeof parsed.authPath !== "string") return null;
-    return {
-      authPath: cleanAuthPath(parsed.authPath),
-      provider: parsed.provider,
-    };
-  } catch {
-    return null;
-  }
+  const attempt = pendingHostedUiAttempt;
+  pendingHostedUiAttempt = null;
+  return attempt;
 }
 
 export function consumeHostedUiReturnTo() {
-  if (typeof window === "undefined") return null;
-  const value = window.localStorage.getItem(HOSTED_UI_RETURN_STORAGE_KEY);
-  window.localStorage.removeItem(HOSTED_UI_RETURN_STORAGE_KEY);
-  return value ? cleanInternalPath(value, "/create") : null;
+  const returnTo = pendingHostedUiReturnTo;
+  pendingHostedUiReturnTo = null;
+  return returnTo;
 }
 
 export function getHostedUiLogoutUrl() {
