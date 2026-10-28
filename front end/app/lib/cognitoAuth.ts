@@ -603,7 +603,27 @@ export async function startHostedUiSignIn(provider?: CognitoSocialProvider, retu
   window.location.assign(`${config.domain}/oauth2/authorize?${params.toString()}`);
 }
 
-export async function completeHostedUiSignIn(currentUrl?: string): Promise<CognitoSession | null> {
+
+// Share the OAuth token exchange across concurrent auth-restoration calls.
+// In React development Strict Mode, effects can run twice on mount.
+let hostedUiSignInInFlight: Promise<CognitoSession | null> | null = null;
+
+export function completeHostedUiSignIn(
+  currentUrl?: string
+): Promise<CognitoSession | null> {
+  if (hostedUiSignInInFlight) return hostedUiSignInInFlight;
+
+  hostedUiSignInInFlight = completeHostedUiSignInOnce(currentUrl).finally(() => {
+    hostedUiSignInInFlight = null;
+  });
+
+  return hostedUiSignInInFlight;
+}
+
+async function completeHostedUiSignInOnce(
+  currentUrl?: string
+): Promise<CognitoSession | null> {
+
   if (typeof window === "undefined") return null;
 
   const url = new URL(currentUrl || window.location.href);
