@@ -1,8 +1,8 @@
 # Souvenote Frontend QA & UI Audit Report
 
-Date: 2026-06-13  
-Workspace audited: `C:\Users\wilso\Downloads\Souvenote Design System (8)\frontend\front end`  
-Repo root: `C:\Users\wilso\Downloads\Souvenote Design System (8)\frontend`
+Date: 2026-06-13
+Workspace audited: `frontend/`
+Repo root: repository root
 
 This is the requested Phase 1 and Phase 2 stop-point report. I did not push to GitHub and did not start Phase 3 refactoring.
 
@@ -18,7 +18,7 @@ This is the requested Phase 1 and Phase 2 stop-point report. I did not push to G
 
 ## Verification Commands
 
-Run from `C:\Users\wilso\Downloads\Souvenote Design System (8)\frontend\front end`:
+Run from `frontend/`:
 
 ```powershell
 npm.cmd install --cache .\.npm-cache
@@ -277,8 +277,8 @@ Pre-refactor checks:
 - Dev route status sweep: passed for all expected routes.
 - `/community-cards`: intentionally 404.
 
-Phase 3 Debug & Refactor: not started yet.  
-Phase 4 Sweep 1 Build: pending after Phase 3.  
+Phase 3 Debug & Refactor: not started yet.
+Phase 4 Sweep 1 Build: pending after Phase 3.
 Phase 4 Sweep 2 UX: pending after Phase 3.
 
 This is the correct stop point before refactoring.

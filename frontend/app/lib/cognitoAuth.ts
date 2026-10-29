@@ -167,7 +167,7 @@ function getCognitoConfig(): CognitoConfig {
 
   if (!region || !userPoolId || !clientId) {
     throw new CognitoClientError(
-      "Cognito is not configured. Add NEXT_PUBLIC_COGNITO_REGION, NEXT_PUBLIC_COGNITO_USER_POOL_ID, and NEXT_PUBLIC_COGNITO_CLIENT_ID to front end/.env.local.",
+      "Cognito is not configured. Add NEXT_PUBLIC_COGNITO_REGION, NEXT_PUBLIC_COGNITO_USER_POOL_ID, and NEXT_PUBLIC_COGNITO_CLIENT_ID to frontend/.env.local.",
       "MissingCognitoConfig",
     );
   }
@@ -189,7 +189,7 @@ function getHostedUiConfig() {
 
   if (!rawDomain || !redirectUri) {
     throw new CognitoClientError(
-      "Cognito social sign-in is not configured. Add NEXT_PUBLIC_COGNITO_DOMAIN and NEXT_PUBLIC_COGNITO_REDIRECT_URI to front end/.env.local, then add the same callback URL in Cognito.",
+      "Cognito social sign-in is not configured. Add NEXT_PUBLIC_COGNITO_DOMAIN and NEXT_PUBLIC_COGNITO_REDIRECT_URI to frontend/.env.local, then add the same callback URL in Cognito.",
       "MissingHostedUiConfig",
     );
   }
